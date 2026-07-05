@@ -1,6 +1,8 @@
+from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.runtime_objects import RuntimeObject, RuntimeObjectRequest, create_runtime_object
 from app.repositories.runtime_objects import RuntimeObjectRepository
+from app.services.audit import AuditService
 
 
 class RuntimeObjectService:
@@ -8,9 +10,11 @@ class RuntimeObjectService:
         self,
         event_bus: InMemoryEventBus,
         repository: RuntimeObjectRepository,
+        audit_service: AuditService,
     ) -> None:
         self._event_bus = event_bus
         self._repository = repository
+        self._audit_service = audit_service
 
     def create(self, request: RuntimeObjectRequest) -> RuntimeObject:
         runtime_object = create_runtime_object(request)
@@ -25,6 +29,20 @@ class RuntimeObjectService:
                 "status": saved.status,
                 "data_platform": saved.data_platform,
             },
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id="runtime-object-service",
+                action="runtime_object.register",
+                target_type=saved.object_type,
+                target_id=saved.object_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "data_platform": saved.data_platform,
+                },
+            )
         )
         return saved
 

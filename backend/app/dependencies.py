@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
+from app.repositories.audit import AuditRepository, InMemoryAuditRepository, PostgresAuditRepository
 from app.repositories.ai_resource_routes import (
     AIResourceRouteRepository,
     InMemoryAIResourceRouteRepository,
@@ -28,6 +29,7 @@ from app.repositories.runtime_objects import (
     RuntimeObjectRepository,
 )
 from app.services.ai_resources import AIResourceManager
+from app.services.audit import AuditService
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
 from app.services.runtime_objects import RuntimeObjectService
@@ -52,8 +54,25 @@ def get_runtime_registry() -> RuntimeRegistry:
 
 
 @lru_cache
+def get_audit_service() -> AuditService:
+    return AuditService(get_event_bus(), get_audit_repository())
+
+
+@lru_cache
+def get_audit_repository() -> AuditRepository:
+    settings = get_settings()
+    if settings.audit_store == "postgres":
+        return PostgresAuditRepository(settings.database_url)
+    return InMemoryAuditRepository()
+
+
+@lru_cache
 def get_runtime_object_service() -> RuntimeObjectService:
-    return RuntimeObjectService(get_event_bus(), get_runtime_object_repository())
+    return RuntimeObjectService(
+        get_event_bus(),
+        get_runtime_object_repository(),
+        get_audit_service(),
+    )
 
 
 @lru_cache

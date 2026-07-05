@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai_resources, health, missions, plugins, runtime, runtime_objects, terminology
+from app.api import audit, ai_resources, health, missions, plugins, runtime, runtime_objects, terminology
 from app.core.config import get_settings
 
 
@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(audit.router)
     app.include_router(ai_resources.router)
     app.include_router(missions.router)
     app.include_router(plugins.router)

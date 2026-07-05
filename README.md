@@ -13,9 +13,10 @@ This repository now contains the first executable rebuild foundation:
 - Database schema migrations
 - DB MARIAM technical database identifier: `db_mariam`
 - Runtime service boundaries
+- Audit Log API and governance evidence foundation
 - Runtime Object API and registry foundation
 - AI Resource Manager provider routing
-- Postgres-backed repository boundaries for runtime objects, events, plugin manifests, missions, and AI routes
+- Postgres-backed repository boundaries for audit records, runtime objects, events, plugin manifests, missions, and AI routes
 - Plugin/App manifest rules
 - Docker compose runtime stack
 - Executable backend tests
@@ -76,6 +77,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 
 ## DB MARIAM Runtime Storage
 
+Docker uses `MARIAM_AUDIT_STORE=postgres`, so governance decisions are stored in the `audit_log` table.
 Docker uses `MARIAM_RUNTIME_OBJECT_STORE=postgres`, so runtime objects are stored in the `runtime_objects` table.
 Docker uses `MARIAM_EVENT_STORE=postgres`, so runtime events are stored in the `runtime_events` table.
 Docker uses `MARIAM_PLUGIN_STORE=postgres`, so registered plugins are stored in the `plugin_manifests` table.
@@ -85,5 +87,5 @@ Local tests use the default in-memory repository unless that setting is explicit
 
 ## Current Completion Estimate
 
-- Full Mariam Enterprise OS target: about 20%.
-- Executable rebuild foundation target: about 80%.
+- Full Mariam Enterprise OS target: about 21%.
+- Executable rebuild foundation target: about 83%.

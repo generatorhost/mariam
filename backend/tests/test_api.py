@@ -93,6 +93,7 @@ def test_runtime_object_registration_is_executable_and_auditable() -> None:
 
     list_response = client.get("/api/runtime-objects")
     event_response = client.get("/api/runtime/events")
+    audit_response = client.get("/api/audit")
 
     assert runtime_object["object_id"] in [
         item["object_id"] for item in list_response.json()["runtime_objects"]
@@ -101,6 +102,40 @@ def test_runtime_object_registration_is_executable_and_auditable() -> None:
         event["payload"].get("object_id")
         for event in event_response.json()["events"]
         if event["name"] == "runtime_object.registered"
+    ]
+    assert runtime_object["object_id"] in [
+        record["target_id"] for record in audit_response.json()["audit_records"]
+    ]
+
+
+def test_audit_endpoint_records_governance_decision() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/audit",
+        json={
+            "actor_id": "governance-gate",
+            "action": "artifact.approve",
+            "target_type": "report",
+            "target_id": "report-001",
+            "decision": "approved",
+            "evidence": {"data_platform": "DB MARIAM"},
+        },
+    )
+    assert response.status_code == 200
+    audit_record = response.json()["audit_record"]
+    assert audit_record["audit_id"]
+    assert audit_record["data_platform"] == "DB MARIAM"
+
+    list_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert audit_record["audit_id"] in [
+        record["audit_id"] for record in list_response.json()["audit_records"]
+    ]
+    assert audit_record["audit_id"] in [
+        event["payload"].get("audit_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "audit.recorded"
     ]
 
 
@@ -309,3 +344,12 @@ def test_runtime_object_schema_targets_db_mariam() -> None:
     assert "object_type TEXT NOT NULL" in migration
     assert "manifest JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
     assert "idx_runtime_objects_type_status" in migration
+
+
+def test_audit_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    migration = migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS audit_log" in migration
+    assert "decision TEXT NOT NULL" in migration
+    assert "evidence JSONB NOT NULL DEFAULT '{}'::jsonb" in migration

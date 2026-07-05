@@ -8,6 +8,7 @@ The current codebase is the first foundation, not the full Mariam platform. It i
 
 - FastAPI backend.
 - React Command Center frontend.
+- Audit Log API and repository boundary.
 - Runtime Object API and repository boundary.
 - Plugin manifest runtime contract.
 - Plugin registry repository boundary.
@@ -74,6 +75,8 @@ with:
 
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
+- Audit API layer: `backend/app/api/audit.py`
+- Audit repository: `backend/app/repositories/audit.py`
 - AI Resource API layer: `backend/app/api/ai_resources.py`
 - Runtime Object API layer: `backend/app/api/runtime_objects.py`
 - Runtime Object repository: `backend/app/repositories/runtime_objects.py`
@@ -98,11 +101,13 @@ db_mariam
 
 The migration adds:
 
+- `audit_log`
 - `runtime_objects`
 - `missions`
 - `mission_steps`
 
 These tables are the first executable Mission DB boundary.
+Docker sets `MARIAM_AUDIT_STORE=postgres` and writes governance decisions into `DB MARIAM`.
 Docker sets `MARIAM_RUNTIME_OBJECT_STORE=postgres` and writes runtime objects into `DB MARIAM`.
 Docker sets `MARIAM_EVENT_STORE=postgres` and writes runtime event history into `DB MARIAM`.
 Docker sets `MARIAM_PLUGIN_STORE=postgres` and writes plugin registry history into `DB MARIAM`.
@@ -140,6 +145,7 @@ pytest
 
 ## Acceptance Criteria
 - Pressing the frontend button has a real backend result.
+- Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
 - The backend creates a governed mission plan.
@@ -155,5 +161,5 @@ pytest
 - Frontend production build succeeds.
 
 ## Current Completion Estimate
-- Full Mariam Enterprise OS target: about 20%.
-- Executable rebuild foundation target: about 80%.
+- Full Mariam Enterprise OS target: about 21%.
+- Executable rebuild foundation target: about 83%.
