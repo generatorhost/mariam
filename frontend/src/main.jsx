@@ -34,6 +34,22 @@ async function startMission() {
   return response.json();
 }
 
+async function routeAIResource() {
+  const response = await fetch('http://localhost:8000/api/ai-resources/route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      capability: 'chat',
+      privacy_preference: 'local_first',
+      requested_by: 'command-center',
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`AI resource routing failed with ${response.status}`);
+  }
+  return response.json();
+}
+
 function MissionPanel() {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -85,6 +101,54 @@ function MissionPanel() {
   );
 }
 
+function AIResourcePanel() {
+  const [decision, setDecision] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleRoute() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await routeAIResource();
+      setDecision(body.decision);
+      setStatus('ready');
+    } catch (routeError) {
+      setStatus('error');
+      setError(routeError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>AI Resource Manager</h2>
+        <p>Chief Agents request capabilities; the AI Resource Manager selects the provider.</p>
+      </div>
+      <button onClick={handleRoute} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Routing...' : 'Route AI Capability'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {decision && (
+        <div className="mission-result">
+          <h3>{decision.selected_provider.name}</h3>
+          <p>
+            Capability <strong>{decision.capability}</strong> is routed to{' '}
+            <strong>{decision.selected_provider.provider_type}</strong>.
+          </p>
+          <p>{decision.reason}</p>
+          <p>
+            Fallbacks:{' '}
+            {decision.fallback_provider_ids.length
+              ? decision.fallback_provider_ids.join(', ')
+              : 'none'}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function App() {
   return (
     <main className="shell">
@@ -113,6 +177,7 @@ function App() {
           })}
         </section>
         <MissionPanel />
+        <AIResourcePanel />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>

@@ -13,6 +13,7 @@ This repository now contains the first executable rebuild foundation:
 - Database schema migrations
 - DB MARIAM technical database identifier: `db_mariam`
 - Runtime service boundaries
+- AI Resource Manager provider routing
 - Plugin/App manifest rules
 - Docker compose runtime stack
 - Executable backend tests
@@ -56,3 +57,10 @@ The current rebuild foundation supports a small end-to-end mission flow:
 5. The mission records the Plugin Chief, runtime scheduling step, approval gate, and `DB MARIAM` data platform boundary.
 6. The backend emits `mission.created`.
 7. The frontend displays the mission status and step-by-step result.
+
+## First AI Resource Flow
+
+1. Press **Route AI Capability**.
+2. The frontend sends `POST /api/ai-resources/route`.
+3. The backend selects an approved provider for the requested capability.
+4. Local-first chat routing selects Ollama as a model runtime provider, not as Mariam Core.

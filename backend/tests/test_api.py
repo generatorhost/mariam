@@ -103,3 +103,29 @@ def test_mission_creation_emits_runtime_event() -> None:
     response = client.get("/api/runtime/events")
     names = [event["name"] for event in response.json()["events"]]
     assert "mission.created" in names
+
+
+def test_ai_resource_manager_lists_ollama_as_provider_not_core() -> None:
+    client = TestClient(create_app())
+    response = client.get("/api/ai-resources/providers")
+    assert response.status_code == 200
+    providers = response.json()["providers"]
+    ollama = next(provider for provider in providers if provider["provider_id"] == "ollama")
+    assert ollama["provider_type"] == "model_runtime"
+    assert ollama["local"] is True
+
+
+def test_ai_resource_manager_routes_capability_to_local_provider() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/ai-resources/route",
+        json={
+            "capability": "chat",
+            "privacy_preference": "local_first",
+            "requested_by": "crm-chief",
+        },
+    )
+    assert response.status_code == 200
+    decision = response.json()["decision"]
+    assert decision["selected_provider"]["provider_id"] == "ollama"
+    assert decision["policy"] == "chief_requests_capability_ai_resource_manager_selects_provider"

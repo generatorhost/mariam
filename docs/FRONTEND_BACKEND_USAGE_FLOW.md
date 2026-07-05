@@ -67,8 +67,10 @@ with:
 
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
+- AI Resource API layer: `backend/app/api/ai_resources.py`
 - Mission model: `backend/app/core/missions.py`
 - Mission service: `backend/app/services/missions.py`
+- AI Resource Manager: `backend/app/services/ai_resources.py`
 - Event bus: `backend/app/core/events.py`
 - Runtime wiring: `backend/app/dependencies.py`
 
@@ -123,5 +125,6 @@ pytest
 - The backend creates a governed mission plan.
 - The mission references `DB MARIAM`.
 - The event bus records mission creation.
+- AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
 - Tests pass.
 - Frontend production build succeeds.

@@ -50,6 +50,16 @@ CREATE TABLE IF NOT EXISTS mission_steps (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS ai_resource_routes (
+    route_id UUID PRIMARY KEY,
+    capability TEXT NOT NULL,
+    selected_provider_id TEXT NOT NULL,
+    policy TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    requested_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_id UUID PRIMARY KEY,
     actor_id TEXT NOT NULL,
@@ -69,3 +79,6 @@ CREATE INDEX IF NOT EXISTS idx_runtime_events_name_created
 
 CREATE INDEX IF NOT EXISTS idx_missions_plugin_status
     ON missions (plugin_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_ai_resource_routes_capability_created
+    ON ai_resource_routes (capability, created_at DESC);
