@@ -80,6 +80,13 @@ async function loadPlugins() {
   return body.plugins || [];
 }
 
+async function loadRuntimeObjects() {
+  const body = await apiGet('/api/runtime-objects');
+  return (body.runtime_objects || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -163,6 +170,57 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function RuntimeObjectHistoryPanel({ refreshVersion }) {
+  const [runtimeObjects, setRuntimeObjects] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshRuntimeObjects = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setRuntimeObjects((await loadRuntimeObjects()).slice(0, 5));
+      setStatus('ready');
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRuntimeObjects();
+  }, [refreshRuntimeObjects, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Runtime Object History</h2>
+        <p>Review governed runtime objects registered under DB MARIAM.</p>
+      </div>
+      <button onClick={refreshRuntimeObjects} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Runtime Objects'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      <div className="runtime-object-history">
+        {runtimeObjects.length ? (
+          runtimeObjects.map((item) => (
+            <article key={item.object_id}>
+              <strong>{item.name}</strong>
+              <span>{item.object_type}</span>
+              <p>
+                {item.status} / v{item.version}
+              </p>
+              <time>{new Date(item.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No runtime objects registered yet.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function PluginHistoryPanel({ refreshVersion }) {
@@ -797,6 +855,7 @@ function App() {
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <PluginHistoryPanel refreshVersion={refreshVersion} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
+        <RuntimeObjectHistoryPanel refreshVersion={refreshVersion} />
         <AuditPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditHistoryPanel refreshVersion={refreshVersion} />
         <section className="panel">

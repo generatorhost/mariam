@@ -186,6 +186,19 @@ GET /api/ai-resources/routes
 5. The backend records an audit decision for the registration.
 6. The frontend displays object id, status, type, version, and `DB MARIAM`.
 7. The frontend refreshes the Command Center summary so runtime object, audit, and event counts update automatically.
+8. The Runtime Object History panel refreshes and shows the registered runtime object.
+
+### Review Runtime Object History
+1. User opens the Command Center.
+2. The frontend automatically sends:
+
+```http
+GET /api/runtime-objects
+```
+
+3. The backend reads runtime objects through the configured runtime object repository.
+4. The frontend displays recent runtime objects with name, type, status, version, and creation time.
+5. If the user presses `Refresh Runtime Objects`, the frontend repeats the same call.
 
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
@@ -310,6 +323,7 @@ pytest
 - Audit records are available from `GET /api/audit`.
 - Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.
+- Frontend Runtime Object History displays recent governed runtime objects.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

@@ -92,6 +92,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 3. The backend registers an enabled provider runtime object.
 4. The backend emits `runtime_object.registered`.
 5. The backend records an audit decision for the registration.
+6. Runtime Object History reads `GET /api/runtime-objects` and refreshes automatically after runtime object registration.
 
 ## First Plugin Registry Flow
 

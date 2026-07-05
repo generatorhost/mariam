@@ -225,7 +225,8 @@ p {
 .mission-history,
 .audit-history,
 .route-history,
-.plugin-history {
+.plugin-history,
+.runtime-object-history {
   border-top: 1px solid var(--border);
   display: grid;
   gap: 10px;
@@ -235,7 +236,8 @@ p {
 .mission-history article,
 .audit-history article,
 .route-history article,
-.plugin-history article {
+.plugin-history article,
+.runtime-object-history article {
   background: var(--card2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -247,7 +249,8 @@ p {
 .mission-history strong,
 .audit-history strong,
 .route-history strong,
-.plugin-history strong {
+.plugin-history strong,
+.runtime-object-history strong {
   color: var(--green);
   text-transform: uppercase;
 }
@@ -263,7 +266,10 @@ p {
 .route-history p,
 .plugin-history span,
 .plugin-history time,
-.plugin-history p {
+.plugin-history p,
+.runtime-object-history span,
+.runtime-object-history time,
+.runtime-object-history p {
   color: var(--muted);
   font-size: 13px;
   margin: 0;
