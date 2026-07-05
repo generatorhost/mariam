@@ -222,14 +222,16 @@ p {
   font-size: 13px;
 }
 
-.mission-history {
+.mission-history,
+.audit-history {
   border-top: 1px solid var(--border);
   display: grid;
   gap: 10px;
   padding-top: 14px;
 }
 
-.mission-history article {
+.mission-history article,
+.audit-history article {
   background: var(--card2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -238,14 +240,18 @@ p {
   padding: 12px;
 }
 
-.mission-history strong {
+.mission-history strong,
+.audit-history strong {
   color: var(--green);
   text-transform: uppercase;
 }
 
 .mission-history span,
 .mission-history time,
-.mission-history p {
+.mission-history p,
+.audit-history span,
+.audit-history time,
+.audit-history p {
   color: var(--muted);
   font-size: 13px;
   margin: 0;

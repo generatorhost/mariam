@@ -61,6 +61,13 @@ async function loadMissions() {
   );
 }
 
+async function loadAuditRecords() {
+  const body = await apiGet('/api/audit');
+  return (body.audit_records || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -144,6 +151,57 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function AuditHistoryPanel({ refreshVersion }) {
+  const [records, setRecords] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshAuditRecords = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setRecords((await loadAuditRecords()).slice(0, 5));
+      setStatus('ready');
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAuditRecords();
+  }, [refreshAuditRecords, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Audit History</h2>
+        <p>Review recent governance decisions recorded in DB MARIAM.</p>
+      </div>
+      <button onClick={refreshAuditRecords} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Audit History'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      <div className="audit-history">
+        {records.length ? (
+          records.map((record) => (
+            <article key={record.audit_id}>
+              <strong>{record.decision}</strong>
+              <span>{record.action}</span>
+              <p>
+                {record.actor_id} on {record.target_type} {record.target_id}
+              </p>
+              <time>{new Date(record.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No audit records found yet.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
@@ -627,6 +685,7 @@ function App() {
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditPanel onActionComplete={refreshCommandCenterSummary} />
+        <AuditHistoryPanel refreshVersion={refreshVersion} />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>

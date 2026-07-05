@@ -191,6 +191,19 @@ GET /api/missions
 5. The frontend displays audit id, action, target, actor, and `DB MARIAM`.
 6. The frontend refreshes the Command Center summary so audit and event counts update automatically.
 
+### Review Audit History
+1. User opens the Command Center.
+2. The frontend automatically sends:
+
+```http
+GET /api/audit
+```
+
+3. The backend reads audit records through the configured audit repository.
+4. The frontend displays recent governance decisions with decision, action, actor, target, and time.
+5. If the user presses `Refresh Audit History`, the frontend repeats the same call.
+6. Any action that records audit evidence refreshes this panel through the shared Command Center refresh signal.
+
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
 - Audit API layer: `backend/app/api/audit.py`
@@ -269,6 +282,7 @@ pytest
 - Pressing each frontend action button has a real backend result.
 - Frontend exposes status, mission, AI routing, plugin registration, runtime object, and audit flows.
 - Audit records are available from `GET /api/audit`.
+- Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
