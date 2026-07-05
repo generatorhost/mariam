@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai_resources, health, missions, plugins, runtime, terminology
+from app.api import ai_resources, health, missions, plugins, runtime, runtime_objects, terminology
 from app.core.config import get_settings
 
 
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
     app.include_router(missions.router)
     app.include_router(plugins.router)
     app.include_router(runtime.router)
+    app.include_router(runtime_objects.router)
     app.include_router(terminology.router)
 
     @app.get("/")

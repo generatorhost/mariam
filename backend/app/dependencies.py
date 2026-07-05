@@ -22,9 +22,15 @@ from app.repositories.plugins import (
     PluginRepository,
     PostgresPluginRepository,
 )
+from app.repositories.runtime_objects import (
+    InMemoryRuntimeObjectRepository,
+    PostgresRuntimeObjectRepository,
+    RuntimeObjectRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
+from app.services.runtime_objects import RuntimeObjectService
 
 
 @lru_cache
@@ -43,6 +49,19 @@ def get_event_repository() -> EventRepository:
 @lru_cache
 def get_runtime_registry() -> RuntimeRegistry:
     return RuntimeRegistry(get_event_bus(), get_plugin_repository())
+
+
+@lru_cache
+def get_runtime_object_service() -> RuntimeObjectService:
+    return RuntimeObjectService(get_event_bus(), get_runtime_object_repository())
+
+
+@lru_cache
+def get_runtime_object_repository() -> RuntimeObjectRepository:
+    settings = get_settings()
+    if settings.runtime_object_store == "postgres":
+        return PostgresRuntimeObjectRepository(settings.database_url)
+    return InMemoryRuntimeObjectRepository()
 
 
 @lru_cache

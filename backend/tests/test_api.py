@@ -73,6 +73,37 @@ def test_plugin_list_reads_saved_plugin_registry() -> None:
     assert plugin["chief_agent_role"] == "CRM Chief Agent"
 
 
+def test_runtime_object_registration_is_executable_and_auditable() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Ollama Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    assert response.status_code == 200
+    runtime_object = response.json()["runtime_object"]
+    assert runtime_object["object_id"]
+    assert runtime_object["object_type"] == "provider"
+    assert runtime_object["status"] == "enabled"
+    assert runtime_object["data_platform"] == "DB MARIAM"
+
+    list_response = client.get("/api/runtime-objects")
+    event_response = client.get("/api/runtime/events")
+
+    assert runtime_object["object_id"] in [
+        item["object_id"] for item in list_response.json()["runtime_objects"]
+    ]
+    assert runtime_object["object_id"] in [
+        event["payload"].get("object_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.registered"
+    ]
+
+
 def test_official_terminology_endpoint_exposes_required_terms() -> None:
     client = TestClient(create_app())
     response = client.get("/api/terminology")
@@ -268,3 +299,13 @@ def test_plugin_manifest_schema_targets_db_mariam() -> None:
     assert "CREATE TABLE IF NOT EXISTS plugin_manifests" in migration
     assert "manifest JSONB NOT NULL" in migration
     assert "status TEXT NOT NULL DEFAULT 'registered'" in migration
+
+
+def test_runtime_object_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    migration = migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS runtime_objects" in migration
+    assert "object_type TEXT NOT NULL" in migration
+    assert "manifest JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "idx_runtime_objects_type_status" in migration
