@@ -229,6 +229,50 @@ def test_mission_approval_updates_status_and_records_governance() -> None:
     ]
 
 
+def test_mission_rejection_updates_status_and_records_governance() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Reject an incomplete client delivery package",
+            "requested_by": "operator",
+        },
+    )
+    mission_id = create_response.json()["mission"]["mission_id"]
+
+    reject_response = client.post(
+        f"/api/missions/{mission_id}/reject",
+        json={
+            "rejected_by": "governance-lead",
+            "reason": "Delivery package is missing approval evidence.",
+            "evidence": {"review": "missing evidence"},
+        },
+    )
+
+    assert reject_response.status_code == 200
+    rejected = reject_response.json()["mission"]
+    assert rejected["mission_id"] == mission_id
+    assert rejected["status"] == "rejected"
+
+    list_response = client.get("/api/missions")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    mission = next(mission for mission in list_response.json()["missions"] if mission["mission_id"] == mission_id)
+    assert mission["status"] == "rejected"
+    assert mission_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "mission.reject"
+    ]
+    assert mission_id in [
+        event["payload"].get("mission_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "mission.rejected"
+    ]
+
+
 def test_runtime_event_endpoint_reads_saved_event_history() -> None:
     client = TestClient(create_app())
     publish_response = client.post(

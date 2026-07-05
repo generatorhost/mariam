@@ -10,6 +10,7 @@ class MissionStatus(StrEnum):
     planned = "planned"
     awaiting_approval = "awaiting_approval"
     approved = "approved"
+    rejected = "rejected"
 
 
 class MissionRequest(BaseModel):
@@ -20,6 +21,12 @@ class MissionRequest(BaseModel):
 
 class MissionApprovalRequest(BaseModel):
     approved_by: str = Field(default="governance-gate", min_length=2)
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
+class MissionRejectionRequest(BaseModel):
+    rejected_by: str = Field(default="governance-gate", min_length=2)
+    reason: str = Field(min_length=3)
     evidence: dict[str, str] = Field(default_factory=dict)
 
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.missions import MissionApprovalRequest, MissionRequest
+from app.core.missions import MissionApprovalRequest, MissionRejectionRequest, MissionRequest
 from app.dependencies import get_mission_service
 from app.services.missions import MissionService
 
@@ -29,6 +29,19 @@ def approve_mission(
 ) -> dict:
     try:
         mission = service.approve(mission_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"mission": mission.model_dump(mode="json")}
+
+
+@router.post("/{mission_id}/reject")
+def reject_mission(
+    mission_id: str,
+    request: MissionRejectionRequest,
+    service: MissionService = Depends(get_mission_service),
+) -> dict:
+    try:
+        mission = service.reject(mission_id, request)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"mission": mission.model_dump(mode="json")}

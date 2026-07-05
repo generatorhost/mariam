@@ -1,6 +1,13 @@
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
-from app.core.missions import Mission, MissionApprovalRequest, MissionRequest, MissionStatus, create_mission_plan
+from app.core.missions import (
+    Mission,
+    MissionApprovalRequest,
+    MissionRejectionRequest,
+    MissionRequest,
+    MissionStatus,
+    create_mission_plan,
+)
 from app.repositories.missions import MissionRepository
 from app.services.audit import AuditService
 
@@ -59,6 +66,41 @@ class MissionService:
                 "plugin_id": saved.plugin_id,
                 "status": saved.status,
                 "approved_by": request.approved_by,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
+
+    def reject(self, mission_id: str, request: MissionRejectionRequest) -> Mission:
+        mission = self._repository.get(mission_id)
+        if mission is None:
+            raise ValueError(f"Mission {mission_id} was not found.")
+        rejected = mission.model_copy(update={"status": MissionStatus.rejected})
+        saved = self._repository.update(rejected)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.rejected_by,
+                action="mission.reject",
+                target_type="mission",
+                target_id=mission_id,
+                decision="rejected",
+                evidence={
+                    "data_platform": saved.data_platform,
+                    "governance_gate": saved.governance_gate,
+                    "rejection_reason": request.reason,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "mission.rejected",
+            "mission-service",
+            {
+                "mission_id": saved.mission_id,
+                "plugin_id": saved.plugin_id,
+                "status": saved.status,
+                "rejected_by": request.rejected_by,
+                "reason": request.reason,
                 "data_platform": saved.data_platform,
             },
         )

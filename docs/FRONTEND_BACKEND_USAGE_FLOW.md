@@ -86,7 +86,7 @@ with:
    - data platform
    - each step and actor
 14. The frontend refreshes `GET /api/runtime/summary` so mission and event counts update automatically.
-15. If the mission is `awaiting_approval`, the frontend shows `Approve Mission`.
+15. If the mission is `awaiting_approval`, the frontend shows `Approve Mission` and `Reject Mission`.
 
 ### Approve CRM Mission
 1. User presses `Approve Mission`.
@@ -112,6 +112,33 @@ with:
 5. The backend records `mission.approve` in the audit log with the governance evidence.
 6. The backend emits `mission.approved`.
 7. The frontend replaces the mission result with the approved mission state.
+8. The frontend refreshes `GET /api/runtime/summary` so audit and event activity update automatically.
+
+### Reject CRM Mission
+1. User presses `Reject Mission`.
+2. The frontend sends:
+
+```http
+POST /api/missions/{mission_id}/reject
+```
+
+with:
+
+```json
+{
+  "rejected_by": "command-center-governance",
+  "reason": "Rejected from Command Center governance panel for revision.",
+  "evidence": {
+    "review": "Rejected before delivery export"
+  }
+}
+```
+
+3. The backend loads the mission through the mission repository.
+4. The backend updates the mission status to `rejected`.
+5. The backend records `mission.reject` in the audit log with rejection evidence.
+6. The backend emits `mission.rejected`.
+7. The frontend replaces the mission result with the rejected mission state.
 8. The frontend refreshes `GET /api/runtime/summary` so audit and event activity update automatically.
 
 ### Route AI Capability
@@ -210,6 +237,7 @@ The backend tests verify:
 - official terminology
 - mission creation
 - mission approval
+- mission rejection
 - mission event emission
 
 Run:
@@ -229,6 +257,7 @@ pytest
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.
+- The backend can reject a mission through a governance endpoint.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
 - The event bus records mission creation.
@@ -244,4 +273,4 @@ pytest
 
 ## Current Completion Estimate
 - Full Mariam Enterprise OS target: about 25%.
-- Executable rebuild foundation target: about 94%.
+- Executable rebuild foundation target: about 95%.

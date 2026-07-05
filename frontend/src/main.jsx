@@ -69,6 +69,14 @@ async function approveMission(missionId) {
   });
 }
 
+async function rejectMission(missionId) {
+  return apiRequest(`/api/missions/${missionId}/reject`, {
+    rejected_by: 'command-center-governance',
+    reason: 'Rejected from Command Center governance panel for revision.',
+    evidence: { review: 'Rejected before delivery export' },
+  });
+}
+
 async function routeAIResource() {
   return apiRequest('/api/ai-resources/route', {
     capability: 'chat',
@@ -231,6 +239,23 @@ function MissionPanel({ onActionComplete }) {
     }
   }
 
+  async function handleRejectMission() {
+    if (!mission) {
+      return;
+    }
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await rejectMission(mission.mission_id);
+      setMission(body.mission);
+      setStatus('ready');
+      onActionComplete();
+    } catch (missionError) {
+      setStatus('error');
+      setError(missionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -259,9 +284,14 @@ function MissionPanel({ onActionComplete }) {
             ))}
           </ol>
           {mission.status === 'awaiting_approval' && (
-            <button onClick={handleApproveMission} disabled={status === 'loading'}>
-              {status === 'loading' ? 'Approving...' : 'Approve Mission'}
-            </button>
+            <div className="mission-actions">
+              <button onClick={handleApproveMission} disabled={status === 'loading'}>
+                {status === 'loading' ? 'Approving...' : 'Approve Mission'}
+              </button>
+              <button onClick={handleRejectMission} disabled={status === 'loading'}>
+                {status === 'loading' ? 'Rejecting...' : 'Reject Mission'}
+              </button>
+            </div>
           )}
         </div>
       )}
