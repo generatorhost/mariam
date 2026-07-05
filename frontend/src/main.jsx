@@ -10,6 +10,14 @@ const cards = [
   { title: 'Governance', value: 'Permission + audit gates', icon: ShieldCheck },
 ];
 
+const terms = [
+  'Mariam Living Enterprise OS Core',
+  'Mariam Data Platform',
+  'Plugin Business Unit',
+  'DNA Managed Runtime Object',
+  'Governance Gate',
+];
+
 function App() {
   return (
     <main className="shell">
@@ -44,10 +52,17 @@ function App() {
             swarm roles, permissions, data boundary, workflows, tests, and rollback plan.
           </p>
         </section>
+        <section className="panel">
+          <h2>Official Terms</h2>
+          <div className="terms">
+            {terms.map((term) => (
+              <span key={term}>{term}</span>
+            ))}
+          </div>
+        </section>
       </section>
     </main>
   );
 }
 
 createRoot(document.getElementById('root')).render(<App />);
-

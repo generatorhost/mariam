@@ -16,6 +16,39 @@ The core owns:
 
 The core must not contain business-specific plugin logic.
 
+## Official Terms
+
+These terms are mandatory in code, documentation, API names, database naming, plugin manifests, and UI labels unless a legacy import explicitly records the older name as historical only.
+
+- Mariam Living Enterprise OS Core: the official name of the core runtime. Do not reduce Mariam to an AI kernel.
+- Mariam Data Platform: the official data layer. Do not use Business DB as an official term.
+- Runtime Object: any object that can be added, edited, deleted, disabled, enabled, upgraded, replaced, forked, rolled back, imported from DNA, or exported as DNA.
+- DNA Managed Runtime Object: a runtime object governed by DNA import/export, compatibility, versioning, audit, and rollback.
+- Plugin Business Unit: a plugin/app that behaves as a managed business or department with its own dashboard, settings, Chief Agent, swarm, data boundary, workflows, tests, and delivery gates.
+- Provider: a model, service, platform, tool, or runtime provider registered through a governed provider boundary.
+- Connector: a governed bridge to an external system, platform, API, account, webhook, or data source.
+- MCP Server: a managed integration runtime exposed through the Model Context Protocol boundary.
+- Chief Agent: the accountable lead agent for a plugin, department, mission, or platform capability.
+- Swarm: a coordinated group of agents with declared roles, permissions, events, tests, and acceptance criteria.
+- Mission: a governed unit of work with traceability, runtime state, events, artifacts, approvals, and rollback.
+- Artifact: any generated or imported file, report, document, model, export, dataset, or evidence package managed by Mariam.
+- Governance Gate: a permission, audit, approval, quality, compatibility, or security checkpoint before a side effect or delivery.
+
+## Forbidden Terms
+
+The following terms must not be used as official architecture terms:
+
+- Business DB
+- Business Database
+- AI Kernel
+- Kernel only
+- simple plugin
+- small add-on
+- hardcoded provider
+- static component
+
+When these appear in legacy notes, they must be marked as legacy wording and mapped to the official term.
+
 ## Required Layers
 
 1. Experience Layer: dashboards, command center, plugin workspaces, settings, approvals.
@@ -76,4 +109,3 @@ Patterns extracted from `sdcb/chats` and `MoneyPrinterTurbo` for this scaffold:
 - database migration folder
 - frontend dashboard shell
 - testable service boundaries
-

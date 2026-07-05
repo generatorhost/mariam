@@ -56,3 +56,16 @@ def test_repository_plugin_manifest_matches_runtime_contract() -> None:
     response = client.post("/api/plugins", json=manifest)
     assert response.status_code == 200
     assert response.json()["plugin"]["dashboard_route"] == "/plugins/crm"
+
+
+def test_official_terminology_endpoint_exposes_required_terms() -> None:
+    client = TestClient(create_app())
+    response = client.get("/api/terminology")
+    assert response.status_code == 200
+    body = response.json()
+    term_names = {term["name"] for term in body["terms"]}
+    assert "Mariam Living Enterprise OS Core" in term_names
+    assert "Mariam Data Platform" in term_names
+    assert "Plugin Business Unit" in term_names
+    assert "Business DB" in body["forbidden_aliases"]
+    assert "AI Kernel" in body["forbidden_aliases"]

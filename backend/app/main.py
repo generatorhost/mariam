@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, plugins, runtime
+from app.api import health, plugins, runtime, terminology
 from app.core.config import get_settings
 
 
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(plugins.router)
     app.include_router(runtime.router)
+    app.include_router(terminology.router)
 
     @app.get("/")
     def root() -> dict:
@@ -32,4 +33,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

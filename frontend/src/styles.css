@@ -82,6 +82,22 @@ p {
 
 .panel {
   max-width: 820px;
+  margin-bottom: 16px;
+}
+
+.terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.terms span {
+  border: 1px solid var(--border);
+  background: var(--card2);
+  border-radius: 999px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 @media (max-width: 860px) {
@@ -99,4 +115,3 @@ p {
     grid-template-columns: 1fr;
   }
 }
-
