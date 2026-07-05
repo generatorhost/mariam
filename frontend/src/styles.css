@@ -4,6 +4,7 @@
   --card2: #151829;
   --border: #1a1d2e;
   --text: #c8c8d8;
+  --muted: #8f92a8;
   --green: #00e676;
   --yellow: #ffab00;
   --blue: #448aff;
@@ -167,6 +168,45 @@ p {
 }
 
 .status-grid span {
+  font-size: 13px;
+}
+
+.activity-feed {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.activity-feed h3 {
+  color: var(--text);
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.activity-feed ol {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.activity-feed li {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.activity-feed strong {
+  color: var(--green);
+}
+
+.activity-feed span,
+.activity-feed time,
+.activity-feed p {
+  color: var(--muted);
   font-size: 13px;
 }
 

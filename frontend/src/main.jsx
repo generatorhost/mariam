@@ -50,6 +50,7 @@ async function loadSystemStatus() {
     auditRecords: summary.audit_records,
     missions: summary.missions,
     aiRoutes: summary.ai_routes,
+    recentEvents: summary.recent_events || [],
   };
 }
 
@@ -155,15 +156,33 @@ function SystemStatusPanel({ refreshVersion }) {
       </button>
       {error && <p className="error">{error}</p>}
       {summary && (
-        <div className="status-grid">
-          <div><strong>{summary.health}</strong><span>Health</span></div>
-          <div><strong>{summary.runtimeObjects}</strong><span>Runtime Objects</span></div>
-          <div><strong>{summary.plugins}</strong><span>Plugins</span></div>
-          <div><strong>{summary.missions}</strong><span>Missions</span></div>
-          <div><strong>{summary.aiRoutes}</strong><span>AI Routes</span></div>
-          <div><strong>{summary.auditRecords}</strong><span>Audit Records</span></div>
-          <div><strong>{summary.events}</strong><span>Runtime Events</span></div>
-        </div>
+        <>
+          <div className="status-grid">
+            <div><strong>{summary.health}</strong><span>Health</span></div>
+            <div><strong>{summary.runtimeObjects}</strong><span>Runtime Objects</span></div>
+            <div><strong>{summary.plugins}</strong><span>Plugins</span></div>
+            <div><strong>{summary.missions}</strong><span>Missions</span></div>
+            <div><strong>{summary.aiRoutes}</strong><span>AI Routes</span></div>
+            <div><strong>{summary.auditRecords}</strong><span>Audit Records</span></div>
+            <div><strong>{summary.events}</strong><span>Runtime Events</span></div>
+          </div>
+          <div className="activity-feed">
+            <h3>Recent Runtime Activity</h3>
+            {summary.recentEvents.length ? (
+              <ol>
+                {summary.recentEvents.map((event) => (
+                  <li key={event.event_id}>
+                    <strong>{event.name}</strong>
+                    <span>{event.source}</span>
+                    <time>{new Date(event.created_at).toLocaleString()}</time>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>No runtime activity recorded yet.</p>
+            )}
+          </div>
+        </>
       )}
     </section>
   );

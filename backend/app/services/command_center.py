@@ -17,6 +17,7 @@ class CommandCenterSummary:
     ai_routes: int
     audit_records: int
     runtime_events: int
+    recent_events: list[dict[str, object]]
 
 
 class CommandCenterSummaryService:
@@ -42,6 +43,18 @@ class CommandCenterSummaryService:
         if any(status.status != "healthy" for status in health_statuses):
             health = "degraded"
 
+        events = self._event_bus.list_events()
+        recent_events = [
+            {
+                "event_id": event.event_id,
+                "name": event.name,
+                "source": event.source,
+                "created_at": event.created_at.isoformat(),
+                "payload": event.payload,
+            }
+            for event in sorted(events, key=lambda event: event.created_at, reverse=True)[:5]
+        ]
+
         return CommandCenterSummary(
             health=health,
             runtime_objects=len(self._runtime_object_service.list()),
@@ -49,5 +62,6 @@ class CommandCenterSummaryService:
             missions=len(self._mission_service.list()),
             ai_routes=len(self._ai_resource_manager.list_routes()),
             audit_records=len(self._audit_service.list()),
-            runtime_events=len(self._event_bus.list_events()),
+            runtime_events=len(events),
+            recent_events=recent_events,
         )

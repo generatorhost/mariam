@@ -239,6 +239,9 @@ def test_runtime_summary_reports_command_center_counts() -> None:
     assert isinstance(body["missions"], int)
     assert isinstance(body["ai_routes"], int)
     assert isinstance(body["runtime_events"], int)
+    assert len(body["recent_events"]) <= 5
+    assert body["recent_events"][0]["name"] == "audit.recorded"
+    assert body["recent_events"][0]["source"] == "audit-service"
 
 
 def test_mission_list_reads_saved_mission_history() -> None:

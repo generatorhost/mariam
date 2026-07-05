@@ -39,9 +39,9 @@ The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose 
 ### Load And Refresh System Status
 1. User opens the Command Center.
 2. The frontend automatically sends `GET /api/runtime/summary`.
-3. The backend reads health, runtime objects, plugins, missions, AI routes, audit records, and runtime events through the current repository configuration.
+3. The backend reads health, runtime objects, plugins, missions, AI routes, audit records, runtime events, and the latest runtime activity through the current repository configuration.
 4. The backend returns one Command Center summary payload.
-5. The frontend displays the runtime summary in one compact status grid.
+5. The frontend displays the runtime summary in one compact status grid and shows the latest runtime activity feed below it.
 6. If the user presses `Refresh System Status`, the frontend repeats the same call and replaces the counts.
 7. After any successful action button, the frontend automatically refreshes the same summary so the counts match the latest backend state.
 
@@ -198,7 +198,7 @@ pytest
 - Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
-- The Command Center status panel reads aggregated counts from `GET /api/runtime/summary`.
+- The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
