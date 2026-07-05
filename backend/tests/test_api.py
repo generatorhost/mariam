@@ -159,3 +159,21 @@ def test_ai_resource_route_is_auditable_from_runtime_history() -> None:
         for event in event_response.json()["events"]
         if event["name"] == "ai_resource.route.selected"
     ]
+
+
+def test_ai_resource_route_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0002_ai_resource_route_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS ai_resource_routes" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "fallback_provider_ids TEXT[]" in migration
+    assert "ADD COLUMN IF NOT EXISTS data_platform" in upgrade
+    assert "ADD COLUMN IF NOT EXISTS fallback_provider_ids" in upgrade

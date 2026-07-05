@@ -1,7 +1,12 @@
 from functools import lru_cache
 
+from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
-from app.repositories.ai_resource_routes import InMemoryAIResourceRouteRepository
+from app.repositories.ai_resource_routes import (
+    AIResourceRouteRepository,
+    InMemoryAIResourceRouteRepository,
+    PostgresAIResourceRouteRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -23,7 +28,10 @@ def get_mission_service() -> MissionService:
 
 
 @lru_cache
-def get_ai_resource_route_repository() -> InMemoryAIResourceRouteRepository:
+def get_ai_resource_route_repository() -> AIResourceRouteRepository:
+    settings = get_settings()
+    if settings.ai_resource_route_store == "postgres":
+        return PostgresAIResourceRouteRepository(settings.database_url)
     return InMemoryAIResourceRouteRepository()
 
 

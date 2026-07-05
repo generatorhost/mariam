@@ -67,4 +67,9 @@ The current rebuild foundation supports a small end-to-end mission flow:
 5. The route decision includes `requested_by` and the `DB MARIAM` data boundary.
 6. Local-first chat routing selects Ollama as a model runtime provider, not as Mariam Core.
 7. The route history is available from `GET /api/ai-resources/routes`.
-8. Route storage is behind a repository boundary so it can move from memory to Postgres without changing the API contract.
+8. Route storage is behind a repository boundary so tests can use memory while Docker writes to Postgres in `DB MARIAM`.
+
+## DB MARIAM Runtime Storage
+
+Docker uses `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres`, so AI resource route decisions are stored in the `ai_resource_routes` table.
+Local tests use the default in-memory repository unless that setting is explicitly changed.

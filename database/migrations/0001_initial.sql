@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS ai_resource_routes (
     policy TEXT NOT NULL,
     reason TEXT NOT NULL,
     requested_by TEXT NOT NULL,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    fallback_provider_ids TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
