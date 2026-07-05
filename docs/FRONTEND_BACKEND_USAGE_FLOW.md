@@ -200,6 +200,34 @@ GET /api/runtime-objects
 4. The frontend displays recent runtime objects with name, type, status, version, and creation time.
 5. If the user presses `Refresh Runtime Objects`, the frontend repeats the same call.
 
+### Disable Runtime Object
+1. User presses `Disable` on an enabled runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/disable
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend changes status to `disabled` and updates the timestamp.
+5. The backend records `runtime_object.disable` in the audit log with actor, reason, evidence, and `DB MARIAM`.
+6. The backend emits `runtime_object.disable`.
+7. The frontend refreshes Runtime Object History and the Command Center summary.
+
+### Enable Runtime Object
+1. User presses `Enable` on a disabled runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/enable
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend changes status to `enabled` and updates the timestamp.
+5. The backend records `runtime_object.enable` in the audit log with actor, reason, evidence, and `DB MARIAM`.
+6. The backend emits `runtime_object.enable`.
+7. The frontend refreshes Runtime Object History and the Command Center summary.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -324,6 +352,7 @@ pytest
 - Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Frontend Runtime Object History displays recent governed runtime objects.
+- Runtime objects can be disabled and enabled through governed frontend actions.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

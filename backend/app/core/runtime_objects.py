@@ -11,6 +11,12 @@ class RuntimeObjectRequest(BaseModel):
     manifest: dict = Field(default_factory=dict)
 
 
+class RuntimeObjectStateChangeRequest(BaseModel):
+    actor_id: str = Field(default="runtime-governance", min_length=2)
+    reason: str = Field(default="Governed runtime object state change.", min_length=5)
+    evidence: dict = Field(default_factory=dict)
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

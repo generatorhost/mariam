@@ -161,6 +161,22 @@ async function registerRuntimeObject() {
   });
 }
 
+async function enableRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/enable`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Enabled from Command Center Runtime Object History.',
+    evidence: { review: 'operator-enabled-runtime-object' },
+  });
+}
+
+async function disableRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/disable`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Disabled from Command Center Runtime Object History.',
+    evidence: { review: 'operator-disabled-runtime-object' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -172,7 +188,7 @@ async function recordAuditDecision() {
   });
 }
 
-function RuntimeObjectHistoryPanel({ refreshVersion }) {
+function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -192,6 +208,23 @@ function RuntimeObjectHistoryPanel({ refreshVersion }) {
   useEffect(() => {
     refreshRuntimeObjects();
   }, [refreshRuntimeObjects, refreshVersion]);
+
+  const handleStateChange = async (objectId, nextState) => {
+    setStatus('loading');
+    setError('');
+    try {
+      if (nextState === 'enabled') {
+        await enableRuntimeObject(objectId);
+      } else {
+        await disableRuntimeObject(objectId);
+      }
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
 
   return (
     <section className="panel mission-panel">
@@ -213,6 +246,23 @@ function RuntimeObjectHistoryPanel({ refreshVersion }) {
                 {item.status} / v{item.version}
               </p>
               <time>{new Date(item.created_at).toLocaleString()}</time>
+              <div className="mission-actions">
+                {item.status === 'enabled' ? (
+                  <button
+                    onClick={() => handleStateChange(item.object_id, 'disabled')}
+                    disabled={status === 'loading'}
+                  >
+                    Disable
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStateChange(item.object_id, 'enabled')}
+                    disabled={status === 'loading'}
+                  >
+                    Enable
+                  </button>
+                )}
+              </div>
             </article>
           ))
         ) : (
@@ -855,7 +905,10 @@ function App() {
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <PluginHistoryPanel refreshVersion={refreshVersion} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
-        <RuntimeObjectHistoryPanel refreshVersion={refreshVersion} />
+        <RuntimeObjectHistoryPanel
+          refreshVersion={refreshVersion}
+          onActionComplete={refreshCommandCenterSummary}
+        />
         <AuditPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditHistoryPanel refreshVersion={refreshVersion} />
         <section className="panel">

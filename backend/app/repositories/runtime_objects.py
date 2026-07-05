@@ -7,6 +7,12 @@ class RuntimeObjectRepository(Protocol):
     def save(self, runtime_object: RuntimeObject) -> RuntimeObject:
         pass
 
+    def get(self, object_id: str) -> RuntimeObject | None:
+        pass
+
+    def update(self, runtime_object: RuntimeObject) -> RuntimeObject:
+        pass
+
     def list(self) -> list[RuntimeObject]:
         pass
 
@@ -16,6 +22,13 @@ class InMemoryRuntimeObjectRepository:
         self._objects: dict[str, RuntimeObject] = {}
 
     def save(self, runtime_object: RuntimeObject) -> RuntimeObject:
+        self._objects[runtime_object.object_id] = runtime_object
+        return runtime_object
+
+    def get(self, object_id: str) -> RuntimeObject | None:
+        return self._objects.get(object_id)
+
+    def update(self, runtime_object: RuntimeObject) -> RuntimeObject:
         self._objects[runtime_object.object_id] = runtime_object
         return runtime_object
 
@@ -56,6 +69,39 @@ class PostgresRuntimeObjectRepository:
                         Jsonb(runtime_object.manifest),
                         runtime_object.created_at,
                         runtime_object.updated_at,
+                    ),
+                )
+        return runtime_object
+
+    def get(self, object_id: str) -> RuntimeObject | None:
+        return next((runtime_object for runtime_object in self.list() if runtime_object.object_id == object_id), None)
+
+    def update(self, runtime_object: RuntimeObject) -> RuntimeObject:
+        import psycopg
+        from psycopg.types.json import Jsonb
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE runtime_objects
+                    SET
+                        object_type = %s,
+                        name = %s,
+                        status = %s,
+                        version = %s,
+                        manifest = %s,
+                        updated_at = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        runtime_object.object_type,
+                        runtime_object.name,
+                        runtime_object.status,
+                        runtime_object.version,
+                        Jsonb(runtime_object.manifest),
+                        runtime_object.updated_at,
+                        runtime_object.object_id,
                     ),
                 )
         return runtime_object
