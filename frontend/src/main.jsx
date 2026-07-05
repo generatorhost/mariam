@@ -75,6 +75,11 @@ async function loadAIRoutes() {
   );
 }
 
+async function loadPlugins() {
+  const body = await apiGet('/api/plugins');
+  return body.plugins || [];
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -158,6 +163,56 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function PluginHistoryPanel({ refreshVersion }) {
+  const [plugins, setPlugins] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshPlugins = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setPlugins((await loadPlugins()).slice(0, 5));
+      setStatus('ready');
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPlugins();
+  }, [refreshPlugins, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Plugin Registry History</h2>
+        <p>Review registered Plugin-managed Business Units from the runtime registry.</p>
+      </div>
+      <button onClick={refreshPlugins} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Plugin Registry'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      <div className="plugin-history">
+        {plugins.length ? (
+          plugins.map((plugin) => (
+            <article key={plugin.plugin_id}>
+              <strong>{plugin.name}</strong>
+              <span>v{plugin.version}</span>
+              <p>{plugin.chief_agent_role}</p>
+              <p>{plugin.dashboard_route}</p>
+              <time>{plugin.data_boundary}</time>
+            </article>
+          ))
+        ) : (
+          <p>No plugins registered yet.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function AIRouteHistoryPanel({ refreshVersion }) {
@@ -740,6 +795,7 @@ function App() {
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
+        <PluginHistoryPanel refreshVersion={refreshVersion} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditHistoryPanel refreshVersion={refreshVersion} />

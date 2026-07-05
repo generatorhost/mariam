@@ -100,6 +100,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 3. The backend validates the plugin manifest.
 4. The backend stores the plugin in the registry repository.
 5. The backend emits `plugin.registered`.
+6. Plugin Registry History reads `GET /api/plugins` and refreshes automatically after plugin registration.
 
 ## First Audit Flow
 

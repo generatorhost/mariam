@@ -195,6 +195,19 @@ GET /api/ai-resources/routes
 5. The backend emits `plugin.registered`.
 6. The frontend displays plugin id, dashboard route, Chief Agent, and data boundary.
 7. The frontend refreshes the Command Center summary so plugin and event counts update automatically.
+8. The Plugin Registry History panel refreshes and shows the registered Plugin-managed Business Unit.
+
+### Review Plugin Registry History
+1. User opens the Command Center.
+2. The frontend automatically sends:
+
+```http
+GET /api/plugins
+```
+
+3. The backend reads registered plugin manifests through the runtime registry.
+4. The frontend displays recent registered plugins with name, version, Chief Agent, dashboard route, and data boundary.
+5. If the user presses `Refresh Plugin Registry`, the frontend repeats the same call.
 
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
@@ -298,6 +311,7 @@ pytest
 - Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
+- Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.
