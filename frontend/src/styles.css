@@ -139,6 +139,37 @@ p {
   margin-top: 2px;
 }
 
+.status-grid {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.status-grid div {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 72px;
+  padding: 12px;
+}
+
+.status-grid strong,
+.status-grid span {
+  display: block;
+}
+
+.status-grid strong {
+  color: var(--green);
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.status-grid span {
+  font-size: 13px;
+}
+
 .error {
   color: #ff3d3d;
 }
@@ -170,6 +201,10 @@ p {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-grid {
     grid-template-columns: 1fr;
   }
 }

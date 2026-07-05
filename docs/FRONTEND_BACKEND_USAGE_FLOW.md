@@ -36,6 +36,12 @@ The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose 
 
 ## Button To Result Flow
 
+### Refresh System Status
+1. User presses `Refresh System Status`.
+2. The frontend reads health, runtime objects, plugins, missions, AI routes, audit records, and runtime events.
+3. The backend returns live counts from the current repository configuration.
+4. The frontend displays the runtime summary in one compact status grid.
+
 ### Start CRM Mission
 1. User opens the Command Center.
 2. User presses `Start CRM Mission`.
@@ -179,7 +185,7 @@ pytest
 
 ## Acceptance Criteria
 - Pressing the frontend button has a real backend result.
-- Frontend exposes mission, AI routing, plugin registration, runtime object, and audit flows.
+- Frontend exposes status, mission, AI routing, plugin registration, runtime object, and audit flows.
 - Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
@@ -195,7 +201,8 @@ pytest
 - Tests pass.
 - Frontend production build succeeds.
 - Frontend API calls use one configurable base URL.
+- Frontend status panel reads live backend counts.
 
 ## Current Completion Estimate
 - Full Mariam Enterprise OS target: about 23%.
-- Executable rebuild foundation target: about 88%.
+- Executable rebuild foundation target: about 89%.

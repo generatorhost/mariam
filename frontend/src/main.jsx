@@ -32,6 +32,35 @@ async function apiRequest(path, body) {
   return response.json();
 }
 
+async function apiGet(path) {
+  const response = await fetch(`${apiBaseUrl}${path}`);
+  if (!response.ok) {
+    throw new Error(`API request to ${path} failed with ${response.status}`);
+  }
+  return response.json();
+}
+
+async function loadSystemStatus() {
+  const [health, runtimeObjects, plugins, events, audit, missions, aiRoutes] = await Promise.all([
+    apiGet('/api/health'),
+    apiGet('/api/runtime-objects'),
+    apiGet('/api/plugins'),
+    apiGet('/api/runtime/events'),
+    apiGet('/api/audit'),
+    apiGet('/api/missions'),
+    apiGet('/api/ai-resources/routes'),
+  ]);
+  return {
+    health: health.status,
+    runtimeObjects: runtimeObjects.runtime_objects.length,
+    plugins: plugins.plugins.length,
+    events: events.events.length,
+    auditRecords: audit.audit_records.length,
+    missions: missions.missions.length,
+    aiRoutes: aiRoutes.routes.length,
+  };
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -100,6 +129,48 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function SystemStatusPanel() {
+  const [summary, setSummary] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleRefresh() {
+    setStatus('loading');
+    setError('');
+    try {
+      setSummary(await loadSystemStatus());
+      setStatus('ready');
+    } catch (statusError) {
+      setStatus('error');
+      setError(statusError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>System Status</h2>
+        <p>Refresh live counts from the backend runtime and governance APIs.</p>
+      </div>
+      <button onClick={handleRefresh} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Refreshing...' : 'Refresh System Status'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {summary && (
+        <div className="status-grid">
+          <div><strong>{summary.health}</strong><span>Health</span></div>
+          <div><strong>{summary.runtimeObjects}</strong><span>Runtime Objects</span></div>
+          <div><strong>{summary.plugins}</strong><span>Plugins</span></div>
+          <div><strong>{summary.missions}</strong><span>Missions</span></div>
+          <div><strong>{summary.aiRoutes}</strong><span>AI Routes</span></div>
+          <div><strong>{summary.auditRecords}</strong><span>Audit Records</span></div>
+          <div><strong>{summary.events}</strong><span>Runtime Events</span></div>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function MissionPanel() {
@@ -373,6 +444,7 @@ function App() {
             );
           })}
         </section>
+        <SystemStatusPanel />
         <MissionPanel />
         <AIResourcePanel />
         <PluginPanel />

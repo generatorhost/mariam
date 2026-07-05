@@ -53,6 +53,8 @@ pytest
 
 The current rebuild foundation supports a small end-to-end mission flow:
 
+0. Press **Refresh System Status** to read backend health and runtime counts.
+
 1. Open the Command Center.
 2. Press **Start CRM Mission**.
 3. The frontend sends `POST /api/missions`.
@@ -116,4 +118,4 @@ The default is `http://localhost:8000`, and Docker Compose passes the same value
 ## Current Completion Estimate
 
 - Full Mariam Enterprise OS target: about 23%.
-- Executable rebuild foundation target: about 88%.
+- Executable rebuild foundation target: about 89%.
