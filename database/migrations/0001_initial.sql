@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS missions (
 CREATE TABLE IF NOT EXISTS mission_steps (
     step_id UUID PRIMARY KEY,
     mission_id UUID NOT NULL REFERENCES missions (mission_id) ON DELETE CASCADE,
+    step_order INTEGER NOT NULL,
     name TEXT NOT NULL,
     actor TEXT NOT NULL,
     result TEXT NOT NULL,

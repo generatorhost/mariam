@@ -1,0 +1,2 @@
+ALTER TABLE mission_steps
+    ADD COLUMN IF NOT EXISTS step_order INTEGER NOT NULL DEFAULT 0;

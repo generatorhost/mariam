@@ -1,15 +1,16 @@
 from app.core.events import InMemoryEventBus
 from app.core.missions import Mission, MissionRequest, create_mission_plan
+from app.repositories.missions import MissionRepository
 
 
 class MissionService:
-    def __init__(self, event_bus: InMemoryEventBus) -> None:
+    def __init__(self, event_bus: InMemoryEventBus, repository: MissionRepository) -> None:
         self._event_bus = event_bus
-        self._missions: dict[str, Mission] = {}
+        self._repository = repository
 
     def create(self, request: MissionRequest) -> Mission:
         mission = create_mission_plan(request)
-        self._missions[mission.mission_id] = mission
+        saved = self._repository.save(mission)
         self._event_bus.publish(
             "mission.created",
             "mission-service",
@@ -20,7 +21,7 @@ class MissionService:
                 "data_platform": mission.data_platform,
             },
         )
-        return mission
+        return saved
 
     def list(self) -> list[Mission]:
-        return list(self._missions.values())
+        return self._repository.list()

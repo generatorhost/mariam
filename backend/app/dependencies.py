@@ -7,6 +7,11 @@ from app.repositories.ai_resource_routes import (
     InMemoryAIResourceRouteRepository,
     PostgresAIResourceRouteRepository,
 )
+from app.repositories.missions import (
+    InMemoryMissionRepository,
+    MissionRepository,
+    PostgresMissionRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -24,7 +29,15 @@ def get_runtime_registry() -> RuntimeRegistry:
 
 @lru_cache
 def get_mission_service() -> MissionService:
-    return MissionService(get_event_bus())
+    return MissionService(get_event_bus(), get_mission_repository())
+
+
+@lru_cache
+def get_mission_repository() -> MissionRepository:
+    settings = get_settings()
+    if settings.mission_store == "postgres":
+        return PostgresMissionRepository(settings.database_url)
+    return InMemoryMissionRepository()
 
 
 @lru_cache

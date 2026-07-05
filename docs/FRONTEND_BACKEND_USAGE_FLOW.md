@@ -11,6 +11,7 @@ The current codebase is the first foundation, not the full Mariam platform. It i
 - Plugin manifest runtime contract.
 - Runtime event bus.
 - Mission API.
+- Mission repository boundary.
 - DB MARIAM migration foundation using the technical database identifier `db_mariam`.
 - Docker Compose stack for backend, frontend, PostgreSQL, Redis, and MinIO.
 - Backend API tests.
@@ -58,8 +59,10 @@ with:
    - governance gate
    - `DB MARIAM` as the data platform boundary
 8. The runtime event bus emits `mission.created`.
-9. The backend returns the mission JSON.
-10. The frontend renders:
+9. The mission is saved through the configured mission repository.
+10. Docker stores the mission in `missions` and its ordered steps in `mission_steps`.
+11. The backend returns the mission JSON.
+12. The frontend renders:
    - mission id
    - mission status
    - data platform
@@ -70,6 +73,7 @@ with:
 - AI Resource API layer: `backend/app/api/ai_resources.py`
 - Mission model: `backend/app/core/missions.py`
 - Mission service: `backend/app/services/missions.py`
+- Mission repository: `backend/app/repositories/missions.py`
 - AI Resource Manager: `backend/app/services/ai_resources.py`
 - Event bus: `backend/app/core/events.py`
 - Runtime wiring: `backend/app/dependencies.py`
@@ -89,6 +93,7 @@ The migration adds:
 - `mission_steps`
 
 These tables are the first executable Mission DB boundary.
+Local tests use the memory mission repository; Docker sets `MARIAM_MISSION_STORE=postgres` and writes mission history into `DB MARIAM`.
 
 ## Result Contract
 A successful mission response contains:
@@ -124,6 +129,7 @@ pytest
 - Pressing the frontend button has a real backend result.
 - The backend creates a governed mission plan.
 - The mission references `DB MARIAM`.
+- Mission history is available from `GET /api/missions`.
 - The event bus records mission creation.
 - AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
 - Every AI resource route returns a `route_id`, `created_at`, `requested_by`, `DB MARIAM`, selected provider, policy, and fallback list.

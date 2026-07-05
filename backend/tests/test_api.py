@@ -105,6 +105,26 @@ def test_mission_creation_emits_runtime_event() -> None:
     assert "mission.created" in names
 
 
+def test_mission_list_reads_saved_mission_history() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare a renewal plan",
+            "requested_by": "operator",
+        },
+    )
+    mission_id = create_response.json()["mission"]["mission_id"]
+
+    list_response = client.get("/api/missions")
+
+    assert mission_id in [mission["mission_id"] for mission in list_response.json()["missions"]]
+    mission = next(mission for mission in list_response.json()["missions"] if mission["mission_id"] == mission_id)
+    assert mission["data_platform"] == "DB MARIAM"
+    assert len(mission["steps"]) == 4
+
+
 def test_ai_resource_manager_lists_ollama_as_provider_not_core() -> None:
     client = TestClient(create_app())
     response = client.get("/api/ai-resources/providers")
@@ -177,3 +197,22 @@ def test_ai_resource_route_schema_targets_db_mariam() -> None:
     assert "fallback_provider_ids TEXT[]" in migration
     assert "ADD COLUMN IF NOT EXISTS data_platform" in upgrade
     assert "ADD COLUMN IF NOT EXISTS fallback_provider_ids" in upgrade
+
+
+def test_mission_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    step_order_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0003_mission_step_order.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    step_order = step_order_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS missions" in migration
+    assert "CREATE TABLE IF NOT EXISTS mission_steps" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "mission_id UUID NOT NULL REFERENCES missions" in migration
+    assert "step_order INTEGER NOT NULL" in migration
+    assert "ADD COLUMN IF NOT EXISTS step_order" in step_order
