@@ -1,0 +1,15 @@
+{
+  "name": "mariam-ai-enterprise-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mariam AI Enterprise OS rebuild workspace",
+  "scripts": {
+    "backend:test": "cd backend && pytest",
+    "frontend:dev": "cd frontend && npm run dev",
+    "compose:up": "docker compose up --build"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}
+
