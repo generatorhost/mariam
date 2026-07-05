@@ -146,7 +146,7 @@ async function recordAuditDecision() {
   });
 }
 
-function MissionHistoryPanel({ refreshVersion }) {
+function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [missions, setMissions] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -167,6 +167,23 @@ function MissionHistoryPanel({ refreshVersion }) {
     refreshMissions();
   }, [refreshMissions, refreshVersion]);
 
+  async function handleHistoryDecision(missionId, decision) {
+    setStatus('loading');
+    setError('');
+    try {
+      if (decision === 'approve') {
+        await approveMission(missionId);
+      } else {
+        await rejectMission(missionId);
+      }
+      await refreshMissions();
+      onActionComplete();
+    } catch (missionError) {
+      setStatus('error');
+      setError(missionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -185,6 +202,22 @@ function MissionHistoryPanel({ refreshVersion }) {
               <span>{item.chief_agent}</span>
               <p>{item.user_request}</p>
               <time>{new Date(item.created_at).toLocaleString()}</time>
+              {item.status === 'awaiting_approval' && (
+                <div className="mission-actions">
+                  <button
+                    onClick={() => handleHistoryDecision(item.mission_id, 'approve')}
+                    disabled={status === 'loading'}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleHistoryDecision(item.mission_id, 'reject')}
+                    disabled={status === 'loading'}
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
             </article>
           ))
         ) : (
@@ -586,7 +619,10 @@ function App() {
         </section>
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
-        <MissionHistoryPanel refreshVersion={refreshVersion} />
+        <MissionHistoryPanel
+          refreshVersion={refreshVersion}
+          onActionComplete={refreshCommandCenterSummary}
+        />
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />

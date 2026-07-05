@@ -155,6 +155,8 @@ GET /api/missions
 3. The backend reads mission records through the configured mission repository.
 4. The frontend displays the most recent mission records with status, Chief Agent, request, and creation time.
 5. If the user presses `Refresh Mission History`, the frontend repeats the same call.
+6. If a mission is `awaiting_approval`, the history record exposes `Approve` and `Reject`.
+7. Pressing either action calls the same mission governance endpoints, refreshes mission history, and refreshes the Command Center summary.
 
 ### Route AI Capability
 1. User presses `Route AI Capability`.
@@ -276,6 +278,7 @@ pytest
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
 - Frontend Mission History displays recent mission repository records.
+- Frontend Mission History can approve or reject pending mission records.
 - The event bus records mission creation.
 - AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
 - Every AI resource route returns a `route_id`, `created_at`, `requested_by`, `DB MARIAM`, selected provider, policy, and fallback list.
