@@ -9,12 +9,18 @@ class MissionStatus(StrEnum):
     accepted = "accepted"
     planned = "planned"
     awaiting_approval = "awaiting_approval"
+    approved = "approved"
 
 
 class MissionRequest(BaseModel):
     plugin_id: str = Field(min_length=2)
     user_request: str = Field(min_length=3)
     requested_by: str = Field(default="local-user", min_length=2)
+
+
+class MissionApprovalRequest(BaseModel):
+    approved_by: str = Field(default="governance-gate", min_length=2)
+    evidence: dict[str, str] = Field(default_factory=dict)
 
 
 class MissionStep(BaseModel):

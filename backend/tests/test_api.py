@@ -186,6 +186,49 @@ def test_mission_creation_emits_runtime_event() -> None:
     assert "mission.created" in names
 
 
+def test_mission_approval_updates_status_and_records_governance() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Approve a client delivery package",
+            "requested_by": "operator",
+        },
+    )
+    mission_id = create_response.json()["mission"]["mission_id"]
+
+    approve_response = client.post(
+        f"/api/missions/{mission_id}/approve",
+        json={
+            "approved_by": "governance-lead",
+            "evidence": {"approval_reason": "review complete"},
+        },
+    )
+
+    assert approve_response.status_code == 200
+    approved = approve_response.json()["mission"]
+    assert approved["mission_id"] == mission_id
+    assert approved["status"] == "approved"
+
+    list_response = client.get("/api/missions")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    mission = next(mission for mission in list_response.json()["missions"] if mission["mission_id"] == mission_id)
+    assert mission["status"] == "approved"
+    assert mission_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "mission.approve"
+    ]
+    assert mission_id in [
+        event["payload"].get("mission_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "mission.approved"
+    ]
+
+
 def test_runtime_event_endpoint_reads_saved_event_history() -> None:
     client = TestClient(create_app())
     publish_response = client.post(

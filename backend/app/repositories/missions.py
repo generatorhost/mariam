@@ -10,6 +10,12 @@ class MissionRepository(Protocol):
     def save(self, mission: Mission) -> Mission:
         pass
 
+    def get(self, mission_id: str) -> Mission | None:
+        pass
+
+    def update(self, mission: Mission) -> Mission:
+        pass
+
     def list(self) -> list[Mission]:
         pass
 
@@ -19,6 +25,13 @@ class InMemoryMissionRepository:
         self._missions: dict[str, Mission] = {}
 
     def save(self, mission: Mission) -> Mission:
+        self._missions[mission.mission_id] = mission
+        return mission
+
+    def get(self, mission_id: str) -> Mission | None:
+        return self._missions.get(mission_id)
+
+    def update(self, mission: Mission) -> Mission:
         self._missions[mission.mission_id] = mission
         return mission
 
@@ -86,6 +99,24 @@ class PostgresMissionRepository:
                             mission.created_at,
                         ),
                     )
+        return mission
+
+    def get(self, mission_id: str) -> Mission | None:
+        return next((mission for mission in self.list() if mission.mission_id == mission_id), None)
+
+    def update(self, mission: Mission) -> Mission:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE missions
+                    SET status = %s
+                    WHERE mission_id = %s
+                    """,
+                    (mission.status.value, mission.mission_id),
+                )
         return mission
 
     def list(self) -> list[Mission]:

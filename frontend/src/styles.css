@@ -140,6 +140,10 @@ p {
   margin-top: 2px;
 }
 
+.mission-result button {
+  margin-top: 14px;
+}
+
 .status-grid {
   border-top: 1px solid var(--border);
   display: grid;

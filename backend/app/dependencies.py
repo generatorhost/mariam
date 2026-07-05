@@ -94,7 +94,7 @@ def get_plugin_repository() -> PluginRepository:
 
 @lru_cache
 def get_mission_service() -> MissionService:
-    return MissionService(get_event_bus(), get_mission_repository())
+    return MissionService(get_event_bus(), get_mission_repository(), get_audit_service())
 
 
 @lru_cache

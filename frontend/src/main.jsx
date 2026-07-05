@@ -62,6 +62,13 @@ async function startMission() {
   });
 }
 
+async function approveMission(missionId) {
+  return apiRequest(`/api/missions/${missionId}/approve`, {
+    approved_by: 'command-center-governance',
+    evidence: { review: 'Approved from Command Center mission panel' },
+  });
+}
+
 async function routeAIResource() {
   return apiRequest('/api/ai-resources/route', {
     capability: 'chat',
@@ -207,6 +214,23 @@ function MissionPanel({ onActionComplete }) {
     }
   }
 
+  async function handleApproveMission() {
+    if (!mission) {
+      return;
+    }
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await approveMission(mission.mission_id);
+      setMission(body.mission);
+      setStatus('ready');
+      onActionComplete();
+    } catch (missionError) {
+      setStatus('error');
+      setError(missionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -234,6 +258,11 @@ function MissionPanel({ onActionComplete }) {
               </li>
             ))}
           </ol>
+          {mission.status === 'awaiting_approval' && (
+            <button onClick={handleApproveMission} disabled={status === 'loading'}>
+              {status === 'loading' ? 'Approving...' : 'Approve Mission'}
+            </button>
+          )}
         </div>
       )}
     </section>

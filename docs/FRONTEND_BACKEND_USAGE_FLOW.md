@@ -86,6 +86,33 @@ with:
    - data platform
    - each step and actor
 14. The frontend refreshes `GET /api/runtime/summary` so mission and event counts update automatically.
+15. If the mission is `awaiting_approval`, the frontend shows `Approve Mission`.
+
+### Approve CRM Mission
+1. User presses `Approve Mission`.
+2. The frontend sends:
+
+```http
+POST /api/missions/{mission_id}/approve
+```
+
+with:
+
+```json
+{
+  "approved_by": "command-center-governance",
+  "evidence": {
+    "review": "Approved from Command Center mission panel"
+  }
+}
+```
+
+3. The backend loads the mission through the mission repository.
+4. The backend updates the mission status to `approved`.
+5. The backend records `mission.approve` in the audit log with the governance evidence.
+6. The backend emits `mission.approved`.
+7. The frontend replaces the mission result with the approved mission state.
+8. The frontend refreshes `GET /api/runtime/summary` so audit and event activity update automatically.
 
 ### Route AI Capability
 1. User presses `Route AI Capability`.
@@ -182,6 +209,7 @@ The backend tests verify:
 - repository CRM manifest contract
 - official terminology
 - mission creation
+- mission approval
 - mission event emission
 
 Run:
@@ -200,6 +228,7 @@ pytest
 - Registered plugins are available from `GET /api/plugins`.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
+- The backend can approve a mission through a governance endpoint.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
 - The event bus records mission creation.
@@ -214,5 +243,5 @@ pytest
 - Frontend status panel auto-loads, manually refreshes, and refreshes after successful actions through one Command Center summary API.
 
 ## Current Completion Estimate
-- Full Mariam Enterprise OS target: about 24%.
-- Executable rebuild foundation target: about 90%.
+- Full Mariam Enterprise OS target: about 25%.
+- Executable rebuild foundation target: about 94%.
