@@ -127,5 +127,30 @@ def test_ai_resource_manager_routes_capability_to_local_provider() -> None:
     )
     assert response.status_code == 200
     decision = response.json()["decision"]
+    assert decision["route_id"]
+    assert decision["created_at"]
     assert decision["selected_provider"]["provider_id"] == "ollama"
     assert decision["policy"] == "chief_requests_capability_ai_resource_manager_selects_provider"
+
+
+def test_ai_resource_route_is_auditable_from_runtime_history() -> None:
+    client = TestClient(create_app())
+    route_response = client.post(
+        "/api/ai-resources/route",
+        json={
+            "capability": "chat",
+            "privacy_preference": "local_first",
+            "requested_by": "crm-chief",
+        },
+    )
+    route_id = route_response.json()["decision"]["route_id"]
+
+    routes_response = client.get("/api/ai-resources/routes")
+    event_response = client.get("/api/runtime/events")
+
+    assert route_id in [route["route_id"] for route in routes_response.json()["routes"]]
+    assert route_id in [
+        event["payload"].get("route_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "ai_resource.route.selected"
+    ]

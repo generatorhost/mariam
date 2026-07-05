@@ -12,10 +12,15 @@ def list_providers(manager: AIResourceManager = Depends(get_ai_resource_manager)
     return {"providers": [provider.model_dump() for provider in manager.list_providers()]}
 
 
+@router.get("/routes")
+def list_routes(manager: AIResourceManager = Depends(get_ai_resource_manager)) -> dict:
+    return {"routes": [route.model_dump(mode="json") for route in manager.list_routes()]}
+
+
 @router.post("/route")
 def route_resource(
     request: ResourceRouteRequest,
     manager: AIResourceManager = Depends(get_ai_resource_manager),
 ) -> dict:
     decision = manager.route(request)
-    return {"decision": decision.model_dump()}
+    return {"decision": decision.model_dump(mode="json")}

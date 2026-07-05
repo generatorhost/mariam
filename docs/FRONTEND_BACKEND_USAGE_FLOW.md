@@ -126,5 +126,7 @@ pytest
 - The mission references `DB MARIAM`.
 - The event bus records mission creation.
 - AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
+- Every AI resource route returns a `route_id`, `created_at`, selected provider, policy, and fallback list.
+- `GET /api/ai-resources/routes` returns the runtime route history for audit and UI review.
 - Tests pass.
 - Frontend production build succeeds.

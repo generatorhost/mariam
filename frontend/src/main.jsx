@@ -133,6 +133,10 @@ function AIResourcePanel() {
         <div className="mission-result">
           <h3>{decision.selected_provider.name}</h3>
           <p>
+            Route <strong>{decision.route_id}</strong> was recorded at{' '}
+            <strong>{new Date(decision.created_at).toLocaleString()}</strong>.
+          </p>
+          <p>
             Capability <strong>{decision.capability}</strong> is routed to{' '}
             <strong>{decision.selected_provider.provider_type}</strong>.
           </p>

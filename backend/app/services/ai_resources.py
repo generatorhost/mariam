@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
 from app.core.ai_resources import (
     PROVIDERS,
     ModelProvider,
@@ -10,9 +13,13 @@ from app.core.events import InMemoryEventBus
 class AIResourceManager:
     def __init__(self, event_bus: InMemoryEventBus) -> None:
         self._event_bus = event_bus
+        self._routes: list[ResourceRouteDecision] = []
 
     def list_providers(self) -> list[ModelProvider]:
         return PROVIDERS
+
+    def list_routes(self) -> list[ResourceRouteDecision]:
+        return list(self._routes)
 
     def route(self, request: ResourceRouteRequest) -> ResourceRouteDecision:
         candidates = [
@@ -25,16 +32,20 @@ class AIResourceManager:
         selected = self._select_provider(candidates, request)
         fallback_ids = [provider.provider_id for provider in candidates if provider.provider_id != selected.provider_id]
         decision = ResourceRouteDecision(
+            route_id=str(uuid4()),
             capability=request.capability,
             selected_provider=selected,
             reason=self._reason(selected, request),
             policy="chief_requests_capability_ai_resource_manager_selects_provider",
             fallback_provider_ids=fallback_ids,
+            created_at=datetime.now(UTC),
         )
+        self._routes.append(decision)
         self._event_bus.publish(
             "ai_resource.route.selected",
             "ai-resource-manager",
             {
+                "route_id": decision.route_id,
                 "capability": decision.capability,
                 "provider_id": selected.provider_id,
                 "requested_by": request.requested_by,
