@@ -22,6 +22,7 @@ These terms are mandatory in code, documentation, API names, database naming, pl
 
 - Mariam Living Enterprise OS Core: the official name of the core runtime. Do not reduce Mariam to an AI kernel.
 - Mariam Data Platform: the official data layer. Do not use Business DB as an official term.
+- DB MARIAM: the official database display name. Use `db_mariam` as the technical PostgreSQL identifier.
 - Runtime Object: any object that can be added, edited, deleted, disabled, enabled, upgraded, replaced, forked, rolled back, imported from DNA, or exported as DNA.
 - DNA Managed Runtime Object: a runtime object governed by DNA import/export, compatibility, versioning, audit, and rollback.
 - Plugin Business Unit: a plugin/app that behaves as a managed business or department with its own dashboard, settings, Chief Agent, swarm, data boundary, workflows, tests, and delivery gates.

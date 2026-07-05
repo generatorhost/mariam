@@ -22,6 +22,21 @@ button {
   color: var(--text);
   padding: 10px 14px;
   border-radius: 8px;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+a {
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-decoration: none;
 }
 
 .shell {
@@ -83,6 +98,49 @@ p {
 .panel {
   max-width: 820px;
   margin-bottom: 16px;
+}
+
+.mission-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.mission-panel button {
+  justify-self: start;
+}
+
+.mission-result {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.mission-result h3 {
+  margin: 0 0 8px;
+  color: var(--green);
+}
+
+.mission-result ol {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.mission-result li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.mission-result svg {
+  color: var(--green);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.error {
+  color: #ff3d3d;
 }
 
 .terms {

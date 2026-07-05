@@ -29,6 +29,27 @@ CREATE TABLE IF NOT EXISTS runtime_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS missions (
+    mission_id UUID PRIMARY KEY,
+    plugin_id TEXT NOT NULL,
+    requested_by TEXT NOT NULL,
+    user_request TEXT NOT NULL,
+    status TEXT NOT NULL,
+    chief_agent TEXT NOT NULL,
+    governance_gate TEXT NOT NULL,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS mission_steps (
+    step_id UUID PRIMARY KEY,
+    mission_id UUID NOT NULL REFERENCES missions (mission_id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_id UUID PRIMARY KEY,
     actor_id TEXT NOT NULL,
@@ -46,3 +67,5 @@ CREATE INDEX IF NOT EXISTS idx_runtime_objects_type_status
 CREATE INDEX IF NOT EXISTS idx_runtime_events_name_created
     ON runtime_events (name, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_missions_plugin_status
+    ON missions (plugin_id, status);

@@ -69,3 +69,37 @@ def test_official_terminology_endpoint_exposes_required_terms() -> None:
     assert "Plugin Business Unit" in term_names
     assert "Business DB" in body["forbidden_aliases"]
     assert "AI Kernel" in body["forbidden_aliases"]
+
+
+def test_create_mission_returns_button_to_result_flow() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Create a follow-up plan for a qualified lead",
+            "requested_by": "operator",
+        },
+    )
+    assert response.status_code == 200
+    mission = response.json()["mission"]
+    assert mission["plugin_id"] == "crm"
+    assert mission["status"] == "awaiting_approval"
+    assert mission["data_platform"] == "DB MARIAM"
+    assert [step["name"] for step in mission["steps"]] == [
+        "permission_check",
+        "chief_planning",
+        "runtime_scheduling",
+        "approval_gate",
+    ]
+
+
+def test_mission_creation_emits_runtime_event() -> None:
+    client = TestClient(create_app())
+    client.post(
+        "/api/missions",
+        json={"plugin_id": "crm", "user_request": "Prepare a client report"},
+    )
+    response = client.get("/api/runtime/events")
+    names = [event["name"] for event in response.json()["events"]]
+    assert "mission.created" in names

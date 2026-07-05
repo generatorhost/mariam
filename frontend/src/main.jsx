@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, Boxes, Database, ShieldCheck } from 'lucide-react';
+import { Activity, Boxes, CheckCircle2, Database, ShieldCheck } from 'lucide-react';
 import './styles.css';
 
 const cards = [
   { title: 'Runtime Core', value: 'Healthy', icon: Activity },
   { title: 'Plugins / Apps', value: 'Manifest-driven', icon: Boxes },
-  { title: 'Mariam Data Platform', value: 'Postgres / Redis / MinIO', icon: Database },
+  { title: 'DB MARIAM', value: 'Postgres / Redis / MinIO boundary', icon: Database },
   { title: 'Governance', value: 'Permission + audit gates', icon: ShieldCheck },
 ];
 
@@ -17,6 +17,73 @@ const terms = [
   'DNA Managed Runtime Object',
   'Governance Gate',
 ];
+
+async function startMission() {
+  const response = await fetch('http://localhost:8000/api/missions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plugin_id: 'crm',
+      user_request: 'Create a follow-up plan for a qualified lead',
+      requested_by: 'command-center',
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Mission request failed with ${response.status}`);
+  }
+  return response.json();
+}
+
+function MissionPanel() {
+  const [mission, setMission] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleStartMission() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await startMission();
+      setMission(body.mission);
+      setStatus('ready');
+    } catch (missionError) {
+      setStatus('error');
+      setError(missionError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Mission Flow</h2>
+        <p>Press the button to create a governed CRM mission through the backend API.</p>
+      </div>
+      <button onClick={handleStartMission} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Starting...' : 'Start CRM Mission'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {mission && (
+        <div className="mission-result">
+          <h3>{mission.chief_agent}</h3>
+          <p>
+            Mission <strong>{mission.mission_id}</strong> is <strong>{mission.status}</strong> in{' '}
+            <strong>{mission.data_platform}</strong>.
+          </p>
+          <ol>
+            {mission.steps.map((step) => (
+              <li key={step.name}>
+                <CheckCircle2 size={16} />
+                <span>
+                  <strong>{step.actor}</strong>: {step.result}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function App() {
   return (
@@ -31,7 +98,7 @@ function App() {
             <h1>Mariam AI Enterprise OS</h1>
             <p>Documentation-driven rebuild foundation</p>
           </div>
-          <button>Open Architecture Library</button>
+          <a href="https://github.com/generatorhost/Mariam-Architecture-Library">Architecture Library</a>
         </header>
         <section className="grid">
           {cards.map((card) => {
@@ -45,6 +112,7 @@ function App() {
             );
           })}
         </section>
+        <MissionPanel />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>

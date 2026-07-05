@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    database_url: str = "postgresql://mariam:mariam@localhost:5432/mariam"
+    database_url: str = "postgresql://mariam:mariam@localhost:5432/db_mariam"
     redis_url: str = "redis://localhost:6379/0"
     object_storage_endpoint: str = "http://localhost:9000"
     object_storage_bucket: str = "mariam-artifacts"
@@ -17,4 +17,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
