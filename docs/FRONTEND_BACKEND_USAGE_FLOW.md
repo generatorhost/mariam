@@ -43,6 +43,7 @@ The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose 
 4. The backend returns one Command Center summary payload.
 5. The frontend displays the runtime summary in one compact status grid.
 6. If the user presses `Refresh System Status`, the frontend repeats the same call and replaces the counts.
+7. After any successful action button, the frontend automatically refreshes the same summary so the counts match the latest backend state.
 
 ### Start CRM Mission
 1. User opens the Command Center.
@@ -84,12 +85,14 @@ with:
    - mission status
    - data platform
    - each step and actor
+14. The frontend refreshes `GET /api/runtime/summary` so mission and event counts update automatically.
 
 ### Route AI Capability
 1. User presses `Route AI Capability`.
 2. The frontend sends `POST /api/ai-resources/route`.
 3. The backend selects a provider for the requested capability.
 4. The result displays provider, route id, fallbacks, requester, and `DB MARIAM`.
+5. The frontend refreshes the Command Center summary so AI route and event counts update automatically.
 
 ### Register Runtime Object
 1. User presses `Register Runtime Object`.
@@ -98,6 +101,7 @@ with:
 4. The backend emits `runtime_object.registered`.
 5. The backend records an audit decision for the registration.
 6. The frontend displays object id, status, type, version, and `DB MARIAM`.
+7. The frontend refreshes the Command Center summary so runtime object, audit, and event counts update automatically.
 
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
@@ -106,6 +110,7 @@ with:
 4. The backend stores the plugin in the configured plugin repository.
 5. The backend emits `plugin.registered`.
 6. The frontend displays plugin id, dashboard route, Chief Agent, and data boundary.
+7. The frontend refreshes the Command Center summary so plugin and event counts update automatically.
 
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
@@ -113,6 +118,7 @@ with:
 3. The backend stores the approval decision and evidence.
 4. The backend emits `audit.recorded`.
 5. The frontend displays audit id, action, target, actor, and `DB MARIAM`.
+6. The frontend refreshes the Command Center summary so audit and event counts update automatically.
 
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
@@ -205,7 +211,7 @@ pytest
 - Tests pass.
 - Frontend production build succeeds.
 - Frontend API calls use one configurable base URL.
-- Frontend status panel auto-loads and refreshes live backend counts through one Command Center summary API.
+- Frontend status panel auto-loads, manually refreshes, and refreshes after successful actions through one Command Center summary API.
 
 ## Current Completion Estimate
 - Full Mariam Enterprise OS target: about 24%.

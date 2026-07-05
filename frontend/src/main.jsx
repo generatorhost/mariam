@@ -123,7 +123,7 @@ async function recordAuditDecision() {
   });
 }
 
-function SystemStatusPanel() {
+function SystemStatusPanel({ refreshVersion }) {
   const [summary, setSummary] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -142,7 +142,7 @@ function SystemStatusPanel() {
 
   useEffect(() => {
     refreshSummary();
-  }, [refreshSummary]);
+  }, [refreshSummary, refreshVersion]);
 
   return (
     <section className="panel mission-panel">
@@ -169,7 +169,7 @@ function SystemStatusPanel() {
   );
 }
 
-function MissionPanel() {
+function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -181,6 +181,7 @@ function MissionPanel() {
       const body = await startMission();
       setMission(body.mission);
       setStatus('ready');
+      onActionComplete();
     } catch (missionError) {
       setStatus('error');
       setError(missionError.message);
@@ -220,7 +221,7 @@ function MissionPanel() {
   );
 }
 
-function AIResourcePanel() {
+function AIResourcePanel({ onActionComplete }) {
   const [decision, setDecision] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -232,6 +233,7 @@ function AIResourcePanel() {
       const body = await routeAIResource();
       setDecision(body.decision);
       setStatus('ready');
+      onActionComplete();
     } catch (routeError) {
       setStatus('error');
       setError(routeError.message);
@@ -276,7 +278,7 @@ function AIResourcePanel() {
   );
 }
 
-function PluginPanel() {
+function PluginPanel({ onActionComplete }) {
   const [plugin, setPlugin] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -288,6 +290,7 @@ function PluginPanel() {
       const body = await registerCRMPlugin();
       setPlugin(body.plugin);
       setStatus('ready');
+      onActionComplete();
     } catch (pluginError) {
       setStatus('error');
       setError(pluginError.message);
@@ -321,7 +324,7 @@ function PluginPanel() {
   );
 }
 
-function RuntimeObjectPanel() {
+function RuntimeObjectPanel({ onActionComplete }) {
   const [runtimeObject, setRuntimeObject] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -333,6 +336,7 @@ function RuntimeObjectPanel() {
       const body = await registerRuntimeObject();
       setRuntimeObject(body.runtime_object);
       setStatus('ready');
+      onActionComplete();
     } catch (runtimeError) {
       setStatus('error');
       setError(runtimeError.message);
@@ -367,7 +371,7 @@ function RuntimeObjectPanel() {
   );
 }
 
-function AuditPanel() {
+function AuditPanel({ onActionComplete }) {
   const [auditRecord, setAuditRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -379,6 +383,7 @@ function AuditPanel() {
       const body = await recordAuditDecision();
       setAuditRecord(body.audit_record);
       setStatus('ready');
+      onActionComplete();
     } catch (auditError) {
       setStatus('error');
       setError(auditError.message);
@@ -414,6 +419,11 @@ function AuditPanel() {
 }
 
 function App() {
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const refreshCommandCenterSummary = useCallback(() => {
+    setRefreshVersion((current) => current + 1);
+  }, []);
+
   return (
     <main className="shell">
       <aside className="sidebar">
@@ -440,12 +450,12 @@ function App() {
             );
           })}
         </section>
-        <SystemStatusPanel />
-        <MissionPanel />
-        <AIResourcePanel />
-        <PluginPanel />
-        <RuntimeObjectPanel />
-        <AuditPanel />
+        <SystemStatusPanel refreshVersion={refreshVersion} />
+        <MissionPanel onActionComplete={refreshCommandCenterSummary} />
+        <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
+        <PluginPanel onActionComplete={refreshCommandCenterSummary} />
+        <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
+        <AuditPanel onActionComplete={refreshCommandCenterSummary} />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>
