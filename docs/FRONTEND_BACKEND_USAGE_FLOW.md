@@ -9,6 +9,7 @@ The current codebase is the first foundation, not the full Mariam platform. It i
 - FastAPI backend.
 - React Command Center frontend.
 - Plugin manifest runtime contract.
+- Plugin registry repository boundary.
 - Runtime event bus.
 - Runtime event repository boundary.
 - Mission API.
@@ -73,6 +74,8 @@ with:
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
 - AI Resource API layer: `backend/app/api/ai_resources.py`
+- Plugin API layer: `backend/app/api/plugins.py`
+- Plugin repository: `backend/app/repositories/plugins.py`
 - Mission model: `backend/app/core/missions.py`
 - Mission service: `backend/app/services/missions.py`
 - Mission repository: `backend/app/repositories/missions.py`
@@ -97,6 +100,7 @@ The migration adds:
 
 These tables are the first executable Mission DB boundary.
 Docker sets `MARIAM_EVENT_STORE=postgres` and writes runtime event history into `DB MARIAM`.
+Docker sets `MARIAM_PLUGIN_STORE=postgres` and writes plugin registry history into `DB MARIAM`.
 Local tests use the memory mission repository; Docker sets `MARIAM_MISSION_STORE=postgres` and writes mission history into `DB MARIAM`.
 
 ## Result Contract
@@ -131,6 +135,7 @@ pytest
 
 ## Acceptance Criteria
 - Pressing the frontend button has a real backend result.
+- Registered plugins are available from `GET /api/plugins`.
 - The backend creates a governed mission plan.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
@@ -142,3 +147,7 @@ pytest
 - Local tests use the memory repository; Docker sets `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres` and writes route decisions into `DB MARIAM`.
 - Tests pass.
 - Frontend production build succeeds.
+
+## Current Completion Estimate
+- Full Mariam Enterprise OS target: about 19%.
+- Executable rebuild foundation target: about 76%.

@@ -58,6 +58,21 @@ def test_repository_plugin_manifest_matches_runtime_contract() -> None:
     assert response.json()["plugin"]["dashboard_route"] == "/plugins/crm"
 
 
+def test_plugin_list_reads_saved_plugin_registry() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    register_response = client.post("/api/plugins", json=manifest)
+    plugin_id = register_response.json()["plugin"]["plugin_id"]
+
+    list_response = client.get("/api/plugins")
+
+    assert plugin_id in [plugin["plugin_id"] for plugin in list_response.json()["plugins"]]
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+    assert plugin["data_boundary"] == "private-plugin-tables"
+    assert plugin["chief_agent_role"] == "CRM Chief Agent"
+
+
 def test_official_terminology_endpoint_exposes_required_terms() -> None:
     client = TestClient(create_app())
     response = client.get("/api/terminology")
@@ -244,3 +259,12 @@ def test_runtime_event_schema_targets_db_mariam() -> None:
     assert "CREATE TABLE IF NOT EXISTS runtime_events" in migration
     assert "payload JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
     assert "idx_runtime_events_name_created" in migration
+
+
+def test_plugin_manifest_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    migration = migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS plugin_manifests" in migration
+    assert "manifest JSONB NOT NULL" in migration
+    assert "status TEXT NOT NULL DEFAULT 'registered'" in migration

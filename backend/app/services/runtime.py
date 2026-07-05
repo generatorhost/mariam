@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from app.core.events import InMemoryEventBus
 from app.core.plugin_manifest import PluginManifest, validate_manifest
+from app.repositories.plugins import PluginRepository
 
 
 @dataclass
@@ -13,22 +14,22 @@ class RuntimeStatus:
 
 
 class RuntimeRegistry:
-    def __init__(self, event_bus: InMemoryEventBus) -> None:
+    def __init__(self, event_bus: InMemoryEventBus, plugin_repository: PluginRepository) -> None:
         self._event_bus = event_bus
-        self._plugins: dict[str, PluginManifest] = {}
+        self._plugin_repository = plugin_repository
 
     def register_plugin(self, manifest: PluginManifest) -> PluginManifest:
         plugin = validate_manifest(manifest)
-        self._plugins[plugin.plugin_id] = plugin
+        saved = self._plugin_repository.save(plugin)
         self._event_bus.publish(
             "plugin.registered",
             "runtime-registry",
             {"plugin_id": plugin.plugin_id, "version": plugin.version},
         )
-        return plugin
+        return saved
 
     def list_plugins(self) -> list[PluginManifest]:
-        return list(self._plugins.values())
+        return self._plugin_repository.list()
 
     def health(self) -> list[RuntimeStatus]:
         return [
@@ -36,4 +37,3 @@ class RuntimeRegistry:
             RuntimeStatus("event_bus", "healthy", datetime.now(UTC)),
             RuntimeStatus("plugin_registry", "healthy", datetime.now(UTC)),
         ]
-

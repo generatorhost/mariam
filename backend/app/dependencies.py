@@ -17,6 +17,11 @@ from app.repositories.missions import (
     MissionRepository,
     PostgresMissionRepository,
 )
+from app.repositories.plugins import (
+    InMemoryPluginRepository,
+    PluginRepository,
+    PostgresPluginRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -37,7 +42,15 @@ def get_event_repository() -> EventRepository:
 
 @lru_cache
 def get_runtime_registry() -> RuntimeRegistry:
-    return RuntimeRegistry(get_event_bus())
+    return RuntimeRegistry(get_event_bus(), get_plugin_repository())
+
+
+@lru_cache
+def get_plugin_repository() -> PluginRepository:
+    settings = get_settings()
+    if settings.plugin_store == "postgres":
+        return PostgresPluginRepository(settings.database_url)
+    return InMemoryPluginRepository()
 
 
 @lru_cache
