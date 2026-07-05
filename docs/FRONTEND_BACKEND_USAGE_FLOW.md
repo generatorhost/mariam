@@ -164,6 +164,19 @@ GET /api/missions
 3. The backend selects a provider for the requested capability.
 4. The result displays provider, route id, fallbacks, requester, and `DB MARIAM`.
 5. The frontend refreshes the Command Center summary so AI route and event counts update automatically.
+6. The AI Route History panel refreshes and shows the provider routing decision.
+
+### Review AI Route History
+1. User opens the Command Center.
+2. The frontend automatically sends:
+
+```http
+GET /api/ai-resources/routes
+```
+
+3. The backend reads AI route decisions through the configured AI resource route repository.
+4. The frontend displays recent routing decisions with provider, capability, reason, and time.
+5. If the user presses `Refresh AI Route History`, the frontend repeats the same call.
 
 ### Register Runtime Object
 1. User presses `Register Runtime Object`.
@@ -297,6 +310,7 @@ pytest
 - AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
 - Every AI resource route returns a `route_id`, `created_at`, `requested_by`, `DB MARIAM`, selected provider, policy, and fallback list.
 - `GET /api/ai-resources/routes` returns the runtime route history for audit and UI review.
+- Frontend AI Route History displays recent provider routing decisions.
 - AI route storage is accessed through a repository boundary.
 - Local tests use the memory repository; Docker sets `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres` and writes route decisions into `DB MARIAM`.
 - Tests pass.

@@ -68,6 +68,13 @@ async function loadAuditRecords() {
   );
 }
 
+async function loadAIRoutes() {
+  const body = await apiGet('/api/ai-resources/routes');
+  return (body.routes || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -151,6 +158,55 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function AIRouteHistoryPanel({ refreshVersion }) {
+  const [routes, setRoutes] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshRoutes = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setRoutes((await loadAIRoutes()).slice(0, 5));
+      setStatus('ready');
+    } catch (routeError) {
+      setStatus('error');
+      setError(routeError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRoutes();
+  }, [refreshRoutes, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>AI Route History</h2>
+        <p>Review recent provider routing decisions from the AI Resource Manager.</p>
+      </div>
+      <button onClick={refreshRoutes} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh AI Route History'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      <div className="route-history">
+        {routes.length ? (
+          routes.map((route) => (
+            <article key={route.route_id}>
+              <strong>{route.selected_provider.name}</strong>
+              <span>{route.capability}</span>
+              <p>{route.reason}</p>
+              <time>{new Date(route.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No AI route decisions recorded yet.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function AuditHistoryPanel({ refreshVersion }) {
@@ -682,6 +738,7 @@ function App() {
           onActionComplete={refreshCommandCenterSummary}
         />
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
+        <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
         <AuditPanel onActionComplete={refreshCommandCenterSummary} />

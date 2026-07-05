@@ -83,6 +83,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 6. Local-first chat routing selects Ollama as a model runtime provider, not as Mariam Core.
 7. The route history is available from `GET /api/ai-resources/routes`.
 8. Route storage is behind a repository boundary so tests can use memory while Docker writes to Postgres in `DB MARIAM`.
+9. AI Route History reads `GET /api/ai-resources/routes` and refreshes automatically after routing decisions.
 
 ## First Runtime Object Flow
 

@@ -223,7 +223,8 @@ p {
 }
 
 .mission-history,
-.audit-history {
+.audit-history,
+.route-history {
   border-top: 1px solid var(--border);
   display: grid;
   gap: 10px;
@@ -231,7 +232,8 @@ p {
 }
 
 .mission-history article,
-.audit-history article {
+.audit-history article,
+.route-history article {
   background: var(--card2);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -241,7 +243,8 @@ p {
 }
 
 .mission-history strong,
-.audit-history strong {
+.audit-history strong,
+.route-history strong {
   color: var(--green);
   text-transform: uppercase;
 }
@@ -251,7 +254,10 @@ p {
 .mission-history p,
 .audit-history span,
 .audit-history time,
-.audit-history p {
+.audit-history p,
+.route-history span,
+.route-history time,
+.route-history p {
   color: var(--muted);
   font-size: 13px;
   margin: 0;
