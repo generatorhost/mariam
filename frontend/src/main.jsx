@@ -50,6 +50,42 @@ async function routeAIResource() {
   return response.json();
 }
 
+async function registerRuntimeObject() {
+  const response = await fetch('http://localhost:8000/api/runtime-objects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      object_type: 'provider',
+      name: 'Ollama Provider',
+      version: '0.1.0',
+      manifest: { provider_type: 'model_runtime', local: true },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Runtime object registration failed with ${response.status}`);
+  }
+  return response.json();
+}
+
+async function recordAuditDecision() {
+  const response = await fetch('http://localhost:8000/api/audit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      actor_id: 'governance-gate',
+      action: 'artifact.approve',
+      target_type: 'report',
+      target_id: 'report-001',
+      decision: 'approved',
+      evidence: { data_platform: 'DB MARIAM' },
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Audit record failed with ${response.status}`);
+  }
+  return response.json();
+}
+
 function MissionPanel() {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -157,6 +193,98 @@ function AIResourcePanel() {
   );
 }
 
+function RuntimeObjectPanel() {
+  const [runtimeObject, setRuntimeObject] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleRegister() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await registerRuntimeObject();
+      setRuntimeObject(body.runtime_object);
+      setStatus('ready');
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Runtime Object Registry</h2>
+        <p>Register a provider as a governed runtime object stored under DB MARIAM.</p>
+      </div>
+      <button onClick={handleRegister} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Registering...' : 'Register Runtime Object'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {runtimeObject && (
+        <div className="mission-result">
+          <h3>{runtimeObject.name}</h3>
+          <p>
+            Object <strong>{runtimeObject.object_id}</strong> is{' '}
+            <strong>{runtimeObject.status}</strong> as{' '}
+            <strong>{runtimeObject.object_type}</strong>.
+          </p>
+          <p>
+            Version <strong>{runtimeObject.version}</strong> is recorded in{' '}
+            <strong>{runtimeObject.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AuditPanel() {
+  const [auditRecord, setAuditRecord] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleAudit() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await recordAuditDecision();
+      setAuditRecord(body.audit_record);
+      setStatus('ready');
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Governance Audit</h2>
+        <p>Record a governed approval decision through the backend audit API.</p>
+      </div>
+      <button onClick={handleAudit} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Recording...' : 'Record Audit Decision'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {auditRecord && (
+        <div className="mission-result">
+          <h3>{auditRecord.decision}</h3>
+          <p>
+            Audit <strong>{auditRecord.audit_id}</strong> recorded{' '}
+            <strong>{auditRecord.action}</strong> for{' '}
+            <strong>{auditRecord.target_type}</strong>.
+          </p>
+          <p>
+            Actor <strong>{auditRecord.actor_id}</strong> wrote evidence to{' '}
+            <strong>{auditRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function App() {
   return (
     <main className="shell">
@@ -186,6 +314,8 @@ function App() {
         </section>
         <MissionPanel />
         <AIResourcePanel />
+        <RuntimeObjectPanel />
+        <AuditPanel />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>

@@ -75,6 +75,21 @@ The current rebuild foundation supports a small end-to-end mission flow:
 7. The route history is available from `GET /api/ai-resources/routes`.
 8. Route storage is behind a repository boundary so tests can use memory while Docker writes to Postgres in `DB MARIAM`.
 
+## First Runtime Object Flow
+
+1. Press **Register Runtime Object**.
+2. The frontend sends `POST /api/runtime-objects`.
+3. The backend registers an enabled provider runtime object.
+4. The backend emits `runtime_object.registered`.
+5. The backend records an audit decision for the registration.
+
+## First Audit Flow
+
+1. Press **Record Audit Decision**.
+2. The frontend sends `POST /api/audit`.
+3. The backend records a governance decision with evidence.
+4. The backend emits `audit.recorded`.
+
 ## DB MARIAM Runtime Storage
 
 Docker uses `MARIAM_AUDIT_STORE=postgres`, so governance decisions are stored in the `audit_log` table.
@@ -87,5 +102,5 @@ Local tests use the default in-memory repository unless that setting is explicit
 
 ## Current Completion Estimate
 
-- Full Mariam Enterprise OS target: about 21%.
-- Executable rebuild foundation target: about 83%.
+- Full Mariam Enterprise OS target: about 22%.
+- Executable rebuild foundation target: about 85%.

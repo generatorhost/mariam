@@ -33,6 +33,8 @@ Then open:
 - Backend: `http://localhost:8000`
 
 ## Button To Result Flow
+
+### Start CRM Mission
 1. User opens the Command Center.
 2. User presses `Start CRM Mission`.
 3. The React frontend sends:
@@ -72,6 +74,27 @@ with:
    - mission status
    - data platform
    - each step and actor
+
+### Route AI Capability
+1. User presses `Route AI Capability`.
+2. The frontend sends `POST /api/ai-resources/route`.
+3. The backend selects a provider for the requested capability.
+4. The result displays provider, route id, fallbacks, requester, and `DB MARIAM`.
+
+### Register Runtime Object
+1. User presses `Register Runtime Object`.
+2. The frontend sends `POST /api/runtime-objects`.
+3. The backend creates an enabled runtime object.
+4. The backend emits `runtime_object.registered`.
+5. The backend records an audit decision for the registration.
+6. The frontend displays object id, status, type, version, and `DB MARIAM`.
+
+### Record Audit Decision
+1. User presses `Record Audit Decision`.
+2. The frontend sends `POST /api/audit`.
+3. The backend stores the approval decision and evidence.
+4. The backend emits `audit.recorded`.
+5. The frontend displays audit id, action, target, actor, and `DB MARIAM`.
 
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
@@ -145,6 +168,7 @@ pytest
 
 ## Acceptance Criteria
 - Pressing the frontend button has a real backend result.
+- Frontend exposes mission, AI routing, runtime object, and audit flows.
 - Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
@@ -161,5 +185,5 @@ pytest
 - Frontend production build succeeds.
 
 ## Current Completion Estimate
-- Full Mariam Enterprise OS target: about 21%.
-- Executable rebuild foundation target: about 83%.
+- Full Mariam Enterprise OS target: about 22%.
+- Executable rebuild foundation target: about 85%.
