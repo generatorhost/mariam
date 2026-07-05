@@ -1,9 +1,17 @@
 from fastapi import APIRouter, Depends
 
-from app.dependencies import get_event_bus
+from app.dependencies import get_command_center_summary_service, get_event_bus
 from app.core.events import InMemoryEventBus
+from app.services.command_center import CommandCenterSummaryService
 
 router = APIRouter(prefix="/api/runtime", tags=["runtime"])
+
+
+@router.get("/summary")
+def command_center_summary(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return service.summarize().__dict__
 
 
 @router.get("/events")

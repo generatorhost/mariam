@@ -41,23 +41,15 @@ async function apiGet(path) {
 }
 
 async function loadSystemStatus() {
-  const [health, runtimeObjects, plugins, events, audit, missions, aiRoutes] = await Promise.all([
-    apiGet('/api/health'),
-    apiGet('/api/runtime-objects'),
-    apiGet('/api/plugins'),
-    apiGet('/api/runtime/events'),
-    apiGet('/api/audit'),
-    apiGet('/api/missions'),
-    apiGet('/api/ai-resources/routes'),
-  ]);
+  const summary = await apiGet('/api/runtime/summary');
   return {
-    health: health.status,
-    runtimeObjects: runtimeObjects.runtime_objects.length,
-    plugins: plugins.plugins.length,
-    events: events.events.length,
-    auditRecords: audit.audit_records.length,
-    missions: missions.missions.length,
-    aiRoutes: aiRoutes.routes.length,
+    health: summary.health,
+    runtimeObjects: summary.runtime_objects,
+    plugins: summary.plugins,
+    events: summary.runtime_events,
+    auditRecords: summary.audit_records,
+    missions: summary.missions,
+    aiRoutes: summary.ai_routes,
   };
 }
 
@@ -152,7 +144,7 @@ function SystemStatusPanel() {
     <section className="panel mission-panel">
       <div>
         <h2>System Status</h2>
-        <p>Refresh live counts from the backend runtime and governance APIs.</p>
+        <p>Refresh live command center counts from the backend runtime summary API.</p>
       </div>
       <button onClick={handleRefresh} disabled={status === 'loading'}>
         {status === 'loading' ? 'Refreshing...' : 'Refresh System Status'}

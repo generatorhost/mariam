@@ -205,6 +205,42 @@ def test_runtime_event_endpoint_reads_saved_event_history() -> None:
     assert event["payload"]["data_platform"] == "DB MARIAM"
 
 
+def test_runtime_summary_reports_command_center_counts() -> None:
+    client = TestClient(create_app())
+    client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Command Center Summary Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime"},
+        },
+    )
+    client.post(
+        "/api/audit",
+        json={
+            "actor_id": "command-center",
+            "action": "runtime.summary.refresh",
+            "target_type": "dashboard",
+            "target_id": "command-center",
+            "decision": "approved",
+            "evidence": {"data_platform": "DB MARIAM"},
+        },
+    )
+
+    response = client.get("/api/runtime/summary")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["health"] == "healthy"
+    assert body["runtime_objects"] >= 1
+    assert body["audit_records"] >= 1
+    assert isinstance(body["plugins"], int)
+    assert isinstance(body["missions"], int)
+    assert isinstance(body["ai_routes"], int)
+    assert isinstance(body["runtime_events"], int)
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

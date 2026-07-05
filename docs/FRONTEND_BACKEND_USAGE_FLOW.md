@@ -38,9 +38,10 @@ The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose 
 
 ### Refresh System Status
 1. User presses `Refresh System Status`.
-2. The frontend reads health, runtime objects, plugins, missions, AI routes, audit records, and runtime events.
-3. The backend returns live counts from the current repository configuration.
-4. The frontend displays the runtime summary in one compact status grid.
+2. The frontend sends `GET /api/runtime/summary`.
+3. The backend reads health, runtime objects, plugins, missions, AI routes, audit records, and runtime events through the current repository configuration.
+4. The backend returns one Command Center summary payload.
+5. The frontend displays the runtime summary in one compact status grid.
 
 ### Start CRM Mission
 1. User opens the Command Center.
@@ -189,6 +190,7 @@ pytest
 - Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
+- The Command Center status panel reads aggregated counts from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
@@ -201,8 +203,8 @@ pytest
 - Tests pass.
 - Frontend production build succeeds.
 - Frontend API calls use one configurable base URL.
-- Frontend status panel reads live backend counts.
+- Frontend status panel reads live backend counts through one Command Center summary API.
 
 ## Current Completion Estimate
-- Full Mariam Enterprise OS target: about 23%.
-- Executable rebuild foundation target: about 89%.
+- Full Mariam Enterprise OS target: about 24%.
+- Executable rebuild foundation target: about 90%.
