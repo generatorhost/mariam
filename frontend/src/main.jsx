@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Boxes, CheckCircle2, Database, ShieldCheck } from 'lucide-react';
 import './styles.css';
@@ -128,7 +128,7 @@ function SystemStatusPanel() {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
-  async function handleRefresh() {
+  const refreshSummary = useCallback(async () => {
     setStatus('loading');
     setError('');
     try {
@@ -138,7 +138,11 @@ function SystemStatusPanel() {
       setStatus('error');
       setError(statusError.message);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    refreshSummary();
+  }, [refreshSummary]);
 
   return (
     <section className="panel mission-panel">
@@ -146,7 +150,7 @@ function SystemStatusPanel() {
         <h2>System Status</h2>
         <p>Refresh live command center counts from the backend runtime summary API.</p>
       </div>
-      <button onClick={handleRefresh} disabled={status === 'loading'}>
+      <button onClick={refreshSummary} disabled={status === 'loading'}>
         {status === 'loading' ? 'Refreshing...' : 'Refresh System Status'}
       </button>
       {error && <p className="error">{error}</p>}

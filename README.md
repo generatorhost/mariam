@@ -53,7 +53,7 @@ pytest
 
 The current rebuild foundation supports a small end-to-end mission flow:
 
-0. Press **Refresh System Status** to call `GET /api/runtime/summary` and read backend health, runtime, governance, mission, plugin, audit, and AI routing counts from one Command Center API.
+0. Open the Command Center to automatically call `GET /api/runtime/summary`; press **Refresh System Status** to reload backend health, runtime, governance, mission, plugin, audit, and AI routing counts from the same Command Center API.
 
 1. Open the Command Center.
 2. Press **Start CRM Mission**.
