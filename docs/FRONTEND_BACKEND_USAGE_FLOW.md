@@ -89,6 +89,14 @@ with:
 5. The backend records an audit decision for the registration.
 6. The frontend displays object id, status, type, version, and `DB MARIAM`.
 
+### Register CRM Plugin
+1. User presses `Register CRM Plugin`.
+2. The frontend sends `POST /api/plugins`.
+3. The backend validates the plugin manifest contract.
+4. The backend stores the plugin in the configured plugin repository.
+5. The backend emits `plugin.registered`.
+6. The frontend displays plugin id, dashboard route, Chief Agent, and data boundary.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -168,7 +176,7 @@ pytest
 
 ## Acceptance Criteria
 - Pressing the frontend button has a real backend result.
-- Frontend exposes mission, AI routing, runtime object, and audit flows.
+- Frontend exposes mission, AI routing, plugin registration, runtime object, and audit flows.
 - Audit records are available from `GET /api/audit`.
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Registered plugins are available from `GET /api/plugins`.
@@ -185,5 +193,5 @@ pytest
 - Frontend production build succeeds.
 
 ## Current Completion Estimate
-- Full Mariam Enterprise OS target: about 22%.
-- Executable rebuild foundation target: about 85%.
+- Full Mariam Enterprise OS target: about 23%.
+- Executable rebuild foundation target: about 87%.

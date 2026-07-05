@@ -83,6 +83,14 @@ The current rebuild foundation supports a small end-to-end mission flow:
 4. The backend emits `runtime_object.registered`.
 5. The backend records an audit decision for the registration.
 
+## First Plugin Registry Flow
+
+1. Press **Register CRM Plugin**.
+2. The frontend sends `POST /api/plugins`.
+3. The backend validates the plugin manifest.
+4. The backend stores the plugin in the registry repository.
+5. The backend emits `plugin.registered`.
+
 ## First Audit Flow
 
 1. Press **Record Audit Decision**.
@@ -102,5 +110,5 @@ Local tests use the default in-memory repository unless that setting is explicit
 
 ## Current Completion Estimate
 
-- Full Mariam Enterprise OS target: about 22%.
-- Executable rebuild foundation target: about 85%.
+- Full Mariam Enterprise OS target: about 23%.
+- Executable rebuild foundation target: about 87%.

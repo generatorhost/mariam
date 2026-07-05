@@ -50,6 +50,48 @@ async function routeAIResource() {
   return response.json();
 }
 
+async function registerCRMPlugin() {
+  const response = await fetch('http://localhost:8000/api/plugins', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plugin_id: 'crm',
+      name: 'CRM Workspace',
+      version: '0.1.0',
+      dashboard_route: '/plugins/crm',
+      settings_schema: {
+        type: 'object',
+        properties: {
+          pipelineStages: { type: 'array', items: { type: 'string' } },
+        },
+      },
+      api_prefix: '/api/plugins/crm',
+      data_boundary: 'private-plugin-tables',
+      permissions: ['crm.read', 'crm.write', 'crm.approve'],
+      produced_events: ['crm.lead.created', 'crm.pipeline.updated'],
+      consumed_events: ['communication.message.received', 'opportunity.detected'],
+      chief_agent_role: 'CRM Chief Agent',
+      swarm_roles: ['Lead Qualifier', 'Pipeline Planner', 'Client Follow-up Reviewer'],
+      workflows: ['lead-intake', 'pipeline-review', 'client-follow-up'],
+      provider_dependencies: [],
+      connector_dependencies: ['email', 'whatsapp'],
+      runtime_dependencies: ['event_bus', 'audit_log', 'mariam_data_platform'],
+      tests: ['api', 'runtime', 'permissions', 'data-boundary'],
+      acceptance_criteria: [
+        'Plugin registers through the runtime registry.',
+        'Plugin declares dashboard, settings, permissions, workflows, and rollback.',
+        'Plugin data is isolated from the core runtime tables.',
+      ],
+      rollback_plan:
+        'Disable plugin routes and workers, keep CRM data read-only, and emit plugin.rollback.started.',
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Plugin registration failed with ${response.status}`);
+  }
+  return response.json();
+}
+
 async function registerRuntimeObject() {
   const response = await fetch('http://localhost:8000/api/runtime-objects', {
     method: 'POST',
@@ -193,6 +235,51 @@ function AIResourcePanel() {
   );
 }
 
+function PluginPanel() {
+  const [plugin, setPlugin] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleRegisterPlugin() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await registerCRMPlugin();
+      setPlugin(body.plugin);
+      setStatus('ready');
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Plugin Registry</h2>
+        <p>Register the CRM workspace as a Plugin-managed Business Unit.</p>
+      </div>
+      <button onClick={handleRegisterPlugin} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Registering...' : 'Register CRM Plugin'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {plugin && (
+        <div className="mission-result">
+          <h3>{plugin.name}</h3>
+          <p>
+            Plugin <strong>{plugin.plugin_id}</strong> exposes{' '}
+            <strong>{plugin.dashboard_route}</strong>.
+          </p>
+          <p>
+            <strong>{plugin.chief_agent_role}</strong> owns a{' '}
+            <strong>{plugin.data_boundary}</strong> boundary.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function RuntimeObjectPanel() {
   const [runtimeObject, setRuntimeObject] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -314,6 +401,7 @@ function App() {
         </section>
         <MissionPanel />
         <AIResourcePanel />
+        <PluginPanel />
         <RuntimeObjectPanel />
         <AuditPanel />
         <section className="panel">
