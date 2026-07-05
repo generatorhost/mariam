@@ -129,6 +129,8 @@ def test_ai_resource_manager_routes_capability_to_local_provider() -> None:
     decision = response.json()["decision"]
     assert decision["route_id"]
     assert decision["created_at"]
+    assert decision["requested_by"] == "crm-chief"
+    assert decision["data_platform"] == "DB MARIAM"
     assert decision["selected_provider"]["provider_id"] == "ollama"
     assert decision["policy"] == "chief_requests_capability_ai_resource_manager_selects_provider"
 
@@ -149,6 +151,9 @@ def test_ai_resource_route_is_auditable_from_runtime_history() -> None:
     event_response = client.get("/api/runtime/events")
 
     assert route_id in [route["route_id"] for route in routes_response.json()["routes"]]
+    route = next(route for route in routes_response.json()["routes"] if route["route_id"] == route_id)
+    assert route["requested_by"] == "crm-chief"
+    assert route["data_platform"] == "DB MARIAM"
     assert route_id in [
         event["payload"].get("route_id")
         for event in event_response.json()["events"]

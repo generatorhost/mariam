@@ -1,6 +1,7 @@
 from functools import lru_cache
 
 from app.core.events import InMemoryEventBus
+from app.repositories.ai_resource_routes import InMemoryAIResourceRouteRepository
 from app.services.ai_resources import AIResourceManager
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -22,5 +23,10 @@ def get_mission_service() -> MissionService:
 
 
 @lru_cache
+def get_ai_resource_route_repository() -> InMemoryAIResourceRouteRepository:
+    return InMemoryAIResourceRouteRepository()
+
+
+@lru_cache
 def get_ai_resource_manager() -> AIResourceManager:
-    return AIResourceManager(get_event_bus())
+    return AIResourceManager(get_event_bus(), get_ai_resource_route_repository())

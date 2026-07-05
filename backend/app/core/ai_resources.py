@@ -25,6 +25,8 @@ class ResourceRouteDecision(BaseModel):
     selected_provider: ModelProvider
     reason: str
     policy: str
+    requested_by: str
+    data_platform: str = "DB MARIAM"
     fallback_provider_ids: list[str]
     created_at: datetime
 

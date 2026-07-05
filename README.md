@@ -64,5 +64,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 2. The frontend sends `POST /api/ai-resources/route`.
 3. The backend selects an approved provider for the requested capability.
 4. The backend records a route decision with `route_id` and `created_at`.
-5. Local-first chat routing selects Ollama as a model runtime provider, not as Mariam Core.
-6. The route history is available from `GET /api/ai-resources/routes`.
+5. The route decision includes `requested_by` and the `DB MARIAM` data boundary.
+6. Local-first chat routing selects Ollama as a model runtime provider, not as Mariam Core.
+7. The route history is available from `GET /api/ai-resources/routes`.
+8. Route storage is behind a repository boundary so it can move from memory to Postgres without changing the API contract.

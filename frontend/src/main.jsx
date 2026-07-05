@@ -137,6 +137,10 @@ function AIResourcePanel() {
             <strong>{new Date(decision.created_at).toLocaleString()}</strong>.
           </p>
           <p>
+            Requested by <strong>{decision.requested_by}</strong> under{' '}
+            <strong>{decision.data_platform}</strong>.
+          </p>
+          <p>
             Capability <strong>{decision.capability}</strong> is routed to{' '}
             <strong>{decision.selected_provider.provider_type}</strong>.
           </p>
