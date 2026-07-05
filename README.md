@@ -108,7 +108,12 @@ Docker uses `MARIAM_MISSION_STORE=postgres`, so mission history is stored in the
 Docker uses `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres`, so AI resource route decisions are stored in the `ai_resource_routes` table.
 Local tests use the default in-memory repository unless that setting is explicitly changed.
 
+## Frontend API Configuration
+
+The Command Center uses `VITE_MARIAM_API_BASE_URL` for all backend calls.
+The default is `http://localhost:8000`, and Docker Compose passes the same value to the frontend service.
+
 ## Current Completion Estimate
 
 - Full Mariam Enterprise OS target: about 23%.
-- Executable rebuild foundation target: about 87%.
+- Executable rebuild foundation target: about 88%.

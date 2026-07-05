@@ -18,114 +18,88 @@ const terms = [
   'Governance Gate',
 ];
 
-async function startMission() {
-  const response = await fetch('http://localhost:8000/api/missions', {
+const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
+
+async function apiRequest(path, body) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      plugin_id: 'crm',
-      user_request: 'Create a follow-up plan for a qualified lead',
-      requested_by: 'command-center',
-    }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`Mission request failed with ${response.status}`);
+    throw new Error(`API request to ${path} failed with ${response.status}`);
   }
   return response.json();
+}
+
+async function startMission() {
+  return apiRequest('/api/missions', {
+    plugin_id: 'crm',
+    user_request: 'Create a follow-up plan for a qualified lead',
+    requested_by: 'command-center',
+  });
 }
 
 async function routeAIResource() {
-  const response = await fetch('http://localhost:8000/api/ai-resources/route', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      capability: 'chat',
-      privacy_preference: 'local_first',
-      requested_by: 'command-center',
-    }),
+  return apiRequest('/api/ai-resources/route', {
+    capability: 'chat',
+    privacy_preference: 'local_first',
+    requested_by: 'command-center',
   });
-  if (!response.ok) {
-    throw new Error(`AI resource routing failed with ${response.status}`);
-  }
-  return response.json();
 }
 
 async function registerCRMPlugin() {
-  const response = await fetch('http://localhost:8000/api/plugins', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      plugin_id: 'crm',
-      name: 'CRM Workspace',
-      version: '0.1.0',
-      dashboard_route: '/plugins/crm',
-      settings_schema: {
-        type: 'object',
-        properties: {
-          pipelineStages: { type: 'array', items: { type: 'string' } },
-        },
+  return apiRequest('/api/plugins', {
+    plugin_id: 'crm',
+    name: 'CRM Workspace',
+    version: '0.1.0',
+    dashboard_route: '/plugins/crm',
+    settings_schema: {
+      type: 'object',
+      properties: {
+        pipelineStages: { type: 'array', items: { type: 'string' } },
       },
-      api_prefix: '/api/plugins/crm',
-      data_boundary: 'private-plugin-tables',
-      permissions: ['crm.read', 'crm.write', 'crm.approve'],
-      produced_events: ['crm.lead.created', 'crm.pipeline.updated'],
-      consumed_events: ['communication.message.received', 'opportunity.detected'],
-      chief_agent_role: 'CRM Chief Agent',
-      swarm_roles: ['Lead Qualifier', 'Pipeline Planner', 'Client Follow-up Reviewer'],
-      workflows: ['lead-intake', 'pipeline-review', 'client-follow-up'],
-      provider_dependencies: [],
-      connector_dependencies: ['email', 'whatsapp'],
-      runtime_dependencies: ['event_bus', 'audit_log', 'mariam_data_platform'],
-      tests: ['api', 'runtime', 'permissions', 'data-boundary'],
-      acceptance_criteria: [
-        'Plugin registers through the runtime registry.',
-        'Plugin declares dashboard, settings, permissions, workflows, and rollback.',
-        'Plugin data is isolated from the core runtime tables.',
-      ],
-      rollback_plan:
-        'Disable plugin routes and workers, keep CRM data read-only, and emit plugin.rollback.started.',
-    }),
+    },
+    api_prefix: '/api/plugins/crm',
+    data_boundary: 'private-plugin-tables',
+    permissions: ['crm.read', 'crm.write', 'crm.approve'],
+    produced_events: ['crm.lead.created', 'crm.pipeline.updated'],
+    consumed_events: ['communication.message.received', 'opportunity.detected'],
+    chief_agent_role: 'CRM Chief Agent',
+    swarm_roles: ['Lead Qualifier', 'Pipeline Planner', 'Client Follow-up Reviewer'],
+    workflows: ['lead-intake', 'pipeline-review', 'client-follow-up'],
+    provider_dependencies: [],
+    connector_dependencies: ['email', 'whatsapp'],
+    runtime_dependencies: ['event_bus', 'audit_log', 'mariam_data_platform'],
+    tests: ['api', 'runtime', 'permissions', 'data-boundary'],
+    acceptance_criteria: [
+      'Plugin registers through the runtime registry.',
+      'Plugin declares dashboard, settings, permissions, workflows, and rollback.',
+      'Plugin data is isolated from the core runtime tables.',
+    ],
+    rollback_plan:
+      'Disable plugin routes and workers, keep CRM data read-only, and emit plugin.rollback.started.',
   });
-  if (!response.ok) {
-    throw new Error(`Plugin registration failed with ${response.status}`);
-  }
-  return response.json();
 }
 
 async function registerRuntimeObject() {
-  const response = await fetch('http://localhost:8000/api/runtime-objects', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      object_type: 'provider',
-      name: 'Ollama Provider',
-      version: '0.1.0',
-      manifest: { provider_type: 'model_runtime', local: true },
-    }),
+  return apiRequest('/api/runtime-objects', {
+    object_type: 'provider',
+    name: 'Ollama Provider',
+    version: '0.1.0',
+    manifest: { provider_type: 'model_runtime', local: true },
   });
-  if (!response.ok) {
-    throw new Error(`Runtime object registration failed with ${response.status}`);
-  }
-  return response.json();
 }
 
 async function recordAuditDecision() {
-  const response = await fetch('http://localhost:8000/api/audit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      actor_id: 'governance-gate',
-      action: 'artifact.approve',
-      target_type: 'report',
-      target_id: 'report-001',
-      decision: 'approved',
-      evidence: { data_platform: 'DB MARIAM' },
-    }),
+  return apiRequest('/api/audit', {
+    actor_id: 'governance-gate',
+    action: 'artifact.approve',
+    target_type: 'report',
+    target_id: 'report-001',
+    decision: 'approved',
+    evidence: { data_platform: 'DB MARIAM' },
   });
-  if (!response.ok) {
-    throw new Error(`Audit record failed with ${response.status}`);
-  }
-  return response.json();
 }
 
 function MissionPanel() {

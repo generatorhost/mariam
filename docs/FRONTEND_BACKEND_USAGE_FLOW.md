@@ -32,6 +32,8 @@ Then open:
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8000`
 
+The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose sets it to `http://localhost:8000`.
+
 ## Button To Result Flow
 
 ### Start CRM Mission
@@ -120,6 +122,7 @@ with:
 - Event bus: `backend/app/core/events.py`
 - Event repository: `backend/app/repositories/events.py`
 - Runtime wiring: `backend/app/dependencies.py`
+- Frontend API client: `frontend/src/main.jsx`
 
 ## Database Layer
 The official display name is `DB MARIAM`.
@@ -191,7 +194,8 @@ pytest
 - Local tests use the memory repository; Docker sets `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres` and writes route decisions into `DB MARIAM`.
 - Tests pass.
 - Frontend production build succeeds.
+- Frontend API calls use one configurable base URL.
 
 ## Current Completion Estimate
 - Full Mariam Enterprise OS target: about 23%.
-- Executable rebuild foundation target: about 87%.
+- Executable rebuild foundation target: about 88%.

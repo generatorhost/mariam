@@ -16,6 +16,8 @@ services:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
+    environment:
+      VITE_MARIAM_API_BASE_URL: http://localhost:8000
     ports:
       - "5173:5173"
     depends_on:
