@@ -105,6 +105,25 @@ def test_mission_creation_emits_runtime_event() -> None:
     assert "mission.created" in names
 
 
+def test_runtime_event_endpoint_reads_saved_event_history() -> None:
+    client = TestClient(create_app())
+    publish_response = client.post(
+        "/api/runtime/events",
+        json={
+            "name": "runtime.audit.test",
+            "source": "test-suite",
+            "payload": {"data_platform": "DB MARIAM"},
+        },
+    )
+    event_id = publish_response.json()["event"]["event_id"]
+
+    list_response = client.get("/api/runtime/events")
+
+    assert event_id in [event["event_id"] for event in list_response.json()["events"]]
+    event = next(event for event in list_response.json()["events"] if event["event_id"] == event_id)
+    assert event["payload"]["data_platform"] == "DB MARIAM"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(
@@ -216,3 +235,12 @@ def test_mission_schema_targets_db_mariam() -> None:
     assert "mission_id UUID NOT NULL REFERENCES missions" in migration
     assert "step_order INTEGER NOT NULL" in migration
     assert "ADD COLUMN IF NOT EXISTS step_order" in step_order
+
+
+def test_runtime_event_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    migration = migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS runtime_events" in migration
+    assert "payload JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "idx_runtime_events_name_created" in migration

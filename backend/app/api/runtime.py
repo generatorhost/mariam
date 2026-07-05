@@ -19,4 +19,3 @@ def publish_event(payload: dict, event_bus: InMemoryEventBus = Depends(get_event
         payload=dict(payload.get("payload", {})),
     )
     return {"event": event.__dict__}
-

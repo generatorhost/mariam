@@ -10,6 +10,7 @@ The current codebase is the first foundation, not the full Mariam platform. It i
 - React Command Center frontend.
 - Plugin manifest runtime contract.
 - Runtime event bus.
+- Runtime event repository boundary.
 - Mission API.
 - Mission repository boundary.
 - DB MARIAM migration foundation using the technical database identifier `db_mariam`.
@@ -59,10 +60,11 @@ with:
    - governance gate
    - `DB MARIAM` as the data platform boundary
 8. The runtime event bus emits `mission.created`.
-9. The mission is saved through the configured mission repository.
-10. Docker stores the mission in `missions` and its ordered steps in `mission_steps`.
-11. The backend returns the mission JSON.
-12. The frontend renders:
+9. The event is saved through the configured runtime event repository.
+10. The mission is saved through the configured mission repository.
+11. Docker stores the mission in `missions` and its ordered steps in `mission_steps`.
+12. The backend returns the mission JSON.
+13. The frontend renders:
    - mission id
    - mission status
    - data platform
@@ -76,6 +78,7 @@ with:
 - Mission repository: `backend/app/repositories/missions.py`
 - AI Resource Manager: `backend/app/services/ai_resources.py`
 - Event bus: `backend/app/core/events.py`
+- Event repository: `backend/app/repositories/events.py`
 - Runtime wiring: `backend/app/dependencies.py`
 
 ## Database Layer
@@ -93,6 +96,7 @@ The migration adds:
 - `mission_steps`
 
 These tables are the first executable Mission DB boundary.
+Docker sets `MARIAM_EVENT_STORE=postgres` and writes runtime event history into `DB MARIAM`.
 Local tests use the memory mission repository; Docker sets `MARIAM_MISSION_STORE=postgres` and writes mission history into `DB MARIAM`.
 
 ## Result Contract

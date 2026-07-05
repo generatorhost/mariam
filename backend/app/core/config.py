@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     object_storage_endpoint: str = "http://localhost:9000"
     object_storage_bucket: str = "mariam-artifacts"
     api_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    event_store: str = "memory"
     mission_store: str = "memory"
     ai_resource_route_store: str = "memory"
 

@@ -57,8 +57,9 @@ The current rebuild foundation supports a small end-to-end mission flow:
 5. The mission records the Plugin Chief, runtime scheduling step, approval gate, and `DB MARIAM` data platform boundary.
 6. The backend emits `mission.created`.
 7. The mission is saved behind a repository boundary.
-8. Docker stores mission history in the `missions` and ordered `mission_steps` tables.
-9. The frontend displays the mission status and step-by-step result.
+8. The runtime event is saved behind an event repository boundary.
+9. Docker stores mission history in the `missions` and ordered `mission_steps` tables.
+10. The frontend displays the mission status and step-by-step result.
 
 ## First AI Resource Flow
 
@@ -73,6 +74,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 
 ## DB MARIAM Runtime Storage
 
+Docker uses `MARIAM_EVENT_STORE=postgres`, so runtime events are stored in the `runtime_events` table.
 Docker uses `MARIAM_MISSION_STORE=postgres`, so mission history is stored in the `missions` and `mission_steps` tables.
 Docker uses `MARIAM_AI_RESOURCE_ROUTE_STORE=postgres`, so AI resource route decisions are stored in the `ai_resource_routes` table.
 Local tests use the default in-memory repository unless that setting is explicitly changed.

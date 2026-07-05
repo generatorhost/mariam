@@ -7,6 +7,11 @@ from app.repositories.ai_resource_routes import (
     InMemoryAIResourceRouteRepository,
     PostgresAIResourceRouteRepository,
 )
+from app.repositories.events import (
+    EventRepository,
+    InMemoryEventRepository,
+    PostgresEventRepository,
+)
 from app.repositories.missions import (
     InMemoryMissionRepository,
     MissionRepository,
@@ -19,7 +24,15 @@ from app.services.runtime import RuntimeRegistry
 
 @lru_cache
 def get_event_bus() -> InMemoryEventBus:
-    return InMemoryEventBus()
+    return InMemoryEventBus(get_event_repository())
+
+
+@lru_cache
+def get_event_repository() -> EventRepository:
+    settings = get_settings()
+    if settings.event_store == "postgres":
+        return PostgresEventRepository(settings.database_url)
+    return InMemoryEventRepository()
 
 
 @lru_cache

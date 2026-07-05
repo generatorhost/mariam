@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 
@@ -13,9 +13,17 @@ class Event:
     created_at: datetime
 
 
+class EventStore(Protocol):
+    def save(self, event: Event) -> Event:
+        pass
+
+    def list(self) -> list[Event]:
+        pass
+
+
 class InMemoryEventBus:
-    def __init__(self) -> None:
-        self._events: list[Event] = []
+    def __init__(self, store: EventStore) -> None:
+        self._store = store
 
     def publish(self, name: str, source: str, payload: dict[str, Any] | None = None) -> Event:
         event = Event(
@@ -25,9 +33,7 @@ class InMemoryEventBus:
             event_id=str(uuid4()),
             created_at=datetime.now(UTC),
         )
-        self._events.append(event)
-        return event
+        return self._store.save(event)
 
     def list_events(self) -> list[Event]:
-        return list(self._events)
-
+        return self._store.list()
