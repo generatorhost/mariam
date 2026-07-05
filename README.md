@@ -69,6 +69,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 12. The backend updates the mission status to `approved`, emits `mission.approved`, and records a governance audit decision.
 13. Press **Reject Mission** to call `POST /api/missions/{mission_id}/reject`.
 14. The backend updates the mission status to `rejected`, emits `mission.rejected`, and records rejection evidence in the audit log.
+15. Mission History reads `GET /api/missions` and refreshes automatically after create, approve, or reject actions.
 
 ## First AI Resource Flow
 
@@ -122,4 +123,4 @@ The default is `http://localhost:8000`, and Docker Compose passes the same value
 ## Current Completion Estimate
 
 - Full Mariam Enterprise OS target: about 25%.
-- Executable rebuild foundation target: about 95%.
+- Executable rebuild foundation target: about 96%.

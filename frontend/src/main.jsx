@@ -54,6 +54,13 @@ async function loadSystemStatus() {
   };
 }
 
+async function loadMissions() {
+  const body = await apiGet('/api/missions');
+  return (body.missions || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function startMission() {
   return apiRequest('/api/missions', {
     plugin_id: 'crm',
@@ -137,6 +144,55 @@ async function recordAuditDecision() {
     decision: 'approved',
     evidence: { data_platform: 'DB MARIAM' },
   });
+}
+
+function MissionHistoryPanel({ refreshVersion }) {
+  const [missions, setMissions] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshMissions = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setMissions((await loadMissions()).slice(0, 5));
+      setStatus('ready');
+    } catch (missionError) {
+      setStatus('error');
+      setError(missionError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshMissions();
+  }, [refreshMissions, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Mission History</h2>
+        <p>Review recent governed missions from the backend mission repository.</p>
+      </div>
+      <button onClick={refreshMissions} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Mission History'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      <div className="mission-history">
+        {missions.length ? (
+          missions.map((item) => (
+            <article key={item.mission_id}>
+              <strong>{item.status}</strong>
+              <span>{item.chief_agent}</span>
+              <p>{item.user_request}</p>
+              <time>{new Date(item.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No missions recorded yet.</p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function SystemStatusPanel({ refreshVersion }) {
@@ -530,6 +586,7 @@ function App() {
         </section>
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
+        <MissionHistoryPanel refreshVersion={refreshVersion} />
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />

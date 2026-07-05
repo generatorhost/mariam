@@ -222,6 +222,35 @@ p {
   font-size: 13px;
 }
 
+.mission-history {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.mission-history article {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+}
+
+.mission-history strong {
+  color: var(--green);
+  text-transform: uppercase;
+}
+
+.mission-history span,
+.mission-history time,
+.mission-history p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
 .error {
   color: #ff3d3d;
 }

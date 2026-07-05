@@ -87,6 +87,7 @@ with:
    - each step and actor
 14. The frontend refreshes `GET /api/runtime/summary` so mission and event counts update automatically.
 15. If the mission is `awaiting_approval`, the frontend shows `Approve Mission` and `Reject Mission`.
+16. The Mission History panel refreshes `GET /api/missions` and displays the new mission in the recent list.
 
 ### Approve CRM Mission
 1. User presses `Approve Mission`.
@@ -113,6 +114,7 @@ with:
 6. The backend emits `mission.approved`.
 7. The frontend replaces the mission result with the approved mission state.
 8. The frontend refreshes `GET /api/runtime/summary` so audit and event activity update automatically.
+9. The Mission History panel refreshes and shows the mission as `approved`.
 
 ### Reject CRM Mission
 1. User presses `Reject Mission`.
@@ -140,6 +142,19 @@ with:
 6. The backend emits `mission.rejected`.
 7. The frontend replaces the mission result with the rejected mission state.
 8. The frontend refreshes `GET /api/runtime/summary` so audit and event activity update automatically.
+9. The Mission History panel refreshes and shows the mission as `rejected`.
+
+### Review Mission History
+1. User opens the Command Center.
+2. The frontend automatically sends:
+
+```http
+GET /api/missions
+```
+
+3. The backend reads mission records through the configured mission repository.
+4. The frontend displays the most recent mission records with status, Chief Agent, request, and creation time.
+5. If the user presses `Refresh Mission History`, the frontend repeats the same call.
 
 ### Route AI Capability
 1. User presses `Route AI Capability`.
@@ -260,6 +275,7 @@ pytest
 - The backend can reject a mission through a governance endpoint.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
+- Frontend Mission History displays recent mission repository records.
 - The event bus records mission creation.
 - AI capability routing can select a governed provider such as Ollama without making Ollama the system core.
 - Every AI resource route returns a `route_id`, `created_at`, `requested_by`, `DB MARIAM`, selected provider, policy, and fallback list.
@@ -273,4 +289,4 @@ pytest
 
 ## Current Completion Estimate
 - Full Mariam Enterprise OS target: about 25%.
-- Executable rebuild foundation target: about 95%.
+- Executable rebuild foundation target: about 96%.
