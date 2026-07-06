@@ -84,6 +84,15 @@ async function loadPluginTimeline(pluginId) {
   return apiGet(`/api/plugins/${pluginId}/timeline`);
 }
 
+async function updatePluginSettings(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/settings`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Updated Plugin-managed Business Unit settings from Command Center.',
+    settings: { pipelineStages: ['new', 'qualified', 'proposal', 'won'] },
+    evidence: { review: 'operator-updated-plugin-settings' },
+  }, { method: 'PATCH' });
+}
+
 async function loadRuntimeObjects() {
   const body = await apiGet('/api/runtime-objects');
   return (body.runtime_objects || []).sort(
@@ -648,6 +657,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [pluginDnaPackage, setPluginDnaPackage] = useState(null);
   const [pluginDnaImport, setPluginDnaImport] = useState(null);
   const [pluginTimeline, setPluginTimeline] = useState(null);
+  const [pluginSettings, setPluginSettings] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -774,6 +784,20 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginSettingsUpdate = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const settings = await updatePluginSettings(pluginId);
+      setPluginSettings(settings);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -832,6 +856,13 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
             {pluginTimeline.summary.audit_records} audit records and{' '}
             {pluginTimeline.summary.events} runtime events.
           </p>
+        </div>
+      )}
+      {pluginSettings && (
+        <div className="mission-result">
+          <strong>Plugin Settings Updated</strong>
+          <span>{pluginSettings.plugin_id}</span>
+          <p>{(pluginSettings.settings_values.pipelineStages || []).join(' -> ')}</p>
         </div>
       )}
       <div className="plugin-history">
@@ -911,6 +942,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   disabled={status === 'loading'}
                 >
                   Review Plugin Timeline
+                </button>
+                <button
+                  onClick={() => handlePluginSettingsUpdate(plugin.plugin_id)}
+                  disabled={status === 'loading' || plugin.status === 'deleted'}
+                >
+                  Update Plugin Settings
                 </button>
                 {plugin.status === 'deleted' ? (
                   <button

@@ -565,6 +565,21 @@ GET /api/plugins/{plugin_id}/timeline
 6. The backend returns plugin status, audit records, runtime events, rollback count, and summary counts.
 7. The frontend displays the plugin id with audit and event counts.
 
+### Update Plugin Settings
+1. User presses `Update Plugin Settings` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+PATCH /api/plugins/{plugin_id}/settings
+```
+
+3. The backend verifies that the plugin exists and is not deleted.
+4. The backend checks submitted setting keys against `settings_schema.properties` when the schema declares properties.
+5. The backend merges the submitted settings into `settings_values`.
+6. The backend records `plugin.settings_update` in the audit log.
+7. The backend emits `plugin.settings_update`.
+8. The frontend displays the updated setting values and refreshes Plugin Registry History.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -695,6 +710,7 @@ pytest
 - Plugins can be exported as governed DNA packages.
 - Plugin DNA packages can be imported as disabled Plugin-managed Business Units for review.
 - Plugin timeline can be reviewed from one endpoint with audit and runtime events.
+- Plugin settings can be read and updated through schema-aware governed endpoints.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

@@ -6,6 +6,7 @@ from app.core.plugin_manifest import (
     PluginImpactRequest,
     PluginManifest,
     PluginPatchRequest,
+    PluginSettingsUpdateRequest,
     PluginStateChangeRequest,
 )
 from app.dependencies import get_runtime_registry
@@ -37,6 +38,29 @@ def get_plugin_timeline(
         return registry.plugin_timeline(plugin_id)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.get("/{plugin_id}/settings")
+def get_plugin_settings(
+    plugin_id: str,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        return registry.get_plugin_settings(plugin_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.patch("/{plugin_id}/settings")
+def update_plugin_settings(
+    plugin_id: str,
+    request: PluginSettingsUpdateRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        return registry.update_plugin_settings(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.post("/{plugin_id}/enable")

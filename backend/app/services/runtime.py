@@ -13,6 +13,7 @@ from app.core.plugin_manifest import (
     PluginImpactRequest,
     PluginManifest,
     PluginPatchRequest,
+    PluginSettingsUpdateRequest,
     PluginStateChangeRequest,
     PluginValidationReport,
     validate_manifest,
@@ -108,6 +109,64 @@ class RuntimeRegistry:
                 "version": plugin.version,
             },
         }
+
+    def get_plugin_settings(self, plugin_id: str) -> dict:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        return {
+            "plugin_id": plugin.plugin_id,
+            "settings_schema": plugin.settings_schema,
+            "settings_values": plugin.settings_values,
+            "status": plugin.status,
+            "data_platform": "DB MARIAM",
+        }
+
+    def update_plugin_settings(
+        self,
+        plugin_id: str,
+        request: PluginSettingsUpdateRequest,
+    ) -> dict:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        if plugin.status == "deleted":
+            raise ValueError(f"Plugin {plugin_id} must be restored before settings update.")
+        allowed_keys = set(plugin.settings_schema.get("properties", {}).keys())
+        if allowed_keys:
+            unknown_keys = sorted(set(request.settings.keys()) - allowed_keys)
+            if unknown_keys:
+                raise ValueError(f"Plugin settings include unknown keys: {', '.join(unknown_keys)}")
+        settings_values = {**plugin.settings_values, **request.settings}
+        saved = self._plugin_repository.update(plugin.model_copy(update={"settings_values": settings_values}))
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.settings_update",
+                target_type="plugin",
+                target_id=saved.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "updated_settings": sorted(request.settings.keys()),
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.settings_update",
+            "runtime-registry",
+            {
+                "plugin_id": saved.plugin_id,
+                "name": saved.name,
+                "version": saved.version,
+                "updated_settings": sorted(request.settings.keys()),
+                "actor_id": request.actor_id,
+            },
+        )
+        return self.get_plugin_settings(saved.plugin_id)
 
     def patch_plugin(self, plugin_id: str, request: PluginPatchRequest) -> PluginManifest:
         plugin = self._plugin_repository.get(plugin_id)

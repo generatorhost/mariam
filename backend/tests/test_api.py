@@ -785,6 +785,71 @@ def test_plugin_timeline_reads_plugin_audit_and_events() -> None:
     }
 
 
+def test_plugin_settings_can_be_read_and_updated_with_audit() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    settings_response = client.get(f"/api/plugins/{plugin_id}/settings")
+    assert settings_response.status_code == 200
+    assert settings_response.json()["settings_values"] == {}
+    assert "pipelineStages" in settings_response.json()["settings_schema"]["properties"]
+
+    update_response = client.patch(
+        f"/api/plugins/{plugin_id}/settings",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Configure CRM pipeline stages.",
+            "settings": {"pipelineStages": ["new", "qualified", "proposal", "won"]},
+            "evidence": {"review": "settings-approved"},
+        },
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["settings_values"]["pipelineStages"] == [
+        "new",
+        "qualified",
+        "proposal",
+        "won",
+    ]
+    assert update_response.json()["data_platform"] == "DB MARIAM"
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.settings_update"
+    ]
+    assert plugin_id in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.settings_update"
+    ]
+
+
+def test_plugin_settings_reject_unknown_schema_keys() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    update_response = client.patch(
+        f"/api/plugins/{plugin_id}/settings",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt invalid settings update.",
+            "settings": {"unknownSetting": True},
+            "evidence": {"review": "invalid-key"},
+        },
+    )
+
+    assert update_response.status_code == 400
+    assert "unknown keys" in update_response.json()["detail"]
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

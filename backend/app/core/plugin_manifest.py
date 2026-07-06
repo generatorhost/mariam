@@ -33,6 +33,10 @@ class PluginPatchRequest(PluginStateChangeRequest):
     rollback_plan: str | None = None
 
 
+class PluginSettingsUpdateRequest(PluginStateChangeRequest):
+    settings: dict = Field(default_factory=dict)
+
+
 class PluginDNAPackage(BaseModel):
     dna_package_id: str
     source_plugin_id: str
@@ -61,6 +65,7 @@ class PluginManifest(BaseModel):
     rollback_stack: list[dict] = Field(default_factory=list)
     dashboard_route: str
     settings_schema: dict
+    settings_values: dict = Field(default_factory=dict)
     api_prefix: str
     data_boundary: str
     permissions: list[str]

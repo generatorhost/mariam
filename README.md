@@ -129,7 +129,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 20. Press **Export Plugin DNA** to create a governed portable Plugin DNA package.
 21. Press **Import Last Plugin DNA** to create a disabled imported Plugin-managed Business Unit for review.
 22. Press **Review Plugin Timeline** to inspect audit and runtime events for one Plugin.
-23. The backend emits plugin lifecycle events and records governance audit evidence.
+23. Press **Update Plugin Settings** to persist governed settings values against the Plugin schema.
+24. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 
