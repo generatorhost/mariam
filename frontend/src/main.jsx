@@ -168,6 +168,23 @@ async function validatePlugin(pluginId) {
   });
 }
 
+async function upgradePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Upgraded Plugin-managed Business Unit manifest from Command Center.',
+    version: '0.2.0',
+    permissions: ['crm.read', 'crm.write', 'crm.approve', 'crm.export'],
+    workflows: ['lead-intake', 'pipeline-review', 'client-follow-up', 'crm-export'],
+    tests: ['api', 'runtime', 'permissions', 'data-boundary', 'upgrade'],
+    acceptance_criteria: [
+      'Plugin registers through the runtime registry.',
+      'Plugin declares data boundary after upgrade.',
+      'Plugin requires revalidation after upgrade.',
+    ],
+    evidence: { upgrade: 'operator-upgraded-plugin' },
+  }, { method: 'PATCH' });
+}
+
 async function disablePlugin(pluginId) {
   return apiRequest(`/api/plugins/${pluginId}/disable`, {
     actor_id: 'command-center-plugin-governance',
@@ -630,6 +647,8 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       if (nextState === 'enabled') {
         await enablePlugin(pluginId);
+      } else if (nextState === 'upgraded') {
+        await upgradePlugin(pluginId);
       } else if (nextState === 'rollback') {
         await rollbackPlugin(pluginId);
       } else if (nextState === 'deleted') {
@@ -749,6 +768,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   disabled={status === 'loading'}
                 >
                   Validate Plugin
+                </button>
+                <button
+                  onClick={() => handlePluginStateChange(plugin.plugin_id, 'upgraded')}
+                  disabled={status === 'loading' || plugin.status === 'deleted'}
+                >
+                  Upgrade Plugin
                 </button>
                 <button
                   onClick={() => handlePluginImpactAnalysis(plugin.plugin_id, 'disable')}

@@ -122,10 +122,11 @@ The current rebuild foundation supports a small end-to-end mission flow:
 13. Press **Enable Plugin** or **Disable Plugin** in Plugin Registry History to change Plugin-managed Business Unit status.
 14. Enable requires a successful plugin validation stamp; the backend rejects unvalidated activation.
 15. Disable requires a matching plugin impact analysis stamp; high-risk disable also requires approval.
-16. Press **Soft Delete Plugin** to mark a plugin deleted without removing audit history or manifest data.
-17. Press **Restore Plugin** to return a deleted plugin to disabled review state.
-18. Press **Rollback Plugin** when a rollback point exists to restore the previous governed lifecycle state.
-19. The backend emits plugin lifecycle events and records governance audit evidence.
+16. Press **Upgrade Plugin** to patch the manifest, create a rollback point, and require revalidation before activation.
+17. Press **Soft Delete Plugin** to mark a plugin deleted without removing audit history or manifest data.
+18. Press **Restore Plugin** to return a deleted plugin to disabled review state.
+19. Press **Rollback Plugin** when a rollback point exists to restore the previous governed lifecycle state.
+20. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

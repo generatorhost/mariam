@@ -446,6 +446,22 @@ POST /api/plugins/{plugin_id}/enable
 7. The backend emits `plugin.enable`.
 8. The frontend refreshes Plugin Registry History and the Command Center summary.
 
+### Upgrade Plugin
+1. User presses `Upgrade Plugin` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+PATCH /api/plugins/{plugin_id}
+```
+
+3. The backend verifies that the plugin is not deleted.
+4. The backend stores a rollback snapshot of the previous manifest and governance stamps.
+5. The backend applies the manifest patch, such as version, permissions, workflows, tests, and acceptance criteria.
+6. The backend clears validation, impact analysis, and approval stamps so the upgraded plugin must be revalidated.
+7. The backend records `plugin.patch` in the audit log.
+8. The backend emits `plugin.patch`.
+9. The frontend refreshes Plugin Registry History and the Command Center summary.
+
 ### Disable Plugin
 1. User presses `Disable Plugin` on an enabled Plugin-managed Business Unit.
 2. The frontend sends:
@@ -624,6 +640,8 @@ pytest
 - Plugins can be enabled and disabled through governed lifecycle actions.
 - Plugins require successful validation before enable.
 - Successful plugin validation is persisted as a plugin manifest stamp.
+- Plugins can be patched/upgraded through a governed endpoint.
+- Plugin upgrades create rollback points and require revalidation before activation.
 - Plugins require impact analysis before disable.
 - Successful plugin impact analysis is persisted as a plugin manifest stamp.
 - High-risk plugin disable requires a matching change approval stamp.

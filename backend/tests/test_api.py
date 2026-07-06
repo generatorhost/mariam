@@ -540,6 +540,106 @@ def test_plugin_enable_requires_successful_validation() -> None:
     assert "must pass validation" in enable_response.json()["detail"]
 
 
+def test_plugin_can_be_patched_with_audit_and_revalidation_required() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate before patch.",
+            "evidence": {"review": "passed"},
+        },
+    )
+
+    patch_response = client.patch(
+        f"/api/plugins/{plugin_id}",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Upgrade CRM plugin manifest.",
+            "version": "0.2.0",
+            "permissions": ["crm.read", "crm.write", "crm.approve", "crm.export"],
+            "workflows": ["lead-intake", "pipeline-review", "client-follow-up", "crm-export"],
+            "tests": ["api", "runtime", "permissions", "data-boundary", "upgrade"],
+            "acceptance_criteria": [
+                "registers successfully",
+                "declares data boundary",
+                "requires revalidation after upgrade",
+            ],
+            "evidence": {"upgrade": "minor-version"},
+        },
+    )
+
+    assert patch_response.status_code == 200
+    plugin = patch_response.json()["plugin"]
+    assert plugin["version"] == "0.2.0"
+    assert "crm.export" in plugin["permissions"]
+    assert "crm-export" in plugin["workflows"]
+    assert plugin["validation"] == {}
+    assert len(plugin["rollback_stack"]) == 1
+
+    enable_response = client.post(
+        f"/api/plugins/{plugin_id}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt enable after patch without revalidation.",
+            "evidence": {"review": "missing-revalidation"},
+        },
+    )
+    assert enable_response.status_code == 400
+    assert "must pass validation" in enable_response.json()["detail"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.patch"
+    ]
+    assert plugin_id in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.patch"
+    ]
+
+
+def test_plugin_patch_can_be_rolled_back_to_previous_manifest() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    patch_response = client.patch(
+        f"/api/plugins/{plugin_id}",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Patch before rollback.",
+            "version": "0.2.0",
+            "workflows": ["lead-intake", "pipeline-review", "client-follow-up", "crm-export"],
+            "evidence": {"upgrade": "rollback-test"},
+        },
+    )
+    assert patch_response.status_code == 200
+
+    rollback_response = client.post(
+        f"/api/plugins/{plugin_id}/rollback",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Rollback failed plugin upgrade.",
+            "evidence": {"review": "rollback-approved"},
+        },
+    )
+
+    assert rollback_response.status_code == 200
+    plugin = rollback_response.json()["plugin"]
+    assert plugin["version"] == "0.1.0"
+    assert "crm-export" not in plugin["workflows"]
+    assert plugin["rollback_stack"] == []
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

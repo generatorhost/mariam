@@ -4,6 +4,7 @@ from app.core.plugin_manifest import (
     PluginApprovalRequest,
     PluginImpactRequest,
     PluginManifest,
+    PluginPatchRequest,
     PluginStateChangeRequest,
 )
 from app.dependencies import get_runtime_registry
@@ -34,6 +35,19 @@ def enable_plugin(
 ) -> dict:
     try:
         plugin = registry.enable_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}
+
+
+@router.patch("/{plugin_id}")
+def patch_plugin(
+    plugin_id: str,
+    request: PluginPatchRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.patch_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"plugin": plugin.model_dump()}

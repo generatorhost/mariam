@@ -10,6 +10,7 @@ from app.core.plugin_manifest import (
     PluginImpactReport,
     PluginImpactRequest,
     PluginManifest,
+    PluginPatchRequest,
     PluginStateChangeRequest,
     PluginValidationReport,
     validate_manifest,
@@ -58,6 +59,74 @@ class RuntimeRegistry:
 
     def list_plugins(self) -> list[PluginManifest]:
         return self._plugin_repository.list()
+
+    def patch_plugin(self, plugin_id: str, request: PluginPatchRequest) -> PluginManifest:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        if plugin.status == "deleted":
+            raise ValueError(f"Plugin {plugin_id} must be restored before patch.")
+        updates = request.model_dump(
+            exclude={"actor_id", "reason", "evidence"},
+            exclude_none=True,
+        )
+        if not updates:
+            raise ValueError("Plugin patch requires at least one update.")
+        rollback_stack = [
+            *plugin.rollback_stack,
+            {
+                "status": plugin.status,
+                "validation": plugin.validation,
+                "impact_analysis": plugin.impact_analysis,
+                "change_approval": plugin.change_approval,
+                "manifest": plugin.model_dump(
+                    exclude={"rollback_stack", "validation", "impact_analysis", "change_approval"}
+                ),
+                "captured_at": datetime.now(UTC).isoformat(),
+                "reason": request.reason,
+            },
+        ]
+        patched = validate_manifest(
+            plugin.model_copy(
+                update={
+                    **updates,
+                    "validation": {},
+                    "impact_analysis": {},
+                    "change_approval": {},
+                    "rollback_stack": rollback_stack,
+                }
+            )
+        )
+        saved = self._plugin_repository.update(patched)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.patch",
+                target_type="plugin",
+                target_id=saved.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "updated_fields": sorted(updates.keys()),
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.patch",
+            "runtime-registry",
+            {
+                "plugin_id": saved.plugin_id,
+                "name": saved.name,
+                "version": saved.version,
+                "status": saved.status,
+                "updated_fields": sorted(updates.keys()),
+                "actor_id": request.actor_id,
+            },
+        )
+        return saved
 
     def validate_plugin(
         self,
@@ -323,8 +392,10 @@ class RuntimeRegistry:
         if not rollback_stack:
             raise ValueError(f"Plugin {plugin_id} has no rollback point.")
         rollback_point = rollback_stack.pop()
+        manifest_snapshot = rollback_point.get("manifest", {})
         restored = plugin.model_copy(
             update={
+                **manifest_snapshot,
                 "status": rollback_point["status"],
                 "validation": rollback_point["validation"],
                 "impact_analysis": rollback_point["impact_analysis"],

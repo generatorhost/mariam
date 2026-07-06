@@ -17,6 +17,22 @@ class PluginApprovalRequest(PluginStateChangeRequest):
     intended_action: str = Field(default="disable", min_length=2)
 
 
+class PluginPatchRequest(PluginStateChangeRequest):
+    version: str | None = Field(default=None, pattern=r"^\d+\.\d+\.\d+$")
+    settings_schema: dict | None = None
+    permissions: list[str] | None = None
+    produced_events: list[str] | None = None
+    consumed_events: list[str] | None = None
+    swarm_roles: list[str] | None = None
+    workflows: list[str] | None = None
+    provider_dependencies: list[str] | None = None
+    connector_dependencies: list[str] | None = None
+    runtime_dependencies: list[str] | None = None
+    tests: list[str] | None = None
+    acceptance_criteria: list[str] | None = None
+    rollback_plan: str | None = None
+
+
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=3)
     name: str = Field(min_length=3)
