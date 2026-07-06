@@ -152,6 +152,22 @@ async function registerCRMPlugin() {
   });
 }
 
+async function enablePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/enable`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Enabled Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-enabled-plugin' },
+  });
+}
+
+async function disablePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/disable`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Disabled Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-disabled-plugin' },
+  });
+}
+
 async function registerRuntimeObject() {
   return apiRequest('/api/runtime-objects', {
     object_type: 'provider',
@@ -534,7 +550,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   );
 }
 
-function PluginHistoryPanel({ refreshVersion }) {
+function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [plugins, setPlugins] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -555,6 +571,23 @@ function PluginHistoryPanel({ refreshVersion }) {
     refreshPlugins();
   }, [refreshPlugins, refreshVersion]);
 
+  const handlePluginStateChange = async (pluginId, nextState) => {
+    setStatus('loading');
+    setError('');
+    try {
+      if (nextState === 'enabled') {
+        await enablePlugin(pluginId);
+      } else {
+        await disablePlugin(pluginId);
+      }
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -570,10 +603,27 @@ function PluginHistoryPanel({ refreshVersion }) {
           plugins.map((plugin) => (
             <article key={plugin.plugin_id}>
               <strong>{plugin.name}</strong>
-              <span>v{plugin.version}</span>
+              <span>{plugin.status} / v{plugin.version}</span>
               <p>{plugin.chief_agent_role}</p>
               <p>{plugin.dashboard_route}</p>
               <time>{plugin.data_boundary}</time>
+              <div className="mission-actions">
+                {plugin.status === 'enabled' ? (
+                  <button
+                    onClick={() => handlePluginStateChange(plugin.plugin_id, 'disabled')}
+                    disabled={status === 'loading'}
+                  >
+                    Disable Plugin
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handlePluginStateChange(plugin.plugin_id, 'enabled')}
+                    disabled={status === 'loading'}
+                  >
+                    Enable Plugin
+                  </button>
+                )}
+              </div>
             </article>
           ))
         ) : (
@@ -1164,7 +1214,10 @@ function App() {
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <PluginPanel onActionComplete={refreshCommandCenterSummary} />
-        <PluginHistoryPanel refreshVersion={refreshVersion} />
+        <PluginHistoryPanel
+          refreshVersion={refreshVersion}
+          onActionComplete={refreshCommandCenterSummary}
+        />
         <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
         <RuntimeObjectHistoryPanel
           refreshVersion={refreshVersion}

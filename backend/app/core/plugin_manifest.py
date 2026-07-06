@@ -1,10 +1,17 @@
 from pydantic import BaseModel, Field
 
 
+class PluginStateChangeRequest(BaseModel):
+    actor_id: str = Field(default="plugin-governance", min_length=2)
+    reason: str = Field(default="Governed plugin state change.", min_length=5)
+    evidence: dict = Field(default_factory=dict)
+
+
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=3)
     name: str = Field(min_length=3)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
+    status: str = "registered"
     dashboard_route: str
     settings_schema: dict
     api_prefix: str
@@ -33,4 +40,3 @@ def validate_manifest(manifest: PluginManifest) -> PluginManifest:
     if not manifest.tests:
         raise ValueError("plugin must declare tests")
     return manifest
-

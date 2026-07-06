@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.plugin_manifest import PluginManifest
+from app.core.plugin_manifest import PluginManifest, PluginStateChangeRequest
 from app.dependencies import get_runtime_registry
 from app.services.runtime import RuntimeRegistry
 
@@ -20,3 +20,28 @@ def register_plugin(
     plugin = registry.register_plugin(manifest)
     return {"plugin": plugin.model_dump()}
 
+
+@router.post("/{plugin_id}/enable")
+def enable_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.enable_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}
+
+
+@router.post("/{plugin_id}/disable")
+def disable_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.disable_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}

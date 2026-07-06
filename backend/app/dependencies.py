@@ -51,7 +51,7 @@ def get_event_repository() -> EventRepository:
 
 @lru_cache
 def get_runtime_registry() -> RuntimeRegistry:
-    return RuntimeRegistry(get_event_bus(), get_plugin_repository())
+    return RuntimeRegistry(get_event_bus(), get_plugin_repository(), get_audit_service())
 
 
 @lru_cache

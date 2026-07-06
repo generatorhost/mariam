@@ -383,8 +383,34 @@ GET /api/plugins
 ```
 
 3. The backend reads registered plugin manifests through the runtime registry.
-4. The frontend displays recent registered plugins with name, version, Chief Agent, dashboard route, and data boundary.
+4. The frontend displays recent registered plugins with name, status, version, Chief Agent, dashboard route, and data boundary.
 5. If the user presses `Refresh Plugin Registry`, the frontend repeats the same call.
+
+### Enable Plugin
+1. User presses `Enable Plugin` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/enable
+```
+
+3. The backend updates the plugin status to `enabled`.
+4. The backend records `plugin.enable` in the audit log.
+5. The backend emits `plugin.enable`.
+6. The frontend refreshes Plugin Registry History and the Command Center summary.
+
+### Disable Plugin
+1. User presses `Disable Plugin` on an enabled Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/disable
+```
+
+3. The backend updates the plugin status to `disabled`.
+4. The backend records `plugin.disable` in the audit log.
+5. The backend emits `plugin.disable`.
+6. The frontend refreshes Plugin Registry History and the Command Center summary.
 
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
@@ -501,6 +527,7 @@ pytest
 - Provider disable/delete requires a matching impact analysis stamp and approval when the impact is high.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
+- Plugins can be enabled and disabled through governed lifecycle actions.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

@@ -7,6 +7,12 @@ class PluginRepository(Protocol):
     def save(self, plugin: PluginManifest) -> PluginManifest:
         pass
 
+    def get(self, plugin_id: str) -> PluginManifest | None:
+        pass
+
+    def update(self, plugin: PluginManifest) -> PluginManifest:
+        pass
+
     def list(self) -> list[PluginManifest]:
         pass
 
@@ -16,6 +22,13 @@ class InMemoryPluginRepository:
         self._plugins: dict[str, PluginManifest] = {}
 
     def save(self, plugin: PluginManifest) -> PluginManifest:
+        self._plugins[plugin.plugin_id] = plugin
+        return plugin
+
+    def get(self, plugin_id: str) -> PluginManifest | None:
+        return self._plugins.get(plugin_id)
+
+    def update(self, plugin: PluginManifest) -> PluginManifest:
         self._plugins[plugin.plugin_id] = plugin
         return plugin
 
@@ -31,6 +44,7 @@ class PostgresPluginRepository:
         import psycopg
         from psycopg.types.json import Jsonb
 
+        plugin = plugin.model_copy(update={"status": plugin.status or "registered"})
         manifest = plugin.model_dump()
         with psycopg.connect(self._database_url) as connection:
             with connection.cursor() as cursor:
@@ -46,7 +60,7 @@ class PostgresPluginRepository:
                         manifest,
                         status
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'registered')
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (plugin_id)
                     DO UPDATE SET
                         name = EXCLUDED.name,
@@ -55,7 +69,7 @@ class PostgresPluginRepository:
                         api_prefix = EXCLUDED.api_prefix,
                         data_boundary = EXCLUDED.data_boundary,
                         manifest = EXCLUDED.manifest,
-                        status = 'registered'
+                        status = EXCLUDED.status
                     """,
                     (
                         plugin.plugin_id,
@@ -65,9 +79,16 @@ class PostgresPluginRepository:
                         plugin.api_prefix,
                         plugin.data_boundary,
                         Jsonb(manifest),
+                        plugin.status,
                     ),
                 )
         return plugin
+
+    def get(self, plugin_id: str) -> PluginManifest | None:
+        return next((plugin for plugin in self.list() if plugin.plugin_id == plugin_id), None)
+
+    def update(self, plugin: PluginManifest) -> PluginManifest:
+        return self.save(plugin)
 
     def list(self) -> list[PluginManifest]:
         import psycopg
@@ -77,11 +98,13 @@ class PostgresPluginRepository:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT manifest
+                    SELECT manifest, status
                     FROM plugin_manifests
-                    WHERE status = 'registered'
                     ORDER BY created_at ASC
                     """
                 )
                 rows = cursor.fetchall()
-        return [PluginManifest.model_validate(dict(row["manifest"])) for row in rows]
+        return [
+            PluginManifest.model_validate({**dict(row["manifest"]), "status": row["status"]})
+            for row in rows
+        ]

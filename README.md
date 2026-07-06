@@ -113,6 +113,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 4. The backend stores the plugin in the registry repository.
 5. The backend emits `plugin.registered`.
 6. Plugin Registry History reads `GET /api/plugins` and refreshes automatically after plugin registration.
+7. Press **Enable Plugin** or **Disable Plugin** in Plugin Registry History to change Plugin-managed Business Unit status.
+8. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

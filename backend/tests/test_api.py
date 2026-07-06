@@ -73,6 +73,7 @@ def test_plugin_manifest_contract_is_executable() -> None:
     response = client.post("/api/plugins", json=manifest)
     assert response.status_code == 200
     assert response.json()["plugin"]["plugin_id"] == "crm"
+    assert response.json()["plugin"]["status"] == "registered"
 
 
 def test_repository_plugin_manifest_matches_runtime_contract() -> None:
@@ -97,6 +98,53 @@ def test_plugin_list_reads_saved_plugin_registry() -> None:
     plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
     assert plugin["data_boundary"] == "private-plugin-tables"
     assert plugin["chief_agent_role"] == "CRM Chief Agent"
+    assert plugin["status"] == "registered"
+
+
+def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    enable_response = client.post(
+        f"/api/plugins/{plugin_id}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Enable CRM plugin after manifest review.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    assert enable_response.status_code == 200
+    assert enable_response.json()["plugin"]["status"] == "enabled"
+
+    disable_response = client.post(
+        f"/api/plugins/{plugin_id}/disable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Disable CRM plugin for maintenance.",
+            "evidence": {"maintenance": "scheduled"},
+        },
+    )
+    assert disable_response.status_code == 200
+    assert disable_response.json()["plugin"]["status"] == "disabled"
+
+    list_response = client.get("/api/plugins")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+    assert plugin["status"] == "disabled"
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] in {"plugin.enable", "plugin.disable"}
+    ]
+    assert plugin_id in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] in {"plugin.enable", "plugin.disable"}
+    ]
 
 
 def test_runtime_object_registration_is_executable_and_auditable() -> None:
