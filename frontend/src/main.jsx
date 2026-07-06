@@ -84,6 +84,10 @@ async function loadPluginTimeline(pluginId) {
   return apiGet(`/api/plugins/${pluginId}/timeline`);
 }
 
+async function loadPluginDashboard(pluginId) {
+  return apiGet(`/api/plugins/${pluginId}/dashboard`);
+}
+
 async function updatePluginSettings(pluginId) {
   return apiRequest(`/api/plugins/${pluginId}/settings`, {
     actor_id: 'command-center-plugin-governance',
@@ -658,6 +662,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [pluginDnaImport, setPluginDnaImport] = useState(null);
   const [pluginTimeline, setPluginTimeline] = useState(null);
   const [pluginSettings, setPluginSettings] = useState(null);
+  const [pluginDashboard, setPluginDashboard] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -798,6 +803,19 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginDashboard = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const dashboard = await loadPluginDashboard(pluginId);
+      setPluginDashboard(dashboard);
+      setStatus('ready');
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -863,6 +881,16 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
           <strong>Plugin Settings Updated</strong>
           <span>{pluginSettings.plugin_id}</span>
           <p>{(pluginSettings.settings_values.pipelineStages || []).join(' -> ')}</p>
+        </div>
+      )}
+      {pluginDashboard && (
+        <div className="mission-result">
+          <strong>{pluginDashboard.name} Dashboard</strong>
+          <span>{pluginDashboard.dashboard_route}</span>
+          <p>
+            {pluginDashboard.status} / {pluginDashboard.workflows.length} workflows /{' '}
+            {pluginDashboard.activity.audit_records} audit records.
+          </p>
         </div>
       )}
       <div className="plugin-history">
@@ -948,6 +976,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   disabled={status === 'loading' || plugin.status === 'deleted'}
                 >
                   Update Plugin Settings
+                </button>
+                <button
+                  onClick={() => handlePluginDashboard(plugin.plugin_id)}
+                  disabled={status === 'loading'}
+                >
+                  Open Plugin Dashboard
                 </button>
                 {plugin.status === 'deleted' ? (
                   <button

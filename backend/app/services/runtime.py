@@ -122,6 +122,34 @@ class RuntimeRegistry:
             "data_platform": "DB MARIAM",
         }
 
+    def plugin_dashboard(self, plugin_id: str) -> dict:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        timeline = self.plugin_timeline(plugin_id)
+        return {
+            "plugin_id": plugin.plugin_id,
+            "name": plugin.name,
+            "version": plugin.version,
+            "status": plugin.status,
+            "dashboard_route": plugin.dashboard_route,
+            "api_prefix": plugin.api_prefix,
+            "data_boundary": plugin.data_boundary,
+            "chief_agent_role": plugin.chief_agent_role,
+            "swarm_roles": plugin.swarm_roles,
+            "workflows": plugin.workflows,
+            "permissions": plugin.permissions,
+            "settings_values": plugin.settings_values,
+            "lifecycle": {
+                "validation_passed": bool(plugin.validation.get("passed")),
+                "impact_ready": bool(plugin.impact_analysis.get("impact_id")),
+                "approval_ready": bool(plugin.change_approval.get("approval_id")),
+                "rollback_points": len(plugin.rollback_stack),
+            },
+            "activity": timeline["summary"],
+            "data_platform": "DB MARIAM",
+        }
+
     def update_plugin_settings(
         self,
         plugin_id: str,

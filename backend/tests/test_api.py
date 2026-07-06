@@ -850,6 +850,43 @@ def test_plugin_settings_reject_unknown_schema_keys() -> None:
     assert "unknown keys" in update_response.json()["detail"]
 
 
+def test_plugin_dashboard_returns_runtime_view_model() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    client.patch(
+        f"/api/plugins/{plugin_id}/settings",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Configure before dashboard review.",
+            "settings": {"pipelineStages": ["new", "qualified", "proposal", "won"]},
+            "evidence": {"review": "settings-approved"},
+        },
+    )
+    client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate before dashboard review.",
+            "evidence": {"review": "passed"},
+        },
+    )
+
+    dashboard_response = client.get(f"/api/plugins/{plugin_id}/dashboard")
+
+    assert dashboard_response.status_code == 200
+    dashboard = dashboard_response.json()
+    assert dashboard["plugin_id"] == plugin_id
+    assert dashboard["dashboard_route"] == "/plugins/crm"
+    assert dashboard["data_boundary"] == "private-plugin-tables"
+    assert dashboard["chief_agent_role"] == "CRM Chief Agent"
+    assert dashboard["settings_values"]["pipelineStages"] == ["new", "qualified", "proposal", "won"]
+    assert dashboard["lifecycle"]["validation_passed"] is True
+    assert dashboard["activity"]["audit_records"] >= 3
+    assert dashboard["data_platform"] == "DB MARIAM"
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

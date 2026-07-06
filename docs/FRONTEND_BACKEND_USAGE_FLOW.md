@@ -580,6 +580,18 @@ PATCH /api/plugins/{plugin_id}/settings
 7. The backend emits `plugin.settings_update`.
 8. The frontend displays the updated setting values and refreshes Plugin Registry History.
 
+### Open Plugin Dashboard
+1. User presses `Open Plugin Dashboard` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+GET /api/plugins/{plugin_id}/dashboard
+```
+
+3. The backend reads the plugin manifest, settings, lifecycle stamps, and activity summary.
+4. The backend returns a dashboard view model with route, status, Chief Agent, swarm roles, workflows, permissions, settings, lifecycle gates, activity counts, and `DB MARIAM`.
+5. The frontend displays the dashboard route, plugin status, workflow count, and audit count.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -711,6 +723,7 @@ pytest
 - Plugin DNA packages can be imported as disabled Plugin-managed Business Units for review.
 - Plugin timeline can be reviewed from one endpoint with audit and runtime events.
 - Plugin settings can be read and updated through schema-aware governed endpoints.
+- Plugin dashboard view model can be opened from backend runtime data.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

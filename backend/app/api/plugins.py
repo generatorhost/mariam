@@ -51,6 +51,17 @@ def get_plugin_settings(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
+@router.get("/{plugin_id}/dashboard")
+def get_plugin_dashboard(
+    plugin_id: str,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        return registry.plugin_dashboard(plugin_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 @router.patch("/{plugin_id}/settings")
 def update_plugin_settings(
     plugin_id: str,
