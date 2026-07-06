@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.runtime_objects import RuntimeObjectRequest, RuntimeObjectStateChangeRequest
+from app.core.runtime_objects import RuntimeObjectPatchRequest, RuntimeObjectRequest, RuntimeObjectStateChangeRequest
 from app.dependencies import get_runtime_object_service
 from app.services.runtime_objects import RuntimeObjectService
 
@@ -18,6 +18,19 @@ def create_runtime_object(
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     runtime_object = service.create(request)
+    return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.patch("/{object_id}")
+def patch_runtime_object(
+    object_id: str,
+    request: RuntimeObjectPatchRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        runtime_object = service.patch(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
 
 

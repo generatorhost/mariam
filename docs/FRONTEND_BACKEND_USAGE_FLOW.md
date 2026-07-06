@@ -256,6 +256,20 @@ POST /api/runtime-objects/{object_id}/restore
 6. The backend emits `runtime_object.restore`.
 7. The frontend refreshes Runtime Object History and the Command Center summary.
 
+### Upgrade Runtime Object
+1. User presses `Upgrade` on a runtime object that is not deleted.
+2. The frontend sends:
+
+```http
+PATCH /api/runtime-objects/{object_id}
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend merges governed manifest updates and applies the requested version.
+5. The backend records `runtime_object.patch` with actor, reason, evidence, manifest updates, and `DB MARIAM`.
+6. The backend emits `runtime_object.patch`.
+7. The frontend refreshes Runtime Object History and the Command Center summary.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -382,6 +396,7 @@ pytest
 - Frontend Runtime Object History displays recent governed runtime objects.
 - Runtime objects can be disabled and enabled through governed frontend actions.
 - Runtime objects can be soft-deleted and restored without losing audit history.
+- Runtime objects can be patched/upgraded through a governed endpoint.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

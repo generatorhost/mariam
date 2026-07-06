@@ -4,6 +4,7 @@ from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.runtime_objects import (
     RuntimeObject,
+    RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
     create_runtime_object,
@@ -67,6 +68,53 @@ class RuntimeObjectService:
 
     def restore(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
         return self._change_status(object_id, "disabled", "restore", request)
+
+    def patch(self, object_id: str, request: RuntimeObjectPatchRequest) -> RuntimeObject:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        manifest = {**runtime_object.manifest, **request.manifest_updates}
+        updated = runtime_object.model_copy(
+            update={
+                "name": request.name or runtime_object.name,
+                "version": request.version or runtime_object.version,
+                "manifest": manifest,
+                "updated_at": datetime.now(UTC),
+            }
+        )
+        saved = self._repository.update(updated)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.patch",
+                target_type=saved.object_type,
+                target_id=saved.object_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "manifest_updates": request.manifest_updates,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.patch",
+            "runtime-object-service",
+            {
+                "object_id": saved.object_id,
+                "object_type": saved.object_type,
+                "name": saved.name,
+                "status": saved.status,
+                "version": saved.version,
+                "actor_id": request.actor_id,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
 
     def _change_status(
         self,

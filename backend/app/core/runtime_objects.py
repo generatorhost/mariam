@@ -17,6 +17,15 @@ class RuntimeObjectStateChangeRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class RuntimeObjectPatchRequest(BaseModel):
+    actor_id: str = Field(default="runtime-governance", min_length=2)
+    reason: str = Field(default="Governed runtime object update.", min_length=5)
+    name: str | None = Field(default=None, min_length=2)
+    version: str | None = Field(default=None, pattern=r"^\d+\.\d+\.\d+$")
+    manifest_updates: dict = Field(default_factory=dict)
+    evidence: dict = Field(default_factory=dict)
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

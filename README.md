@@ -97,6 +97,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 8. The backend updates the runtime object status, emits a runtime event, and records an audit decision.
 9. Press **Delete** to soft-delete the object without removing audit history.
 10. Press **Restore** to return a soft-deleted object to disabled review state before re-enabling.
+11. Press **Upgrade** to patch runtime object metadata and version through a governed audit trail.
 
 ## First Plugin Registry Flow
 

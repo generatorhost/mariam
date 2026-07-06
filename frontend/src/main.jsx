@@ -20,9 +20,9 @@ const terms = [
 
 const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
 
-async function apiRequest(path, body) {
+async function apiRequest(path, body, options = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: 'POST',
+    method: options.method || 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
@@ -193,6 +193,19 @@ async function restoreRuntimeObject(objectId) {
   });
 }
 
+async function upgradeRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Upgraded runtime object metadata from Command Center.',
+    version: '0.2.0',
+    manifest_updates: {
+      benchmark: 'command-center-smoke-test-passed',
+      compatibility_review: 'passed',
+    },
+    evidence: { review: 'operator-upgraded-runtime-object' },
+  }, { method: 'PATCH' });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -235,6 +248,8 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
         await disableRuntimeObject(objectId);
       } else if (nextState === 'deleted') {
         await deleteRuntimeObject(objectId);
+      } else if (nextState === 'upgraded') {
+        await upgradeRuntimeObject(objectId);
       } else {
         await restoreRuntimeObject(objectId);
       }
@@ -290,12 +305,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                   </button>
                 )}
                 {item.status !== 'deleted' && (
-                  <button
-                    onClick={() => handleStateChange(item.object_id, 'deleted')}
-                    disabled={status === 'loading'}
-                  >
-                    Delete
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleStateChange(item.object_id, 'upgraded')}
+                      disabled={status === 'loading' || item.version === '0.2.0'}
+                    >
+                      Upgrade
+                    </button>
+                    <button
+                      onClick={() => handleStateChange(item.object_id, 'deleted')}
+                      disabled={status === 'loading'}
+                    >
+                      Delete
+                    </button>
+                  </>
                 )}
               </div>
             </article>

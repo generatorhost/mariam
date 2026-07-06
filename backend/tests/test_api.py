@@ -218,6 +218,53 @@ def test_runtime_object_can_be_soft_deleted_and_restored_with_audit() -> None:
     ]
 
 
+def test_runtime_object_can_be_patched_with_audit() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Patch Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    patch_response = client.patch(
+        f"/api/runtime-objects/{object_id}",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Upgrade provider metadata.",
+            "name": "Patch Provider Upgraded",
+            "version": "0.2.0",
+            "manifest_updates": {"context_window": 8192, "benchmark": "passed"},
+            "evidence": {"compatibility": "passed"},
+        },
+    )
+
+    assert patch_response.status_code == 200
+    runtime_object = patch_response.json()["runtime_object"]
+    assert runtime_object["name"] == "Patch Provider Upgraded"
+    assert runtime_object["version"] == "0.2.0"
+    assert runtime_object["manifest"]["provider_type"] == "model_runtime"
+    assert runtime_object["manifest"]["context_window"] == 8192
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.patch"
+    ]
+    assert object_id in [
+        event["payload"].get("object_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.patch"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(
