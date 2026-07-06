@@ -54,6 +54,22 @@ class RuntimeObjectValidationReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class RuntimeObjectImpactRequest(RuntimeObjectStateChangeRequest):
+    intended_action: str = Field(default="change", min_length=2)
+
+
+class RuntimeObjectImpactReport(BaseModel):
+    impact_id: str
+    object_id: str
+    intended_action: str
+    risk_level: str
+    affected_capabilities: list[str]
+    affected_dependencies: list[str]
+    governance_notes: list[str]
+    analyzed_at: datetime
+    data_platform: str = "DB MARIAM"
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

@@ -7,6 +7,8 @@ from app.core.runtime_objects import (
     RuntimeObject,
     RuntimeObjectDNAImportRequest,
     RuntimeObjectDNAPackage,
+    RuntimeObjectImpactReport,
+    RuntimeObjectImpactRequest,
     RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
@@ -418,6 +420,73 @@ class RuntimeObjectService:
                 "validation_id": report.validation_id,
                 "passed": report.passed,
                 "status": runtime_object.status,
+                "actor_id": request.actor_id,
+                "data_platform": runtime_object.data_platform,
+            },
+        )
+        return report
+
+    def analyze_impact(self, object_id: str, request: RuntimeObjectImpactRequest) -> RuntimeObjectImpactReport:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        affected_capabilities = list(runtime_object.manifest.get("capabilities", []))
+        if runtime_object.object_type == "provider":
+            affected_capabilities.append(runtime_object.manifest.get("provider_type", "provider_runtime"))
+        affected_dependencies = list(runtime_object.manifest.get("dependencies", []))
+        if runtime_object.manifest.get("local") is True:
+            affected_dependencies.append("local-runtime-host")
+        governance_notes = [
+            "Impact analysis is advisory until a formal approval gate is added.",
+            "Audit evidence must be reviewed before destructive state changes.",
+        ]
+        risk_level = "low"
+        if request.intended_action in {"delete", "disable", "rollback"}:
+            risk_level = "medium"
+        if runtime_object.status == "deleted" or runtime_object.manifest.get("dna_import"):
+            risk_level = "high" if request.intended_action in {"enable", "delete"} else "medium"
+        if runtime_object.object_type == "provider" and request.intended_action in {"delete", "disable"}:
+            risk_level = "high"
+            governance_notes.append("Provider changes may affect AI routing and active missions.")
+
+        report = RuntimeObjectImpactReport(
+            impact_id=f"impact-{uuid4()}",
+            object_id=runtime_object.object_id,
+            intended_action=request.intended_action,
+            risk_level=risk_level,
+            affected_capabilities=sorted(set(affected_capabilities)),
+            affected_dependencies=sorted(set(affected_dependencies)),
+            governance_notes=governance_notes,
+            analyzed_at=datetime.now(UTC),
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.impact_analysis",
+                target_type=runtime_object.object_type,
+                target_id=runtime_object.object_id,
+                decision="approved",
+                evidence={
+                    "name": runtime_object.name,
+                    "version": runtime_object.version,
+                    "reason": request.reason,
+                    "impact_id": report.impact_id,
+                    "risk_level": report.risk_level,
+                    "intended_action": report.intended_action,
+                    "data_platform": runtime_object.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.impact_analysis",
+            "runtime-object-service",
+            {
+                "object_id": runtime_object.object_id,
+                "impact_id": report.impact_id,
+                "risk_level": report.risk_level,
+                "intended_action": report.intended_action,
                 "actor_id": request.actor_id,
                 "data_platform": runtime_object.data_platform,
             },

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.runtime_objects import (
     RuntimeObjectDNAImportRequest,
+    RuntimeObjectImpactRequest,
     RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
@@ -140,3 +141,16 @@ def validate_runtime_object(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"validation_report": validation_report.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/impact-analysis")
+def analyze_runtime_object_impact(
+    object_id: str,
+    request: RuntimeObjectImpactRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        impact_report = service.analyze_impact(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"impact_report": impact_report.model_dump(mode="json")}

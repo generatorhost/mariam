@@ -102,6 +102,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 13. Press **Export DNA** to produce a governed JSON DNA package for the runtime object.
 14. Press **Import Last DNA** to create a disabled runtime object from the exported DNA package for governance review.
 15. Press **Validate** to run runtime object governance checks, store a validation stamp, and record pass/fail evidence.
+16. Press **Analyze Impact** to estimate affected capabilities, dependencies, and risk before a runtime object change.
 
 ## First Plugin Registry Flow
 

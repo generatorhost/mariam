@@ -239,6 +239,15 @@ async function validateRuntimeObject(objectId) {
   });
 }
 
+async function analyzeRuntimeObjectImpact(objectId, intendedAction) {
+  return apiRequest(`/api/runtime-objects/${objectId}/impact-analysis`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: `Analyzed impact before ${intendedAction} from Command Center.`,
+    intended_action: intendedAction,
+    evidence: { review: 'operator-analyzed-runtime-object-impact' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -255,6 +264,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [dnaPackage, setDnaPackage] = useState(null);
   const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
+  const [impactReport, setImpactReport] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -328,6 +338,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handleImpactAnalysis = async (objectId, intendedAction) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await analyzeRuntimeObjectImpact(objectId, intendedAction);
+      setImpactReport(body.impact_report);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
   const handleDNAImport = async () => {
     setStatus('loading');
     setError('');
@@ -375,6 +399,15 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>{validationReport.validation_id}</p>
           <p>
             {validationReport.checks.filter((check) => check.passed).length} / {validationReport.checks.length} checks passed
+          </p>
+        </div>
+      )}
+      {impactReport && (
+        <div className="mission-result">
+          <strong>Impact: {impactReport.risk_level}</strong>
+          <p>{impactReport.impact_id}</p>
+          <p>
+            {impactReport.affected_capabilities.length} capabilities / {impactReport.affected_dependencies.length} dependencies
           </p>
         </div>
       )}
@@ -444,6 +477,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Validate
+                    </button>
+                    <button
+                      onClick={() => handleImpactAnalysis(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}
+                      disabled={status === 'loading'}
+                    >
+                      Analyze Impact
                     </button>
                   </>
                 )}

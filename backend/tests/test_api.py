@@ -558,6 +558,57 @@ def test_runtime_object_validation_rejects_invalid_provider_manifest() -> None:
     ]
 
 
+def test_runtime_object_impact_analysis_records_risk() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Impact Provider",
+            "version": "0.1.0",
+            "manifest": {
+                "provider_type": "model_runtime",
+                "local": True,
+                "capabilities": ["chat", "embedding"],
+                "dependencies": ["ollama"],
+            },
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    impact_response = client.post(
+        f"/api/runtime-objects/{object_id}/impact-analysis",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Analyze before disable.",
+            "intended_action": "disable",
+            "evidence": {"review": "pre-disable"},
+        },
+    )
+
+    assert impact_response.status_code == 200
+    report = impact_response.json()["impact_report"]
+    assert report["object_id"] == object_id
+    assert report["intended_action"] == "disable"
+    assert report["risk_level"] == "high"
+    assert "chat" in report["affected_capabilities"]
+    assert "local-runtime-host" in report["affected_dependencies"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.impact_analysis"
+    ]
+    assert report["impact_id"] in [
+        event["payload"].get("impact_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.impact_analysis"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(

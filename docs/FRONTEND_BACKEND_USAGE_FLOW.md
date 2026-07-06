@@ -331,6 +331,20 @@ POST /api/runtime-objects/{object_id}/validate
 8. The backend emits `runtime_object.validate`.
 9. The frontend displays the validation id and check count.
 
+### Analyze Runtime Object Impact
+1. User presses `Analyze Impact` on a runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/impact-analysis
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend estimates affected capabilities, dependencies, governance notes, and risk level.
+5. The backend records `runtime_object.impact_analysis` in the audit log.
+6. The backend emits `runtime_object.impact_analysis`.
+7. The frontend displays the impact id, risk level, and affected counts.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -464,6 +478,7 @@ pytest
 - Runtime object DNA packages can be imported as disabled runtime objects for review.
 - Runtime objects can be validated before activation or delivery.
 - Successful validation is persisted as a runtime object manifest stamp.
+- Runtime object impact can be analyzed before enable, disable, delete, or rollback.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
