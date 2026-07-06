@@ -1,8 +1,11 @@
 from app.core.artifacts import (
     Artifact,
     ArtifactApprovalRequest,
+    ArtifactDeliveryRequest,
     ArtifactRejectionRequest,
     ArtifactStatus,
+    DeliveryPackage,
+    create_delivery_package,
     create_artifact_from_mission,
 )
 from app.core.audit import AuditRecordRequest
@@ -115,6 +118,42 @@ class ArtifactService:
             },
         )
         return saved
+
+    def package_for_delivery(self, artifact_id: str, request: ArtifactDeliveryRequest) -> DeliveryPackage:
+        artifact = self._get(artifact_id)
+        if artifact.status != ArtifactStatus.approved:
+            raise ValueError(f"Artifact {artifact_id} must be approved before delivery packaging.")
+        delivery_package = create_delivery_package(artifact, request.destination)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.packaged_by,
+                action="artifact.package_delivery",
+                target_type="artifact",
+                target_id=artifact_id,
+                decision="approved",
+                evidence={
+                    "delivery_id": delivery_package.delivery_id,
+                    "mission_id": delivery_package.mission_id,
+                    "plugin_id": delivery_package.plugin_id,
+                    "destination": delivery_package.destination,
+                    "data_platform": delivery_package.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "artifact.delivery_packaged",
+            "artifact-service",
+            {
+                "delivery_id": delivery_package.delivery_id,
+                "artifact_id": delivery_package.artifact_id,
+                "mission_id": delivery_package.mission_id,
+                "plugin_id": delivery_package.plugin_id,
+                "destination": delivery_package.destination,
+                "status": delivery_package.status,
+            },
+        )
+        return delivery_package
 
     def list(self) -> list[Artifact]:
         return self._repository.list()

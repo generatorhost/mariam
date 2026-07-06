@@ -1024,6 +1024,81 @@ def test_artifact_can_be_generated_from_mission_and_approved() -> None:
     ]
 
 
+def test_artifact_delivery_requires_approval() -> None:
+    client = TestClient(create_app())
+    mission_id = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare an artifact before delivery gate.",
+            "requested_by": "command-center-user",
+        },
+    ).json()["mission"]["mission_id"]
+    artifact = client.post(f"/api/artifacts/from-mission/{mission_id}").json()["artifact"]
+
+    delivery_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/package-delivery",
+        json={
+            "packaged_by": "delivery-governance",
+            "destination": "client-review-channel",
+            "evidence": {"review": "premature-delivery"},
+        },
+    )
+
+    assert delivery_response.status_code == 400
+    assert "must be approved" in delivery_response.json()["detail"]
+
+
+def test_approved_artifact_can_be_packaged_for_delivery() -> None:
+    client = TestClient(create_app())
+    mission_id = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare a delivery-ready artifact.",
+            "requested_by": "command-center-user",
+        },
+    ).json()["mission"]["mission_id"]
+    artifact = client.post(f"/api/artifacts/from-mission/{mission_id}").json()["artifact"]
+    client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/approve",
+        json={
+            "approved_by": "artifact-governance",
+            "evidence": {"review": "artifact-approved"},
+        },
+    )
+
+    delivery_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/package-delivery",
+        json={
+            "packaged_by": "delivery-governance",
+            "destination": "client-review-channel",
+            "evidence": {"delivery": "approved"},
+        },
+    )
+
+    assert delivery_response.status_code == 200
+    delivery_package = delivery_response.json()["delivery_package"]
+    assert delivery_package["artifact_id"] == artifact["artifact_id"]
+    assert delivery_package["mission_id"] == mission_id
+    assert delivery_package["status"] == "ready_for_client_delivery"
+    assert delivery_package["data_platform"] == "DB MARIAM"
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert artifact["artifact_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "artifact.package_delivery"
+    ]
+    assert delivery_package["delivery_id"] in [
+        event["payload"].get("delivery_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "artifact.delivery_packaged"
+    ]
+
+
 def test_artifact_can_be_rejected_with_governance_reason() -> None:
     client = TestClient(create_app())
     mission_id = client.post(

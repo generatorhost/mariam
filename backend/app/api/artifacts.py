@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.artifacts import ArtifactApprovalRequest, ArtifactRejectionRequest
+from app.core.artifacts import ArtifactApprovalRequest, ArtifactDeliveryRequest, ArtifactRejectionRequest
 from app.dependencies import get_artifact_service
 from app.services.artifacts import ArtifactService
 
@@ -48,3 +48,16 @@ def reject_artifact(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"artifact": artifact.model_dump(mode="json")}
+
+
+@router.post("/{artifact_id}/package-delivery")
+def package_artifact_delivery(
+    artifact_id: str,
+    request: ArtifactDeliveryRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        delivery_package = service.package_for_delivery(artifact_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"delivery_package": delivery_package.model_dump(mode="json")}

@@ -649,6 +649,20 @@ POST /api/artifacts/from-mission/{mission_id}
 5. The backend emits `artifact.approved` or `artifact.rejected`.
 6. The frontend displays the final artifact status.
 
+### Package Delivery
+1. User presses `Package Delivery` after approving an artifact.
+2. The frontend sends:
+
+```http
+POST /api/artifacts/{artifact_id}/package-delivery
+```
+
+3. The backend verifies that the artifact status is `approved`.
+4. The backend creates a delivery package with `ready_for_client_delivery` status.
+5. The backend records `artifact.package_delivery` in the audit log.
+6. The backend emits `artifact.delivery_packaged`.
+7. The frontend displays delivery id, destination, and delivery status.
+
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
 - Audit API layer: `backend/app/api/audit.py`
@@ -767,6 +781,7 @@ pytest
 - The backend can reject a mission through a governance endpoint.
 - The backend can generate review artifacts from missions.
 - Artifacts require approval or rejection before delivery.
+- Approved artifacts can be packaged for client delivery.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
 - Frontend Mission History displays recent mission repository records.

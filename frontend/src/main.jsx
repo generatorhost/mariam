@@ -154,6 +154,14 @@ async function rejectArtifact(artifactId) {
   });
 }
 
+async function packageArtifactDelivery(artifactId) {
+  return apiRequest(`/api/artifacts/${artifactId}/package-delivery`, {
+    packaged_by: 'command-center-delivery-governance',
+    destination: 'client-review-channel',
+    evidence: { delivery: 'Packaged from Command Center artifact panel' },
+  });
+}
+
 async function routeAIResource() {
   return apiRequest('/api/ai-resources/route', {
     capability: 'chat',
@@ -1186,6 +1194,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [artifact, setArtifact] = useState(null);
+  const [deliveryPackage, setDeliveryPackage] = useState(null);
 
   const refreshMissions = useCallback(async () => {
     setStatus('loading');
@@ -1251,6 +1260,21 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }
 
+  async function handleDeliveryPackaging() {
+    if (!artifact) return;
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await packageArtifactDelivery(artifact.artifact_id);
+      setDeliveryPackage(body.delivery_package);
+      onActionComplete();
+      setStatus('ready');
+    } catch (artifactError) {
+      setStatus('error');
+      setError(artifactError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1276,6 +1300,20 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
               </button>
             </div>
           )}
+          {artifact.status === 'approved' && (
+            <div className="mission-actions">
+              <button onClick={handleDeliveryPackaging} disabled={status === 'loading'}>
+                Package Delivery
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {deliveryPackage && (
+        <div className="mission-result">
+          <strong>Delivery Package Ready</strong>
+          <span>{deliveryPackage.delivery_id}</span>
+          <p>{deliveryPackage.destination} / {deliveryPackage.status}</p>
         </div>
       )}
       <div className="mission-history">

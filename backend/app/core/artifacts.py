@@ -22,6 +22,12 @@ class ArtifactRejectionRequest(BaseModel):
     evidence: dict[str, str] = Field(default_factory=dict)
 
 
+class ArtifactDeliveryRequest(BaseModel):
+    packaged_by: str = Field(default="delivery-governance", min_length=2)
+    destination: str = Field(default="client-review-channel", min_length=3)
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
 class Artifact(BaseModel):
     artifact_id: str
     mission_id: str
@@ -29,6 +35,18 @@ class Artifact(BaseModel):
     title: str
     content: str
     status: ArtifactStatus
+    data_platform: str = "DB MARIAM"
+    created_at: datetime
+
+
+class DeliveryPackage(BaseModel):
+    delivery_id: str
+    artifact_id: str
+    mission_id: str
+    plugin_id: str
+    destination: str
+    status: str
+    package_manifest: dict
     data_platform: str = "DB MARIAM"
     created_at: datetime
 
@@ -49,5 +67,23 @@ def create_artifact_from_mission(
             "Delivery is blocked until governance approval."
         ),
         status=ArtifactStatus.awaiting_approval,
+        created_at=datetime.now(UTC),
+    )
+
+
+def create_delivery_package(artifact: Artifact, destination: str) -> DeliveryPackage:
+    return DeliveryPackage(
+        delivery_id=str(uuid4()),
+        artifact_id=artifact.artifact_id,
+        mission_id=artifact.mission_id,
+        plugin_id=artifact.plugin_id,
+        destination=destination,
+        status="ready_for_client_delivery",
+        package_manifest={
+            "title": artifact.title,
+            "content_length": len(artifact.content),
+            "requires_client_delivery_record": True,
+            "source_artifact_status": artifact.status,
+        },
         created_at=datetime.now(UTC),
     )
