@@ -5,6 +5,8 @@ from uuid import uuid4
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.plugin_manifest import (
+    PluginImpactReport,
+    PluginImpactRequest,
     PluginManifest,
     PluginStateChangeRequest,
     PluginValidationReport,
@@ -154,7 +156,85 @@ class RuntimeRegistry:
         return self._change_plugin_status(plugin_id, "enabled", "enable", request)
 
     def disable_plugin(self, plugin_id: str, request: PluginStateChangeRequest) -> PluginManifest:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        if plugin.impact_analysis.get("intended_action") != "disable":
+            raise ValueError(f"Plugin {plugin_id} requires impact analysis before disable.")
         return self._change_plugin_status(plugin_id, "disabled", "disable", request)
+
+    def analyze_plugin_impact(
+        self,
+        plugin_id: str,
+        request: PluginImpactRequest,
+    ) -> PluginImpactReport:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        dependencies = [
+            *plugin.provider_dependencies,
+            *plugin.connector_dependencies,
+            *plugin.runtime_dependencies,
+        ]
+        risk_level = "high" if plugin.status == "enabled" and (plugin.workflows or dependencies) else "medium"
+        report = PluginImpactReport(
+            impact_id=f"plugin-impact-{uuid4()}",
+            plugin_id=plugin.plugin_id,
+            intended_action=request.intended_action,
+            risk_level=risk_level,
+            affected_workflows=plugin.workflows,
+            affected_permissions=plugin.permissions,
+            affected_dependencies=dependencies,
+            governance_notes=[
+                "Plugin-managed Business Unit changes can affect dashboard, API routes, workflows, and private data.",
+                "Disable must preserve plugin data as read-only until governance confirms rollback or replacement.",
+            ],
+            analyzed_at=datetime.now(UTC),
+        )
+        self._plugin_repository.update(
+            plugin.model_copy(
+                update={
+                    "impact_analysis": {
+                        "impact_id": report.impact_id,
+                        "intended_action": report.intended_action,
+                        "risk_level": report.risk_level,
+                        "analyzed_at": report.analyzed_at.isoformat(),
+                    }
+                }
+            )
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.impact_analysis",
+                target_type="plugin",
+                target_id=plugin.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": plugin.name,
+                    "version": plugin.version,
+                    "reason": request.reason,
+                    "impact_id": report.impact_id,
+                    "intended_action": report.intended_action,
+                    "risk_level": report.risk_level,
+                    "affected_workflows": report.affected_workflows,
+                    "affected_dependencies": report.affected_dependencies,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.impact_analysis",
+            "runtime-registry",
+            {
+                "plugin_id": plugin.plugin_id,
+                "impact_id": report.impact_id,
+                "intended_action": report.intended_action,
+                "risk_level": report.risk_level,
+                "actor_id": request.actor_id,
+            },
+        )
+        return report
 
     def _change_plugin_status(
         self,

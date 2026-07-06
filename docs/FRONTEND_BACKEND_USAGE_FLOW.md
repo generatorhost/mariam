@@ -401,6 +401,21 @@ POST /api/plugins/{plugin_id}/validate
 7. The frontend displays the validation id and check count.
 8. The Plugin Registry History panel refreshes and shows the validation stamp.
 
+### Analyze Plugin Impact
+1. User presses `Analyze Plugin Impact` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/impact-analysis
+```
+
+3. The backend analyzes affected workflows, permissions, provider dependencies, connector dependencies, and runtime dependencies.
+4. The backend stores an impact analysis stamp in the plugin manifest.
+5. The backend records `plugin.impact_analysis` in the audit log.
+6. The backend emits `plugin.impact_analysis`.
+7. The frontend displays the impact id, intended action, and risk level.
+8. The Plugin Registry History panel refreshes and shows the impact stamp.
+
 ### Enable Plugin
 1. User presses `Enable Plugin` on a Plugin-managed Business Unit.
 2. The frontend sends:
@@ -424,10 +439,12 @@ POST /api/plugins/{plugin_id}/enable
 POST /api/plugins/{plugin_id}/disable
 ```
 
-3. The backend updates the plugin status to `disabled`.
-4. The backend records `plugin.disable` in the audit log.
-5. The backend emits `plugin.disable`.
-6. The frontend refreshes Plugin Registry History and the Command Center summary.
+3. The backend requires a matching plugin impact analysis stamp for `disable`.
+4. If impact analysis is missing, the backend rejects the deactivation with a governance error.
+5. If impact analysis exists, the backend updates the plugin status to `disabled`.
+6. The backend records `plugin.disable` in the audit log.
+7. The backend emits `plugin.disable`.
+8. The frontend refreshes Plugin Registry History and the Command Center summary.
 
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
@@ -547,6 +564,8 @@ pytest
 - Plugins can be enabled and disabled through governed lifecycle actions.
 - Plugins require successful validation before enable.
 - Successful plugin validation is persisted as a plugin manifest stamp.
+- Plugins require impact analysis before disable.
+- Successful plugin impact analysis is persisted as a plugin manifest stamp.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

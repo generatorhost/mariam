@@ -129,6 +129,18 @@ def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
     assert enable_response.status_code == 200
     assert enable_response.json()["plugin"]["status"] == "enabled"
 
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze plugin impact before disable.",
+            "intended_action": "disable",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    assert impact_response.status_code == 200
+    assert impact_response.json()["impact_report"]["risk_level"] == "high"
+
     disable_response = client.post(
         f"/api/plugins/{plugin_id}/disable",
         json={
@@ -155,6 +167,84 @@ def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
         event["payload"].get("plugin_id")
         for event in event_response.json()["events"]
         if event["name"] in {"plugin.enable", "plugin.disable"}
+    ]
+
+
+def test_plugin_disable_requires_impact_analysis() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate before enable.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    client.post(
+        f"/api/plugins/{plugin_id}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Enable before disable gate test.",
+            "evidence": {"review": "passed"},
+        },
+    )
+
+    disable_response = client.post(
+        f"/api/plugins/{plugin_id}/disable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt disable without impact analysis.",
+            "evidence": {"review": "missing-impact-analysis"},
+        },
+    )
+
+    assert disable_response.status_code == 400
+    assert "requires impact analysis" in disable_response.json()["detail"]
+
+
+def test_plugin_impact_analysis_records_audit_event_and_stamp() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze plugin disable impact.",
+            "intended_action": "disable",
+            "evidence": {"review": "pre-disable"},
+        },
+    )
+
+    assert impact_response.status_code == 200
+    report = impact_response.json()["impact_report"]
+    assert report["impact_id"].startswith("plugin-impact-")
+    assert report["intended_action"] == "disable"
+    assert "lead-intake" in report["affected_workflows"]
+    assert "crm.read" in report["affected_permissions"]
+    assert "event_bus" in report["affected_dependencies"]
+
+    list_response = client.get("/api/plugins")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+
+    assert plugin["impact_analysis"]["impact_id"] == report["impact_id"]
+    assert plugin["impact_analysis"]["intended_action"] == "disable"
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.impact_analysis"
+    ]
+    assert report["impact_id"] in [
+        event["payload"].get("impact_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.impact_analysis"
     ]
 
 

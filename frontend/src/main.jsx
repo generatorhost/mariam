@@ -176,6 +176,15 @@ async function disablePlugin(pluginId) {
   });
 }
 
+async function analyzePluginImpact(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/impact-analysis`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Analyzed Plugin-managed Business Unit impact from Command Center.',
+    intended_action: 'disable',
+    evidence: { review: 'operator-analyzed-plugin-impact' },
+  });
+}
+
 async function registerRuntimeObject() {
   return apiRequest('/api/runtime-objects', {
     object_type: 'provider',
@@ -563,6 +572,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [pluginValidationReport, setPluginValidationReport] = useState(null);
+  const [pluginImpactReport, setPluginImpactReport] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -611,6 +621,20 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginImpactAnalysis = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await analyzePluginImpact(pluginId);
+      setPluginImpactReport(body.impact_report);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -630,6 +654,13 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>{pluginValidationReport.checks.length} checks recorded before plugin activation.</p>
         </div>
       )}
+      {pluginImpactReport && (
+        <div className="mission-result">
+          <strong>Plugin Impact Analysis Recorded</strong>
+          <span>{pluginImpactReport.impact_id}</span>
+          <p>{pluginImpactReport.risk_level} risk before {pluginImpactReport.intended_action}.</p>
+        </div>
+      )}
       <div className="plugin-history">
         {plugins.length ? (
           plugins.map((plugin) => (
@@ -642,12 +673,21 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
               {plugin.validation?.validation_id && (
                 <small>Validation: {plugin.validation.validation_id}</small>
               )}
+              {plugin.impact_analysis?.impact_id && (
+                <small>Impact: {plugin.impact_analysis.impact_id}</small>
+              )}
               <div className="mission-actions">
                 <button
                   onClick={() => handlePluginValidation(plugin.plugin_id)}
                   disabled={status === 'loading'}
                 >
                   Validate Plugin
+                </button>
+                <button
+                  onClick={() => handlePluginImpactAnalysis(plugin.plugin_id)}
+                  disabled={status === 'loading'}
+                >
+                  Analyze Plugin Impact
                 </button>
                 {plugin.status === 'enabled' ? (
                   <button

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.plugin_manifest import PluginManifest, PluginStateChangeRequest
+from app.core.plugin_manifest import PluginImpactRequest, PluginManifest, PluginStateChangeRequest
 from app.dependencies import get_runtime_registry
 from app.services.runtime import RuntimeRegistry
 
@@ -56,5 +56,18 @@ def disable_plugin(
     try:
         plugin = registry.disable_plugin(plugin_id, request)
     except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"plugin": plugin.model_dump()}
+
+
+@router.post("/{plugin_id}/impact-analysis")
+def analyze_plugin_impact(
+    plugin_id: str,
+    request: PluginImpactRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        report = registry.analyze_plugin_impact(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"impact_report": report.model_dump()}
