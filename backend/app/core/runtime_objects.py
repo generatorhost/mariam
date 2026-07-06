@@ -70,6 +70,19 @@ class RuntimeObjectImpactReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class RuntimeObjectApprovalRequest(RuntimeObjectStateChangeRequest):
+    intended_action: str = Field(default="change", min_length=2)
+
+
+class RuntimeObjectApprovalReport(BaseModel):
+    approval_id: str
+    object_id: str
+    intended_action: str
+    impact_id: str
+    approved_at: datetime
+    data_platform: str = "DB MARIAM"
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

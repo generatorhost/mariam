@@ -248,6 +248,15 @@ async function analyzeRuntimeObjectImpact(objectId, intendedAction) {
   });
 }
 
+async function approveRuntimeObjectChange(objectId, intendedAction) {
+  return apiRequest(`/api/runtime-objects/${objectId}/approve-change`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: `Approved ${intendedAction} from Command Center.`,
+    intended_action: intendedAction,
+    evidence: { review: 'operator-approved-runtime-object-change' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -265,6 +274,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
   const [impactReport, setImpactReport] = useState(null);
+  const [approvalReport, setApprovalReport] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -352,6 +362,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handleChangeApproval = async (objectId, intendedAction) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await approveRuntimeObjectChange(objectId, intendedAction);
+      setApprovalReport(body.approval_report);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
   const handleDNAImport = async () => {
     setStatus('loading');
     setError('');
@@ -409,6 +433,13 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>
             {impactReport.affected_capabilities.length} capabilities / {impactReport.affected_dependencies.length} dependencies
           </p>
+        </div>
+      )}
+      {approvalReport && (
+        <div className="mission-result">
+          <strong>Change Approved</strong>
+          <p>{approvalReport.approval_id}</p>
+          <p>{approvalReport.intended_action}</p>
         </div>
       )}
       <div className="runtime-object-history">
@@ -483,6 +514,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Analyze Impact
+                    </button>
+                    <button
+                      onClick={() => handleChangeApproval(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}
+                      disabled={status === 'loading'}
+                    >
+                      Approve Change
                     </button>
                   </>
                 )}

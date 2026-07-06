@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.runtime_objects import (
+    RuntimeObjectApprovalRequest,
     RuntimeObjectDNAImportRequest,
     RuntimeObjectImpactRequest,
     RuntimeObjectPatchRequest,
@@ -154,3 +155,16 @@ def analyze_runtime_object_impact(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"impact_report": impact_report.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/approve-change")
+def approve_runtime_object_change(
+    object_id: str,
+    request: RuntimeObjectApprovalRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        approval_report = service.approve_change(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"approval_report": approval_report.model_dump(mode="json")}

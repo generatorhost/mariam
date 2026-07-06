@@ -5,6 +5,8 @@ from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.runtime_objects import (
     RuntimeObject,
+    RuntimeObjectApprovalReport,
+    RuntimeObjectApprovalRequest,
     RuntimeObjectDNAImportRequest,
     RuntimeObjectDNAPackage,
     RuntimeObjectImpactReport,
@@ -518,6 +520,76 @@ class RuntimeObjectService:
         )
         return report
 
+    def approve_change(self, object_id: str, request: RuntimeObjectApprovalRequest) -> RuntimeObjectApprovalReport:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        impact_analysis = runtime_object.manifest.get("impact_analysis", {})
+        if impact_analysis.get("intended_action") != request.intended_action:
+            raise ValueError(
+                f"Runtime object {object_id} requires impact analysis before approving {request.intended_action}."
+            )
+
+        approved_at = datetime.now(UTC)
+        report = RuntimeObjectApprovalReport(
+            approval_id=f"approval-{uuid4()}",
+            object_id=runtime_object.object_id,
+            intended_action=request.intended_action,
+            impact_id=impact_analysis["impact_id"],
+            approved_at=approved_at,
+        )
+        approval_manifest = {
+            **runtime_object.manifest,
+            "change_approval": {
+                "approval_id": report.approval_id,
+                "impact_id": report.impact_id,
+                "intended_action": report.intended_action,
+                "approved_at": report.approved_at.isoformat(),
+                "approved_by": request.actor_id,
+            },
+        }
+        runtime_object = self._repository.update(
+            runtime_object.model_copy(
+                update={
+                    "manifest": approval_manifest,
+                    "updated_at": approved_at,
+                }
+            )
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.approve_change",
+                target_type=runtime_object.object_type,
+                target_id=runtime_object.object_id,
+                decision="approved",
+                evidence={
+                    "name": runtime_object.name,
+                    "version": runtime_object.version,
+                    "reason": request.reason,
+                    "approval_id": report.approval_id,
+                    "impact_id": report.impact_id,
+                    "intended_action": report.intended_action,
+                    "data_platform": runtime_object.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.approve_change",
+            "runtime-object-service",
+            {
+                "object_id": runtime_object.object_id,
+                "approval_id": report.approval_id,
+                "impact_id": report.impact_id,
+                "intended_action": report.intended_action,
+                "actor_id": request.actor_id,
+                "data_platform": runtime_object.data_platform,
+            },
+        )
+        return report
+
     def _require_impact_analysis(self, runtime_object: RuntimeObject, intended_action: str) -> None:
         if runtime_object.object_type != "provider":
             return
@@ -526,6 +598,15 @@ class RuntimeObjectService:
             raise ValueError(
                 f"Runtime object {runtime_object.object_id} requires impact analysis before {intended_action}."
             )
+        if impact_analysis.get("risk_level") == "high":
+            change_approval = runtime_object.manifest.get("change_approval", {})
+            if (
+                change_approval.get("intended_action") != intended_action
+                or change_approval.get("impact_id") != impact_analysis.get("impact_id")
+            ):
+                raise ValueError(
+                    f"Runtime object {runtime_object.object_id} requires approval before high-risk {intended_action}."
+                )
 
     def _change_status(
         self,
