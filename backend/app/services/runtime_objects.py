@@ -73,9 +73,17 @@ class RuntimeObjectService:
         return self._change_status(object_id, "enabled", "enable", request)
 
     def disable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+        self._require_impact_analysis(runtime_object, "disable")
         return self._change_status(object_id, "disabled", "disable", request)
 
     def soft_delete(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+        self._require_impact_analysis(runtime_object, "delete")
         return self._change_status(object_id, "deleted", "soft_delete", request)
 
     def restore(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
@@ -460,6 +468,23 @@ class RuntimeObjectService:
             governance_notes=governance_notes,
             analyzed_at=datetime.now(UTC),
         )
+        impact_manifest = {
+            **runtime_object.manifest,
+            "impact_analysis": {
+                "impact_id": report.impact_id,
+                "intended_action": report.intended_action,
+                "risk_level": report.risk_level,
+                "analyzed_at": report.analyzed_at.isoformat(),
+            },
+        }
+        runtime_object = self._repository.update(
+            runtime_object.model_copy(
+                update={
+                    "manifest": impact_manifest,
+                    "updated_at": report.analyzed_at,
+                }
+            )
+        )
         self._audit_service.record(
             AuditRecordRequest(
                 actor_id=request.actor_id,
@@ -492,6 +517,15 @@ class RuntimeObjectService:
             },
         )
         return report
+
+    def _require_impact_analysis(self, runtime_object: RuntimeObject, intended_action: str) -> None:
+        if runtime_object.object_type != "provider":
+            return
+        impact_analysis = runtime_object.manifest.get("impact_analysis", {})
+        if impact_analysis.get("intended_action") != intended_action:
+            raise ValueError(
+                f"Runtime object {runtime_object.object_id} requires impact analysis before {intended_action}."
+            )
 
     def _change_status(
         self,

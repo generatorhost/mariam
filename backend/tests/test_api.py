@@ -5,6 +5,19 @@ from pathlib import Path
 from app.main import create_app
 
 
+def analyze_runtime_object_impact(client: TestClient, object_id: str, intended_action: str) -> None:
+    response = client.post(
+        f"/api/runtime-objects/{object_id}/impact-analysis",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": f"Analyze before {intended_action}.",
+            "intended_action": intended_action,
+            "evidence": {"review": f"pre-{intended_action}"},
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_root_points_to_architecture_library() -> None:
     client = TestClient(create_app())
     response = client.get("/")
@@ -120,6 +133,7 @@ def test_runtime_object_can_be_disabled_and_enabled_with_audit() -> None:
         },
     )
     object_id = create_response.json()["runtime_object"]["object_id"]
+    analyze_runtime_object_impact(client, object_id, "disable")
 
     disable_response = client.post(
         f"/api/runtime-objects/{object_id}/disable",
@@ -186,6 +200,7 @@ def test_runtime_object_enable_requires_successful_validation() -> None:
         },
     )
     object_id = create_response.json()["runtime_object"]["object_id"]
+    analyze_runtime_object_impact(client, object_id, "disable")
     client.post(
         f"/api/runtime-objects/{object_id}/disable",
         json={
@@ -208,6 +223,32 @@ def test_runtime_object_enable_requires_successful_validation() -> None:
     assert "must pass validation" in enable_response.json()["detail"]
 
 
+def test_provider_disable_requires_impact_analysis() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Impact Gate Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime"},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    disable_response = client.post(
+        f"/api/runtime-objects/{object_id}/disable",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Attempt disable without impact analysis.",
+            "evidence": {"review": "missing-impact-analysis"},
+        },
+    )
+
+    assert disable_response.status_code == 400
+    assert "requires impact analysis" in disable_response.json()["detail"]
+
+
 def test_runtime_object_can_be_soft_deleted_and_restored_with_audit() -> None:
     client = TestClient(create_app())
     create_response = client.post(
@@ -220,6 +261,7 @@ def test_runtime_object_can_be_soft_deleted_and_restored_with_audit() -> None:
         },
     )
     object_id = create_response.json()["runtime_object"]["object_id"]
+    analyze_runtime_object_impact(client, object_id, "delete")
 
     delete_response = client.post(
         f"/api/runtime-objects/{object_id}/delete",
@@ -594,8 +636,15 @@ def test_runtime_object_impact_analysis_records_risk() -> None:
     assert "chat" in report["affected_capabilities"]
     assert "local-runtime-host" in report["affected_dependencies"]
 
+    list_response = client.get("/api/runtime-objects")
     audit_response = client.get("/api/audit")
     event_response = client.get("/api/runtime/events")
+    runtime_object = next(
+        item for item in list_response.json()["runtime_objects"] if item["object_id"] == object_id
+    )
+
+    assert runtime_object["manifest"]["impact_analysis"]["impact_id"] == report["impact_id"]
+    assert runtime_object["manifest"]["impact_analysis"]["intended_action"] == "disable"
 
     assert object_id in [
         record["target_id"]

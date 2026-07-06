@@ -209,10 +209,11 @@ POST /api/runtime-objects/{object_id}/disable
 ```
 
 3. The backend loads the runtime object from the runtime object repository.
-4. The backend changes status to `disabled` and updates the timestamp.
-5. The backend records `runtime_object.disable` in the audit log with actor, reason, evidence, and `DB MARIAM`.
-6. The backend emits `runtime_object.disable`.
-7. The frontend refreshes Runtime Object History and the Command Center summary.
+4. If the object is a provider, the backend requires a matching `disable` impact analysis stamp.
+5. The backend changes status to `disabled` and updates the timestamp.
+6. The backend records `runtime_object.disable` in the audit log with actor, reason, evidence, and `DB MARIAM`.
+7. The backend emits `runtime_object.disable`.
+8. The frontend refreshes Runtime Object History and the Command Center summary.
 
 ### Enable Runtime Object
 1. User presses `Enable` on a disabled runtime object.
@@ -238,10 +239,11 @@ POST /api/runtime-objects/{object_id}/delete
 ```
 
 3. The backend loads the runtime object from the runtime object repository.
-4. The backend changes status to `deleted`; the database row remains available for audit and rollback.
-5. The backend records `runtime_object.soft_delete` with actor, reason, evidence, and `DB MARIAM`.
-6. The backend emits `runtime_object.soft_delete`.
-7. The frontend refreshes Runtime Object History and replaces action buttons with `Restore`.
+4. If the object is a provider, the backend requires a matching `delete` impact analysis stamp.
+5. The backend changes status to `deleted`; the database row remains available for audit and rollback.
+6. The backend records `runtime_object.soft_delete` with actor, reason, evidence, and `DB MARIAM`.
+7. The backend emits `runtime_object.soft_delete`.
+8. The frontend refreshes Runtime Object History and replaces action buttons with `Restore`.
 
 ### Restore Runtime Object
 1. User presses `Restore` on a soft-deleted runtime object.
@@ -341,9 +343,10 @@ POST /api/runtime-objects/{object_id}/impact-analysis
 
 3. The backend loads the runtime object from the runtime object repository.
 4. The backend estimates affected capabilities, dependencies, governance notes, and risk level.
-5. The backend records `runtime_object.impact_analysis` in the audit log.
-6. The backend emits `runtime_object.impact_analysis`.
-7. The frontend displays the impact id, risk level, and affected counts.
+5. The backend stores an impact analysis stamp in the runtime object manifest.
+6. The backend records `runtime_object.impact_analysis` in the audit log.
+7. The backend emits `runtime_object.impact_analysis`.
+8. The frontend displays the impact id, risk level, and affected counts.
 
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
@@ -479,6 +482,7 @@ pytest
 - Runtime objects can be validated before activation or delivery.
 - Successful validation is persisted as a runtime object manifest stamp.
 - Runtime object impact can be analyzed before enable, disable, delete, or rollback.
+- Provider disable/delete requires a matching impact analysis stamp.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
