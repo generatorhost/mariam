@@ -60,7 +60,7 @@ def enable_runtime_object(
     try:
         runtime_object = service.enable(object_id, request)
     except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
 
 

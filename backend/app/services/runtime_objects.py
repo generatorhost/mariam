@@ -62,6 +62,12 @@ class RuntimeObjectService:
         return self._repository.list()
 
     def enable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+        validation = runtime_object.manifest.get("validation", {})
+        if validation.get("passed") is not True:
+            raise ValueError(f"Runtime object {object_id} must pass validation before enable.")
         return self._change_status(object_id, "enabled", "enable", request)
 
     def disable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
@@ -368,6 +374,24 @@ class RuntimeObjectService:
             checks=checks,
             validated_at=datetime.now(UTC),
         )
+        if passed:
+            validation_manifest = {
+                **runtime_object.manifest,
+                "validation": {
+                    "validation_id": report.validation_id,
+                    "passed": True,
+                    "validated_at": report.validated_at.isoformat(),
+                    "checked_status": runtime_object.status,
+                },
+            }
+            runtime_object = self._repository.update(
+                runtime_object.model_copy(
+                    update={
+                        "manifest": validation_manifest,
+                        "updated_at": report.validated_at,
+                    }
+                )
+            )
         self._audit_service.record(
             AuditRecordRequest(
                 actor_id=request.actor_id,

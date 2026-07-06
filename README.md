@@ -93,7 +93,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 4. The backend emits `runtime_object.registered`.
 5. The backend records an audit decision for the registration.
 6. Runtime Object History reads `GET /api/runtime-objects` and refreshes automatically after runtime object registration.
-7. Press **Disable** or **Enable** in Runtime Object History to call the governed state-change endpoints.
+7. Press **Disable** or **Enable** in Runtime Object History to call the governed state-change endpoints. Enable requires a successful validation stamp.
 8. The backend updates the runtime object status, emits a runtime event, and records an audit decision.
 9. Press **Delete** to soft-delete the object without removing audit history.
 10. Press **Restore** to return a soft-deleted object to disabled review state before re-enabling.
@@ -101,7 +101,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 12. Press **Rollback** to restore the previous runtime object version and manifest snapshot.
 13. Press **Export DNA** to produce a governed JSON DNA package for the runtime object.
 14. Press **Import Last DNA** to create a disabled runtime object from the exported DNA package for governance review.
-15. Press **Validate** to run runtime object governance checks and record pass/fail evidence.
+15. Press **Validate** to run runtime object governance checks, store a validation stamp, and record pass/fail evidence.
 
 ## First Plugin Registry Flow
 

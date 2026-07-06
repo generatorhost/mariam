@@ -132,6 +132,17 @@ def test_runtime_object_can_be_disabled_and_enabled_with_audit() -> None:
     assert disable_response.status_code == 200
     assert disable_response.json()["runtime_object"]["status"] == "disabled"
 
+    validate_response = client.post(
+        f"/api/runtime-objects/{object_id}/validate",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Validate before enable.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    assert validate_response.status_code == 200
+    assert validate_response.json()["validation_report"]["passed"] is True
+
     enable_response = client.post(
         f"/api/runtime-objects/{object_id}/enable",
         json={
@@ -161,6 +172,40 @@ def test_runtime_object_can_be_disabled_and_enabled_with_audit() -> None:
         for event in event_response.json()["events"]
         if event["name"] in {"runtime_object.disable", "runtime_object.enable"}
     ]
+
+
+def test_runtime_object_enable_requires_successful_validation() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Enable Gate Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime"},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+    client.post(
+        f"/api/runtime-objects/{object_id}/disable",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Disable before gated enable.",
+            "evidence": {"review": "pending-validation"},
+        },
+    )
+
+    enable_response = client.post(
+        f"/api/runtime-objects/{object_id}/enable",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Attempt enable without validation.",
+            "evidence": {"review": "missing-validation"},
+        },
+    )
+
+    assert enable_response.status_code == 400
+    assert "must pass validation" in enable_response.json()["detail"]
 
 
 def test_runtime_object_can_be_soft_deleted_and_restored_with_audit() -> None:
@@ -456,8 +501,15 @@ def test_runtime_object_validation_passes_and_records_audit() -> None:
     assert report["passed"] is True
     assert all(check["passed"] for check in report["checks"])
 
+    list_response = client.get("/api/runtime-objects")
     audit_response = client.get("/api/audit")
     event_response = client.get("/api/runtime/events")
+    runtime_object = next(
+        item for item in list_response.json()["runtime_objects"] if item["object_id"] == object_id
+    )
+
+    assert runtime_object["manifest"]["validation"]["validation_id"] == report["validation_id"]
+    assert runtime_object["manifest"]["validation"]["passed"] is True
 
     assert object_id in [
         record["target_id"]
