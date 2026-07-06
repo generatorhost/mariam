@@ -194,6 +194,14 @@ async function approvePluginChange(pluginId) {
   });
 }
 
+async function rollbackPlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/rollback`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Rolled back Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-rolled-back-plugin' },
+  });
+}
+
 async function registerRuntimeObject() {
   return apiRequest('/api/runtime-objects', {
     object_type: 'provider',
@@ -606,6 +614,8 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       if (nextState === 'enabled') {
         await enablePlugin(pluginId);
+      } else if (nextState === 'rollback') {
+        await rollbackPlugin(pluginId);
       } else {
         await disablePlugin(pluginId);
       }
@@ -710,6 +720,9 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
               {plugin.change_approval?.approval_id && (
                 <small>Approval: {plugin.change_approval.approval_id}</small>
               )}
+              {(plugin.rollback_stack || []).length > 0 && (
+                <small>Rollback points: {plugin.rollback_stack.length}</small>
+              )}
               <div className="mission-actions">
                 <button
                   onClick={() => handlePluginValidation(plugin.plugin_id)}
@@ -729,6 +742,14 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                 >
                   Approve Plugin Change
                 </button>
+                {(plugin.rollback_stack || []).length > 0 && (
+                  <button
+                    onClick={() => handlePluginStateChange(plugin.plugin_id, 'rollback')}
+                    disabled={status === 'loading'}
+                  >
+                    Rollback Plugin
+                  </button>
+                )}
                 {plugin.status === 'enabled' ? (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'disabled')}

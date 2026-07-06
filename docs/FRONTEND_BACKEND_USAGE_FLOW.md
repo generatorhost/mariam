@@ -463,6 +463,20 @@ POST /api/plugins/{plugin_id}/disable
 9. The backend emits `plugin.disable`.
 10. The frontend refreshes Plugin Registry History and the Command Center summary.
 
+### Rollback Plugin
+1. User presses `Rollback Plugin` on a Plugin-managed Business Unit with stored rollback points.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/rollback
+```
+
+3. The backend reads the latest plugin rollback point.
+4. The backend restores the previous status and governance stamps.
+5. The backend records `plugin.rollback` in the audit log.
+6. The backend emits `plugin.rollback`.
+7. The frontend refreshes Plugin Registry History and the Command Center summary.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -584,6 +598,8 @@ pytest
 - Plugins require impact analysis before disable.
 - Successful plugin impact analysis is persisted as a plugin manifest stamp.
 - High-risk plugin disable requires a matching change approval stamp.
+- Plugin lifecycle state changes create rollback points.
+- Plugins can be rolled back to the previous governed lifecycle state.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

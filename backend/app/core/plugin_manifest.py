@@ -25,6 +25,7 @@ class PluginManifest(BaseModel):
     validation: dict = Field(default_factory=dict)
     impact_analysis: dict = Field(default_factory=dict)
     change_approval: dict = Field(default_factory=dict)
+    rollback_stack: list[dict] = Field(default_factory=list)
     dashboard_route: str
     settings_schema: dict
     api_prefix: str

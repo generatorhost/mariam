@@ -89,3 +89,16 @@ def approve_plugin_change(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"approval_report": report.model_dump()}
+
+
+@router.post("/{plugin_id}/rollback")
+def rollback_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.rollback_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}

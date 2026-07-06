@@ -308,6 +308,53 @@ class RuntimeRegistry:
         )
         return report
 
+    def rollback_plugin(self, plugin_id: str, request: PluginStateChangeRequest) -> PluginManifest:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        rollback_stack = list(plugin.rollback_stack)
+        if not rollback_stack:
+            raise ValueError(f"Plugin {plugin_id} has no rollback point.")
+        rollback_point = rollback_stack.pop()
+        restored = plugin.model_copy(
+            update={
+                "status": rollback_point["status"],
+                "validation": rollback_point["validation"],
+                "impact_analysis": rollback_point["impact_analysis"],
+                "change_approval": rollback_point["change_approval"],
+                "rollback_stack": rollback_stack,
+            }
+        )
+        saved = self._plugin_repository.update(restored)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.rollback",
+                target_type="plugin",
+                target_id=saved.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "rollback_point": rollback_point,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.rollback",
+            "runtime-registry",
+            {
+                "plugin_id": saved.plugin_id,
+                "name": saved.name,
+                "version": saved.version,
+                "status": saved.status,
+                "actor_id": request.actor_id,
+            },
+        )
+        return saved
+
     def _change_plugin_status(
         self,
         plugin_id: str,
@@ -318,7 +365,20 @@ class RuntimeRegistry:
         plugin = self._plugin_repository.get(plugin_id)
         if plugin is None:
             raise ValueError(f"Plugin {plugin_id} was not found.")
-        saved = self._plugin_repository.update(plugin.model_copy(update={"status": status}))
+        rollback_stack = [
+            *plugin.rollback_stack,
+            {
+                "status": plugin.status,
+                "validation": plugin.validation,
+                "impact_analysis": plugin.impact_analysis,
+                "change_approval": plugin.change_approval,
+                "captured_at": datetime.now(UTC).isoformat(),
+                "reason": request.reason,
+            },
+        ]
+        saved = self._plugin_repository.update(
+            plugin.model_copy(update={"status": status, "rollback_stack": rollback_stack})
+        )
         action = f"plugin.{action_verb}"
         self._audit_service.record(
             AuditRecordRequest(

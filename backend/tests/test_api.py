@@ -305,6 +305,61 @@ def test_plugin_change_approval_records_audit_event_and_stamp() -> None:
     ]
 
 
+def test_plugin_rollback_requires_rollback_point() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    rollback_response = client.post(
+        f"/api/plugins/{plugin_id}/rollback",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt rollback without lifecycle history.",
+            "evidence": {"review": "missing-rollback-point"},
+        },
+    )
+
+    assert rollback_response.status_code == 400
+    assert "has no rollback point" in rollback_response.json()["detail"]
+
+
+def test_plugin_state_change_can_be_rolled_back_with_audit() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    validate_and_enable_plugin(client, plugin_id)
+
+    rollback_response = client.post(
+        f"/api/plugins/{plugin_id}/rollback",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Rollback enabled plugin to previous registered state.",
+            "evidence": {"review": "rollback-approved"},
+        },
+    )
+
+    assert rollback_response.status_code == 200
+    plugin = rollback_response.json()["plugin"]
+    assert plugin["status"] == "registered"
+    assert plugin["rollback_stack"] == []
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.rollback"
+    ]
+    assert plugin_id in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.rollback"
+    ]
+
+
 def test_plugin_impact_analysis_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
