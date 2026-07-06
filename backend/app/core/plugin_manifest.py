@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -12,6 +14,7 @@ class PluginManifest(BaseModel):
     name: str = Field(min_length=3)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
     status: str = "registered"
+    validation: dict = Field(default_factory=dict)
     dashboard_route: str
     settings_schema: dict
     api_prefix: str
@@ -28,6 +31,16 @@ class PluginManifest(BaseModel):
     tests: list[str]
     acceptance_criteria: list[str]
     rollback_plan: str
+
+
+class PluginValidationReport(BaseModel):
+    validation_id: str
+    plugin_id: str
+    status: str
+    passed: bool
+    checks: list[dict]
+    validated_at: datetime
+    data_platform: str = "DB MARIAM"
 
 
 def validate_manifest(manifest: PluginManifest) -> PluginManifest:

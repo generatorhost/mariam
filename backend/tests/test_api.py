@@ -107,6 +107,17 @@ def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
 
+    validate_response = client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate CRM plugin before enable.",
+            "evidence": {"review": "validation-passed"},
+        },
+    )
+    assert validate_response.status_code == 200
+    assert validate_response.json()["validation_report"]["passed"] is True
+
     enable_response = client.post(
         f"/api/plugins/{plugin_id}/enable",
         json={
@@ -144,6 +155,72 @@ def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
         event["payload"].get("plugin_id")
         for event in event_response.json()["events"]
         if event["name"] in {"plugin.enable", "plugin.disable"}
+    ]
+
+
+def test_plugin_enable_requires_successful_validation() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    enable_response = client.post(
+        f"/api/plugins/{plugin_id}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt enable without plugin validation.",
+            "evidence": {"review": "missing-validation"},
+        },
+    )
+
+    assert enable_response.status_code == 400
+    assert "must pass validation" in enable_response.json()["detail"]
+
+
+def test_plugin_validation_records_audit_event_and_stamp() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    validate_response = client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate plugin governance contract.",
+            "evidence": {"review": "passed"},
+        },
+    )
+
+    assert validate_response.status_code == 200
+    report = validate_response.json()["validation_report"]
+    assert report["passed"] is True
+    assert report["validation_id"].startswith("plugin-validation-")
+    assert {check["name"] for check in report["checks"]} >= {
+        "dashboard_route_declared",
+        "api_prefix_declared",
+        "permissions_declared",
+        "tests_declared",
+        "chief_agent_declared",
+        "data_boundary_declared",
+    }
+
+    list_response = client.get("/api/plugins")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+
+    assert plugin["validation"]["validation_id"] == report["validation_id"]
+    assert plugin["validation"]["passed"] is True
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.validate" and record["decision"] == "approved"
+    ]
+    assert report["validation_id"] in [
+        event["payload"].get("validation_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.validate"
     ]
 
 

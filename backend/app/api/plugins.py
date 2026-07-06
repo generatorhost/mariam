@@ -30,8 +30,21 @@ def enable_plugin(
     try:
         plugin = registry.enable_plugin(plugin_id, request)
     except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"plugin": plugin.model_dump()}
+
+
+@router.post("/{plugin_id}/validate")
+def validate_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        report = registry.validate_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"validation_report": report.model_dump()}
 
 
 @router.post("/{plugin_id}/disable")

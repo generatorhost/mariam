@@ -386,6 +386,21 @@ GET /api/plugins
 4. The frontend displays recent registered plugins with name, status, version, Chief Agent, dashboard route, and data boundary.
 5. If the user presses `Refresh Plugin Registry`, the frontend repeats the same call.
 
+### Validate Plugin
+1. User presses `Validate Plugin` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/validate
+```
+
+3. The backend checks the plugin dashboard route, API prefix, permissions, tests, Chief Agent, and data boundary.
+4. The backend stores a validation stamp in the plugin manifest.
+5. The backend records `plugin.validate` in the audit log.
+6. The backend emits `plugin.validate`.
+7. The frontend displays the validation id and check count.
+8. The Plugin Registry History panel refreshes and shows the validation stamp.
+
 ### Enable Plugin
 1. User presses `Enable Plugin` on a Plugin-managed Business Unit.
 2. The frontend sends:
@@ -394,10 +409,12 @@ GET /api/plugins
 POST /api/plugins/{plugin_id}/enable
 ```
 
-3. The backend updates the plugin status to `enabled`.
-4. The backend records `plugin.enable` in the audit log.
-5. The backend emits `plugin.enable`.
-6. The frontend refreshes Plugin Registry History and the Command Center summary.
+3. The backend requires a successful plugin validation stamp.
+4. If validation is missing, the backend rejects the activation with a governance error.
+5. If validation passed, the backend updates the plugin status to `enabled`.
+6. The backend records `plugin.enable` in the audit log.
+7. The backend emits `plugin.enable`.
+8. The frontend refreshes Plugin Registry History and the Command Center summary.
 
 ### Disable Plugin
 1. User presses `Disable Plugin` on an enabled Plugin-managed Business Unit.
@@ -528,6 +545,8 @@ pytest
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - Plugins can be enabled and disabled through governed lifecycle actions.
+- Plugins require successful validation before enable.
+- Successful plugin validation is persisted as a plugin manifest stamp.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

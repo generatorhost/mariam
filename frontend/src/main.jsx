@@ -160,6 +160,14 @@ async function enablePlugin(pluginId) {
   });
 }
 
+async function validatePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/validate`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Validated Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-validated-plugin' },
+  });
+}
+
 async function disablePlugin(pluginId) {
   return apiRequest(`/api/plugins/${pluginId}/disable`, {
     actor_id: 'command-center-plugin-governance',
@@ -554,6 +562,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [plugins, setPlugins] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [pluginValidationReport, setPluginValidationReport] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -588,6 +597,20 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginValidation = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await validatePlugin(pluginId);
+      setPluginValidationReport(body.validation_report);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -598,6 +621,15 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
         {status === 'loading' ? 'Loading...' : 'Refresh Plugin Registry'}
       </button>
       {error && <p className="error">{error}</p>}
+      {pluginValidationReport && (
+        <div className="mission-result">
+          <strong>
+            Plugin Validation {pluginValidationReport.passed ? 'Passed' : 'Failed'}
+          </strong>
+          <span>{pluginValidationReport.validation_id}</span>
+          <p>{pluginValidationReport.checks.length} checks recorded before plugin activation.</p>
+        </div>
+      )}
       <div className="plugin-history">
         {plugins.length ? (
           plugins.map((plugin) => (
@@ -607,7 +639,16 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
               <p>{plugin.chief_agent_role}</p>
               <p>{plugin.dashboard_route}</p>
               <time>{plugin.data_boundary}</time>
+              {plugin.validation?.validation_id && (
+                <small>Validation: {plugin.validation.validation_id}</small>
+              )}
               <div className="mission-actions">
+                <button
+                  onClick={() => handlePluginValidation(plugin.plugin_id)}
+                  disabled={status === 'loading'}
+                >
+                  Validate Plugin
+                </button>
                 {plugin.status === 'enabled' ? (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'disabled')}
