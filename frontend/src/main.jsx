@@ -206,6 +206,14 @@ async function upgradeRuntimeObject(objectId) {
   }, { method: 'PATCH' });
 }
 
+async function rollbackRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/rollback`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Rolled back runtime object from Command Center.',
+    evidence: { review: 'operator-rolled-back-runtime-object' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -250,6 +258,8 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
         await deleteRuntimeObject(objectId);
       } else if (nextState === 'upgraded') {
         await upgradeRuntimeObject(objectId);
+      } else if (nextState === 'rollback') {
+        await rollbackRuntimeObject(objectId);
       } else {
         await restoreRuntimeObject(objectId);
       }
@@ -312,6 +322,14 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                     >
                       Upgrade
                     </button>
+                    {(item.manifest?._rollback_stack || []).length > 0 && (
+                      <button
+                        onClick={() => handleStateChange(item.object_id, 'rollback')}
+                        disabled={status === 'loading'}
+                      >
+                        Rollback
+                      </button>
+                    )}
                     <button
                       onClick={() => handleStateChange(item.object_id, 'deleted')}
                       disabled={status === 'loading'}

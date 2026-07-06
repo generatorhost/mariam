@@ -270,6 +270,20 @@ PATCH /api/runtime-objects/{object_id}
 6. The backend emits `runtime_object.patch`.
 7. The frontend refreshes Runtime Object History and the Command Center summary.
 
+### Rollback Runtime Object
+1. User presses `Rollback` on a runtime object with a stored rollback point.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/rollback
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend restores the previous name, version, and manifest snapshot.
+5. The backend records `runtime_object.rollback` with actor, reason, rollback point, evidence, and `DB MARIAM`.
+6. The backend emits `runtime_object.rollback`.
+7. The frontend refreshes Runtime Object History and the Command Center summary.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -397,6 +411,7 @@ pytest
 - Runtime objects can be disabled and enabled through governed frontend actions.
 - Runtime objects can be soft-deleted and restored without losing audit history.
 - Runtime objects can be patched/upgraded through a governed endpoint.
+- Runtime object upgrades can be rolled back to the previous manifest snapshot.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

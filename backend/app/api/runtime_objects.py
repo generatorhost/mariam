@@ -84,3 +84,16 @@ def restore_runtime_object(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/rollback")
+def rollback_runtime_object(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        runtime_object = service.rollback(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"runtime_object": runtime_object.model_dump(mode="json")}

@@ -74,7 +74,29 @@ class RuntimeObjectService:
         if runtime_object is None:
             raise ValueError(f"Runtime object {object_id} was not found.")
 
-        manifest = {**runtime_object.manifest, **request.manifest_updates}
+        rollback_stack = list(runtime_object.manifest.get("_rollback_stack", []))
+        rollback_stack.append(
+            {
+                "name": runtime_object.name,
+                "version": runtime_object.version,
+                "manifest": {
+                    key: value
+                    for key, value in runtime_object.manifest.items()
+                    if key != "_rollback_stack"
+                },
+                "captured_at": datetime.now(UTC).isoformat(),
+                "reason": request.reason,
+            }
+        )
+        manifest = {
+            **{
+                key: value
+                for key, value in runtime_object.manifest.items()
+                if key != "_rollback_stack"
+            },
+            **request.manifest_updates,
+            "_rollback_stack": rollback_stack,
+        }
         updated = runtime_object.model_copy(
             update={
                 "name": request.name or runtime_object.name,
@@ -103,6 +125,61 @@ class RuntimeObjectService:
         )
         self._event_bus.publish(
             "runtime_object.patch",
+            "runtime-object-service",
+            {
+                "object_id": saved.object_id,
+                "object_type": saved.object_type,
+                "name": saved.name,
+                "status": saved.status,
+                "version": saved.version,
+                "actor_id": request.actor_id,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
+
+    def rollback(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        rollback_stack = list(runtime_object.manifest.get("_rollback_stack", []))
+        if not rollback_stack:
+            raise ValueError(f"Runtime object {object_id} has no rollback point.")
+
+        rollback_point = rollback_stack.pop()
+        manifest = {
+            **rollback_point["manifest"],
+            "_rollback_stack": rollback_stack,
+        }
+        updated = runtime_object.model_copy(
+            update={
+                "name": rollback_point["name"],
+                "version": rollback_point["version"],
+                "manifest": manifest,
+                "updated_at": datetime.now(UTC),
+            }
+        )
+        saved = self._repository.update(updated)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.rollback",
+                target_type=saved.object_type,
+                target_id=saved.object_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "rollback_point": rollback_point,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.rollback",
             "runtime-object-service",
             {
                 "object_id": saved.object_id,

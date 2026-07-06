@@ -265,6 +265,59 @@ def test_runtime_object_can_be_patched_with_audit() -> None:
     ]
 
 
+def test_runtime_object_patch_can_be_rolled_back_with_audit() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Rollback Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+    client.patch(
+        f"/api/runtime-objects/{object_id}",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Upgrade before rollback.",
+            "version": "0.2.0",
+            "manifest_updates": {"benchmark": "passed"},
+            "evidence": {"compatibility": "passed"},
+        },
+    )
+
+    rollback_response = client.post(
+        f"/api/runtime-objects/{object_id}/rollback",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Rollback failed compatibility review.",
+            "evidence": {"compatibility": "failed-after-upgrade"},
+        },
+    )
+
+    assert rollback_response.status_code == 200
+    runtime_object = rollback_response.json()["runtime_object"]
+    assert runtime_object["version"] == "0.1.0"
+    assert runtime_object["manifest"]["provider_type"] == "model_runtime"
+    assert "benchmark" not in runtime_object["manifest"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.rollback"
+    ]
+    assert object_id in [
+        event["payload"].get("object_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.rollback"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(
