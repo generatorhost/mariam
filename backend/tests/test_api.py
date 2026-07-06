@@ -428,6 +428,84 @@ def test_runtime_object_dna_can_be_imported_disabled_with_audit() -> None:
     ]
 
 
+def test_runtime_object_validation_passes_and_records_audit() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Validation Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    validate_response = client.post(
+        f"/api/runtime-objects/{object_id}/validate",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Validate before activation.",
+            "evidence": {"review": "pre-enable"},
+        },
+    )
+
+    assert validate_response.status_code == 200
+    report = validate_response.json()["validation_report"]
+    assert report["object_id"] == object_id
+    assert report["passed"] is True
+    assert all(check["passed"] for check in report["checks"])
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.validate" and record["decision"] == "approved"
+    ]
+    assert report["validation_id"] in [
+        event["payload"].get("validation_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.validate"
+    ]
+
+
+def test_runtime_object_validation_rejects_invalid_provider_manifest() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Invalid Validation Provider",
+            "version": "0.1.0",
+            "manifest": {"local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    validate_response = client.post(
+        f"/api/runtime-objects/{object_id}/validate",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Validate before activation.",
+            "evidence": {"review": "pre-enable"},
+        },
+    )
+
+    assert validate_response.status_code == 200
+    report = validate_response.json()["validation_report"]
+    assert report["passed"] is False
+    assert any(check["name"] == "provider_type_present" and not check["passed"] for check in report["checks"])
+
+    audit_response = client.get("/api/audit")
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.validate" and record["decision"] == "rejected"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(

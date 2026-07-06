@@ -231,6 +231,14 @@ async function importRuntimeObjectDNA(dnaPackage) {
   });
 }
 
+async function validateRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/validate`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Validated runtime object from Command Center.',
+    evidence: { review: 'operator-validated-runtime-object' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -246,6 +254,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [dnaPackage, setDnaPackage] = useState(null);
   const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
+  const [validationReport, setValidationReport] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -305,6 +314,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handleValidation = async (objectId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await validateRuntimeObject(objectId);
+      setValidationReport(body.validation_report);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
   const handleDNAImport = async () => {
     setStatus('loading');
     setError('');
@@ -344,6 +367,15 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           <strong>DNA Import Ready For Review</strong>
           <p>{importedRuntimeObject.name}</p>
           <p>{importedRuntimeObject.status} / v{importedRuntimeObject.version}</p>
+        </div>
+      )}
+      {validationReport && (
+        <div className="mission-result">
+          <strong>{validationReport.passed ? 'Validation Passed' : 'Validation Failed'}</strong>
+          <p>{validationReport.validation_id}</p>
+          <p>
+            {validationReport.checks.filter((check) => check.passed).length} / {validationReport.checks.length} checks passed
+          </p>
         </div>
       )}
       <div className="runtime-object-history">
@@ -406,6 +438,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Export DNA
+                    </button>
+                    <button
+                      onClick={() => handleValidation(item.object_id)}
+                      disabled={status === 'loading'}
+                    >
+                      Validate
                     </button>
                   </>
                 )}

@@ -10,6 +10,7 @@ from app.core.runtime_objects import (
     RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
+    RuntimeObjectValidationReport,
     create_runtime_object,
 )
 from app.repositories.runtime_objects import RuntimeObjectRepository
@@ -318,6 +319,86 @@ class RuntimeObjectService:
             },
         )
         return saved
+
+    def validate(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObjectValidationReport:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        checks = [
+            {
+                "name": "not_deleted",
+                "passed": runtime_object.status != "deleted",
+                "message": "Runtime object must not be soft-deleted.",
+            },
+            {
+                "name": "manifest_present",
+                "passed": isinstance(runtime_object.manifest, dict),
+                "message": "Runtime object manifest must be available.",
+            },
+            {
+                "name": "version_present",
+                "passed": bool(runtime_object.version),
+                "message": "Runtime object version must be present.",
+            },
+        ]
+        if runtime_object.object_type == "provider":
+            checks.append(
+                {
+                    "name": "provider_type_present",
+                    "passed": bool(runtime_object.manifest.get("provider_type")),
+                    "message": "Provider runtime objects must declare provider_type.",
+                }
+            )
+        if runtime_object.manifest.get("dna_import"):
+            checks.append(
+                {
+                    "name": "dna_import_governance_gate",
+                    "passed": runtime_object.status == "disabled",
+                    "message": "Imported DNA runtime objects remain disabled until explicit enable approval.",
+                }
+            )
+
+        passed = all(check["passed"] for check in checks)
+        report = RuntimeObjectValidationReport(
+            validation_id=f"validation-{uuid4()}",
+            object_id=runtime_object.object_id,
+            status=runtime_object.status,
+            passed=passed,
+            checks=checks,
+            validated_at=datetime.now(UTC),
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.validate",
+                target_type=runtime_object.object_type,
+                target_id=runtime_object.object_id,
+                decision="approved" if passed else "rejected",
+                evidence={
+                    "name": runtime_object.name,
+                    "version": runtime_object.version,
+                    "reason": request.reason,
+                    "validation_id": report.validation_id,
+                    "checks": checks,
+                    "data_platform": runtime_object.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.validate",
+            "runtime-object-service",
+            {
+                "object_id": runtime_object.object_id,
+                "validation_id": report.validation_id,
+                "passed": report.passed,
+                "status": runtime_object.status,
+                "actor_id": request.actor_id,
+                "data_platform": runtime_object.data_platform,
+            },
+        )
+        return report
 
     def _change_status(
         self,

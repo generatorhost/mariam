@@ -127,3 +127,16 @@ def export_runtime_object_dna(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"dna_package": dna_package.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/validate")
+def validate_runtime_object(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        validation_report = service.validate(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"validation_report": validation_report.model_dump(mode="json")}

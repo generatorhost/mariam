@@ -314,6 +314,21 @@ POST /api/runtime-objects/import-dna
 7. The backend emits `runtime_object.import_dna`.
 8. The frontend shows the imported object as ready for governance review and refreshes Runtime Object History.
 
+### Validate Runtime Object
+1. User presses `Validate` on a runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/validate
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend runs governance checks for deleted status, manifest presence, version presence, provider metadata, and DNA import review state.
+5. The backend returns a validation report with pass/fail checks.
+6. The backend records `runtime_object.validate` as approved or rejected in the audit log.
+7. The backend emits `runtime_object.validate`.
+8. The frontend displays the validation id and check count.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -444,6 +459,7 @@ pytest
 - Runtime object upgrades can be rolled back to the previous manifest snapshot.
 - Runtime objects can be exported as governed DNA packages.
 - Runtime object DNA packages can be imported as disabled runtime objects for review.
+- Runtime objects can be validated before activation or delivery.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

@@ -44,6 +44,16 @@ class RuntimeObjectDNAImportRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class RuntimeObjectValidationReport(BaseModel):
+    validation_id: str
+    object_id: str
+    status: str
+    passed: bool
+    checks: list[dict]
+    validated_at: datetime
+    data_platform: str = "DB MARIAM"
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str
