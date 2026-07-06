@@ -152,6 +152,10 @@ p {
   border-color: var(--red);
 }
 
+.runtime-object-history .mission-actions button:first-child:last-child {
+  border-color: var(--green);
+}
+
 .status-grid {
   border-top: 1px solid var(--border);
   display: grid;

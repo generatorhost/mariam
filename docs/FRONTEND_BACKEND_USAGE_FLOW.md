@@ -228,6 +228,34 @@ POST /api/runtime-objects/{object_id}/enable
 6. The backend emits `runtime_object.enable`.
 7. The frontend refreshes Runtime Object History and the Command Center summary.
 
+### Soft Delete Runtime Object
+1. User presses `Delete` on a runtime object that is not already deleted.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/delete
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend changes status to `deleted`; the database row remains available for audit and rollback.
+5. The backend records `runtime_object.soft_delete` with actor, reason, evidence, and `DB MARIAM`.
+6. The backend emits `runtime_object.soft_delete`.
+7. The frontend refreshes Runtime Object History and replaces action buttons with `Restore`.
+
+### Restore Runtime Object
+1. User presses `Restore` on a soft-deleted runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/restore
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend changes status to `disabled`, requiring a deliberate `Enable` action before use.
+5. The backend records `runtime_object.restore` with actor, reason, evidence, and `DB MARIAM`.
+6. The backend emits `runtime_object.restore`.
+7. The frontend refreshes Runtime Object History and the Command Center summary.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -353,6 +381,7 @@ pytest
 - Runtime objects are available from `GET /api/runtime-objects`.
 - Frontend Runtime Object History displays recent governed runtime objects.
 - Runtime objects can be disabled and enabled through governed frontend actions.
+- Runtime objects can be soft-deleted and restored without losing audit history.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

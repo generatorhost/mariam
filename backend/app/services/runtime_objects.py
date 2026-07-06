@@ -62,6 +62,12 @@ class RuntimeObjectService:
     def disable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
         return self._change_status(object_id, "disabled", "disable", request)
 
+    def soft_delete(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        return self._change_status(object_id, "deleted", "soft_delete", request)
+
+    def restore(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
+        return self._change_status(object_id, "disabled", "restore", request)
+
     def _change_status(
         self,
         object_id: str,

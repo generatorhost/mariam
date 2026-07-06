@@ -45,3 +45,29 @@ def disable_runtime_object(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/delete")
+def soft_delete_runtime_object(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        runtime_object = service.soft_delete(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/restore")
+def restore_runtime_object(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        runtime_object = service.restore(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"runtime_object": runtime_object.model_dump(mode="json")}

@@ -177,6 +177,22 @@ async function disableRuntimeObject(objectId) {
   });
 }
 
+async function deleteRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/delete`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Soft deleted from Command Center Runtime Object History.',
+    evidence: { review: 'operator-soft-deleted-runtime-object' },
+  });
+}
+
+async function restoreRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/restore`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Restored from Command Center Runtime Object History for review.',
+    evidence: { review: 'operator-restored-runtime-object' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -215,8 +231,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       if (nextState === 'enabled') {
         await enableRuntimeObject(objectId);
-      } else {
+      } else if (nextState === 'disabled') {
         await disableRuntimeObject(objectId);
+      } else if (nextState === 'deleted') {
+        await deleteRuntimeObject(objectId);
+      } else {
+        await restoreRuntimeObject(objectId);
       }
       await refreshRuntimeObjects();
       onActionComplete();
@@ -247,7 +267,14 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
               </p>
               <time>{new Date(item.created_at).toLocaleString()}</time>
               <div className="mission-actions">
-                {item.status === 'enabled' ? (
+                {item.status === 'deleted' ? (
+                  <button
+                    onClick={() => handleStateChange(item.object_id, 'restored')}
+                    disabled={status === 'loading'}
+                  >
+                    Restore
+                  </button>
+                ) : item.status === 'enabled' ? (
                   <button
                     onClick={() => handleStateChange(item.object_id, 'disabled')}
                     disabled={status === 'loading'}
@@ -260,6 +287,14 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                     disabled={status === 'loading'}
                   >
                     Enable
+                  </button>
+                )}
+                {item.status !== 'deleted' && (
+                  <button
+                    onClick={() => handleStateChange(item.object_id, 'deleted')}
+                    disabled={status === 'loading'}
+                  >
+                    Delete
                   </button>
                 )}
               </div>

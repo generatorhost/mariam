@@ -95,6 +95,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 6. Runtime Object History reads `GET /api/runtime-objects` and refreshes automatically after runtime object registration.
 7. Press **Disable** or **Enable** in Runtime Object History to call the governed state-change endpoints.
 8. The backend updates the runtime object status, emits a runtime event, and records an audit decision.
+9. Press **Delete** to soft-delete the object without removing audit history.
+10. Press **Restore** to return a soft-deleted object to disabled review state before re-enabling.
 
 ## First Plugin Registry Flow
 
