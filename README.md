@@ -126,7 +126,9 @@ The current rebuild foundation supports a small end-to-end mission flow:
 17. Press **Soft Delete Plugin** to mark a plugin deleted without removing audit history or manifest data.
 18. Press **Restore Plugin** to return a deleted plugin to disabled review state.
 19. Press **Rollback Plugin** when a rollback point exists to restore the previous governed lifecycle state.
-20. The backend emits plugin lifecycle events and records governance audit evidence.
+20. Press **Export Plugin DNA** to create a governed portable Plugin DNA package.
+21. Press **Import Last Plugin DNA** to create a disabled imported Plugin-managed Business Unit for review.
+22. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

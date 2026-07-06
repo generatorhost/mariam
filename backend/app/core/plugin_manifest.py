@@ -33,6 +33,23 @@ class PluginPatchRequest(PluginStateChangeRequest):
     rollback_plan: str | None = None
 
 
+class PluginDNAPackage(BaseModel):
+    dna_package_id: str
+    source_plugin_id: str
+    name: str
+    version: str
+    exported_at: datetime
+    payload: dict
+    data_platform: str = "DB MARIAM"
+
+
+class PluginDNAImportRequest(BaseModel):
+    actor_id: str = Field(default="plugin-governance", min_length=2)
+    reason: str = Field(default="Governed plugin DNA import.", min_length=5)
+    dna_package: PluginDNAPackage
+    evidence: dict = Field(default_factory=dict)
+
+
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=3)
     name: str = Field(min_length=3)

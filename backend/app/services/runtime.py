@@ -7,6 +7,8 @@ from app.core.events import InMemoryEventBus
 from app.core.plugin_manifest import (
     PluginApprovalReport,
     PluginApprovalRequest,
+    PluginDNAImportRequest,
+    PluginDNAPackage,
     PluginImpactReport,
     PluginImpactRequest,
     PluginManifest,
@@ -123,6 +125,111 @@ class RuntimeRegistry:
                 "version": saved.version,
                 "status": saved.status,
                 "updated_fields": sorted(updates.keys()),
+                "actor_id": request.actor_id,
+            },
+        )
+        return saved
+
+    def export_plugin_dna(self, plugin_id: str, request: PluginStateChangeRequest) -> PluginDNAPackage:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        manifest = plugin.model_dump(
+            exclude={"rollback_stack", "validation", "impact_analysis", "change_approval"}
+        )
+        exported_at = datetime.now(UTC)
+        dna_package = PluginDNAPackage(
+            dna_package_id=f"plugin-dna-{uuid4()}",
+            source_plugin_id=plugin.plugin_id,
+            name=plugin.name,
+            version=plugin.version,
+            exported_at=exported_at,
+            payload={
+                "schema": "mariam.plugin.dna.v1",
+                "plugin": manifest,
+                "export_policy": {
+                    "requires_governance_review_before_import": True,
+                    "requires_validation_before_enable": True,
+                    "source_data_platform": "DB MARIAM",
+                },
+            },
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.export_dna",
+                target_type="plugin",
+                target_id=plugin.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": plugin.name,
+                    "version": plugin.version,
+                    "reason": request.reason,
+                    "dna_package_id": dna_package.dna_package_id,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.export_dna",
+            "runtime-registry",
+            {
+                "plugin_id": plugin.plugin_id,
+                "dna_package_id": dna_package.dna_package_id,
+                "name": plugin.name,
+                "version": plugin.version,
+                "actor_id": request.actor_id,
+            },
+        )
+        return dna_package
+
+    def import_plugin_dna(self, request: PluginDNAImportRequest) -> PluginManifest:
+        dna_package = request.dna_package
+        payload = dna_package.payload
+        if payload.get("schema") != "mariam.plugin.dna.v1":
+            raise ValueError("Unsupported plugin DNA schema.")
+        source_plugin = payload["plugin"]
+        imported_id = f"{source_plugin['plugin_id']}-imported"
+        candidate = PluginManifest.model_validate(
+            {
+                **source_plugin,
+                "plugin_id": imported_id,
+                "name": f"{source_plugin['name']} Imported",
+                "status": "disabled",
+                "validation": {},
+                "impact_analysis": {},
+                "change_approval": {},
+                "rollback_stack": [],
+            }
+        )
+        saved = self._plugin_repository.save(validate_manifest(candidate))
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.import_dna",
+                target_type="plugin",
+                target_id=saved.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "source_dna_package_id": dna_package.dna_package_id,
+                    "source_plugin_id": dna_package.source_plugin_id,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.import_dna",
+            "runtime-registry",
+            {
+                "plugin_id": saved.plugin_id,
+                "source_dna_package_id": dna_package.dna_package_id,
+                "source_plugin_id": dna_package.source_plugin_id,
+                "name": saved.name,
+                "version": saved.version,
+                "status": saved.status,
                 "actor_id": request.actor_id,
             },
         )

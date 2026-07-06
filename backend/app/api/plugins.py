@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.plugin_manifest import (
     PluginApprovalRequest,
+    PluginDNAImportRequest,
     PluginImpactRequest,
     PluginManifest,
     PluginPatchRequest,
@@ -139,6 +140,31 @@ def rollback_plugin(
 ) -> dict:
     try:
         plugin = registry.rollback_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}
+
+
+@router.post("/{plugin_id}/export-dna")
+def export_plugin_dna(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        dna_package = registry.export_plugin_dna(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"dna_package": dna_package.model_dump(mode="json")}
+
+
+@router.post("/import-dna")
+def import_plugin_dna(
+    request: PluginDNAImportRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.import_plugin_dna(request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"plugin": plugin.model_dump()}

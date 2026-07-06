@@ -219,6 +219,23 @@ async function rollbackPlugin(pluginId) {
   });
 }
 
+async function exportPluginDNA(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/export-dna`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Exported Plugin-managed Business Unit as DNA from Command Center.',
+    evidence: { export: 'operator-exported-plugin-dna' },
+  });
+}
+
+async function importPluginDNA(dnaPackage) {
+  return apiRequest('/api/plugins/import-dna', {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Imported Plugin-managed Business Unit DNA from Command Center.',
+    dna_package: dnaPackage,
+    evidence: { import: 'operator-imported-plugin-dna' },
+  });
+}
+
 async function softDeletePlugin(pluginId) {
   return apiRequest(`/api/plugins/${pluginId}/delete`, {
     actor_id: 'command-center-plugin-governance',
@@ -624,6 +641,8 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [pluginValidationReport, setPluginValidationReport] = useState(null);
   const [pluginImpactReport, setPluginImpactReport] = useState(null);
   const [pluginApprovalReport, setPluginApprovalReport] = useState(null);
+  const [pluginDnaPackage, setPluginDnaPackage] = useState(null);
+  const [pluginDnaImport, setPluginDnaImport] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -708,6 +727,35 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginDnaExport = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportPluginDNA(pluginId);
+      setPluginDnaPackage(body.dna_package);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
+  const handlePluginDnaImport = async () => {
+    if (!pluginDnaPackage) return;
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await importPluginDNA(pluginDnaPackage);
+      setPluginDnaImport(body.plugin);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -739,6 +787,23 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
           <strong>Plugin Change Approved</strong>
           <span>{pluginApprovalReport.approval_id}</span>
           <p>Approval linked to {pluginApprovalReport.impact_id}.</p>
+        </div>
+      )}
+      {pluginDnaPackage && (
+        <div className="mission-result">
+          <strong>Plugin DNA Exported</strong>
+          <span>{pluginDnaPackage.dna_package_id}</span>
+          <p>{pluginDnaPackage.payload.plugin.name} v{pluginDnaPackage.version}</p>
+          <button onClick={handlePluginDnaImport} disabled={status === 'loading'}>
+            Import Last Plugin DNA
+          </button>
+        </div>
+      )}
+      {pluginDnaImport && (
+        <div className="mission-result">
+          <strong>Plugin DNA Imported</strong>
+          <span>{pluginDnaImport.plugin_id}</span>
+          <p>{pluginDnaImport.status} review state before validation.</p>
         </div>
       )}
       <div className="plugin-history">
@@ -807,6 +872,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                     Rollback Plugin
                   </button>
                 )}
+                <button
+                  onClick={() => handlePluginDnaExport(plugin.plugin_id)}
+                  disabled={status === 'loading' || plugin.status === 'deleted'}
+                >
+                  Export Plugin DNA
+                </button>
                 {plugin.status === 'deleted' ? (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'restored')}

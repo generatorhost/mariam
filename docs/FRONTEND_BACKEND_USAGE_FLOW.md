@@ -522,6 +522,35 @@ POST /api/plugins/{plugin_id}/rollback
 6. The backend emits `plugin.rollback`.
 7. The frontend refreshes Plugin Registry History and the Command Center summary.
 
+### Export Plugin DNA
+1. User presses `Export Plugin DNA` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/export-dna
+```
+
+3. The backend exports a portable Plugin DNA package with schema `mariam.plugin.dna.v1`.
+4. The backend excludes validation, impact analysis, approval, and rollback stack internals from the DNA payload.
+5. The backend records `plugin.export_dna` in the audit log.
+6. The backend emits `plugin.export_dna`.
+7. The frontend displays the DNA package id and exposes `Import Last Plugin DNA`.
+
+### Import Plugin DNA
+1. User presses `Import Last Plugin DNA` after exporting a package.
+2. The frontend sends:
+
+```http
+POST /api/plugins/import-dna
+```
+
+3. The backend validates the Plugin DNA schema.
+4. The backend creates an imported Plugin-managed Business Unit in `disabled` review state.
+5. The imported plugin has no validation stamp, so it must be validated before enable.
+6. The backend records `plugin.import_dna` in the audit log.
+7. The backend emits `plugin.import_dna`.
+8. The frontend refreshes Plugin Registry History and the Command Center summary.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -649,6 +678,8 @@ pytest
 - Deleted plugins can be restored to disabled review state.
 - Plugin lifecycle state changes create rollback points.
 - Plugins can be rolled back to the previous governed lifecycle state.
+- Plugins can be exported as governed DNA packages.
+- Plugin DNA packages can be imported as disabled Plugin-managed Business Units for review.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

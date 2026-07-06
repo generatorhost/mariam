@@ -640,6 +640,114 @@ def test_plugin_patch_can_be_rolled_back_to_previous_manifest() -> None:
     assert plugin["rollback_stack"] == []
 
 
+def test_plugin_can_be_exported_as_dna_with_audit() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    client.patch(
+        f"/api/plugins/{plugin_id}",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Prepare plugin DNA export.",
+            "version": "0.2.0",
+            "workflows": ["lead-intake", "pipeline-review", "client-follow-up", "crm-export"],
+            "evidence": {"review": "export-ready"},
+        },
+    )
+
+    export_response = client.post(
+        f"/api/plugins/{plugin_id}/export-dna",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Export CRM plugin as DNA.",
+            "evidence": {"export": "approved"},
+        },
+    )
+
+    assert export_response.status_code == 200
+    dna_package = export_response.json()["dna_package"]
+    assert dna_package["dna_package_id"].startswith("plugin-dna-")
+    assert dna_package["payload"]["schema"] == "mariam.plugin.dna.v1"
+    assert dna_package["payload"]["plugin"]["plugin_id"] == plugin_id
+    assert dna_package["payload"]["plugin"]["version"] == "0.2.0"
+    assert "rollback_stack" not in dna_package["payload"]["plugin"]
+    assert "validation" not in dna_package["payload"]["plugin"]
+    assert "impact_analysis" not in dna_package["payload"]["plugin"]
+    assert "change_approval" not in dna_package["payload"]["plugin"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.export_dna"
+    ]
+    assert dna_package["dna_package_id"] in [
+        event["payload"].get("dna_package_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.export_dna"
+    ]
+
+
+def test_plugin_dna_can_be_imported_as_disabled_plugin_for_review() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    dna_package = client.post(
+        f"/api/plugins/{plugin_id}/export-dna",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Export before import test.",
+            "evidence": {"export": "approved"},
+        },
+    ).json()["dna_package"]
+
+    import_response = client.post(
+        "/api/plugins/import-dna",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Import CRM plugin DNA for review.",
+            "dna_package": dna_package,
+            "evidence": {"import": "review-required"},
+        },
+    )
+
+    assert import_response.status_code == 200
+    imported = import_response.json()["plugin"]
+    assert imported["plugin_id"] == "crm-imported"
+    assert imported["name"] == "CRM Workspace Imported"
+    assert imported["status"] == "disabled"
+    assert imported["validation"] == {}
+
+    enable_response = client.post(
+        f"/api/plugins/{imported['plugin_id']}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt enable imported plugin without validation.",
+            "evidence": {"review": "missing-validation"},
+        },
+    )
+    assert enable_response.status_code == 400
+    assert "must pass validation" in enable_response.json()["detail"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert imported["plugin_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.import_dna"
+    ]
+    assert imported["plugin_id"] in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.import_dna"
+    ]
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
