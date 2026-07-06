@@ -628,6 +628,27 @@ GET /api/audit
 5. If the user presses `Refresh Audit History`, the frontend repeats the same call.
 6. Any action that records audit evidence refreshes this panel through the shared Command Center refresh signal.
 
+### Generate Artifact
+1. User presses `Generate Artifact` on an awaiting mission.
+2. The frontend sends:
+
+```http
+POST /api/artifacts/from-mission/{mission_id}
+```
+
+3. The backend reads the mission and creates a draft artifact.
+4. The artifact is stored with `awaiting_approval` status and `DB MARIAM`.
+5. The backend emits `artifact.generated`.
+6. The frontend displays artifact title, status, and content.
+
+### Approve Or Reject Artifact
+1. User presses `Approve Artifact` or `Reject Artifact`.
+2. The frontend sends `POST /api/artifacts/{artifact_id}/approve` or `POST /api/artifacts/{artifact_id}/reject`.
+3. The backend updates artifact status.
+4. The backend records `artifact.approve` or `artifact.reject` in the audit log.
+5. The backend emits `artifact.approved` or `artifact.rejected`.
+6. The frontend displays the final artifact status.
+
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
 - Audit API layer: `backend/app/api/audit.py`
@@ -744,6 +765,8 @@ pytest
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.
 - The backend can reject a mission through a governance endpoint.
+- The backend can generate review artifacts from missions.
+- Artifacts require approval or rejection before delivery.
 - The mission references `DB MARIAM`.
 - Mission history is available from `GET /api/missions`.
 - Frontend Mission History displays recent mission repository records.

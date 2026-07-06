@@ -1,0 +1,50 @@
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.artifacts import ArtifactApprovalRequest, ArtifactRejectionRequest
+from app.dependencies import get_artifact_service
+from app.services.artifacts import ArtifactService
+
+router = APIRouter(prefix="/api/artifacts", tags=["artifacts"])
+
+
+@router.get("")
+def list_artifacts(service: ArtifactService = Depends(get_artifact_service)) -> dict:
+    return {"artifacts": [artifact.model_dump(mode="json") for artifact in service.list()]}
+
+
+@router.post("/from-mission/{mission_id}")
+def generate_artifact_from_mission(
+    mission_id: str,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        artifact = service.generate_from_mission(mission_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"artifact": artifact.model_dump(mode="json")}
+
+
+@router.post("/{artifact_id}/approve")
+def approve_artifact(
+    artifact_id: str,
+    request: ArtifactApprovalRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        artifact = service.approve(artifact_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"artifact": artifact.model_dump(mode="json")}
+
+
+@router.post("/{artifact_id}/reject")
+def reject_artifact(
+    artifact_id: str,
+    request: ArtifactRejectionRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        artifact = service.reject(artifact_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"artifact": artifact.model_dump(mode="json")}

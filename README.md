@@ -71,6 +71,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 14. The backend updates the mission status to `rejected`, emits `mission.rejected`, and records rejection evidence in the audit log.
 15. Mission History reads `GET /api/missions` and refreshes automatically after create, approve, or reject actions.
 16. Pending Mission History records expose **Approve** and **Reject** actions so older awaiting missions can still pass through governance.
+17. Press **Generate Artifact** on a pending mission to create a review artifact in `DB MARIAM`.
+18. Press **Approve Artifact** or **Reject Artifact** to record delivery governance before client export.
 17. Audit History reads `GET /api/audit` and refreshes automatically after governance decisions.
 
 ## First AI Resource Flow

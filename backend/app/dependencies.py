@@ -3,6 +3,11 @@ from functools import lru_cache
 from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
 from app.repositories.audit import AuditRepository, InMemoryAuditRepository, PostgresAuditRepository
+from app.repositories.artifacts import (
+    ArtifactRepository,
+    InMemoryArtifactRepository,
+    PostgresArtifactRepository,
+)
 from app.repositories.ai_resource_routes import (
     AIResourceRouteRepository,
     InMemoryAIResourceRouteRepository,
@@ -29,6 +34,7 @@ from app.repositories.runtime_objects import (
     RuntimeObjectRepository,
 )
 from app.services.ai_resources import AIResourceManager
+from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
 from app.services.command_center import CommandCenterSummaryService
 from app.services.missions import MissionService
@@ -103,6 +109,24 @@ def get_mission_repository() -> MissionRepository:
     if settings.mission_store == "postgres":
         return PostgresMissionRepository(settings.database_url)
     return InMemoryMissionRepository()
+
+
+@lru_cache
+def get_artifact_service() -> ArtifactService:
+    return ArtifactService(
+        get_event_bus(),
+        get_artifact_repository(),
+        get_audit_service(),
+        get_mission_service(),
+    )
+
+
+@lru_cache
+def get_artifact_repository() -> ArtifactRepository:
+    settings = get_settings()
+    if settings.mission_store == "postgres":
+        return PostgresArtifactRepository(settings.database_url)
+    return InMemoryArtifactRepository()
 
 
 @lru_cache

@@ -135,6 +135,25 @@ async function rejectMission(missionId) {
   });
 }
 
+async function generateArtifactFromMission(missionId) {
+  return apiRequest(`/api/artifacts/from-mission/${missionId}`, {});
+}
+
+async function approveArtifact(artifactId) {
+  return apiRequest(`/api/artifacts/${artifactId}/approve`, {
+    approved_by: 'command-center-artifact-governance',
+    evidence: { review: 'Approved from Command Center artifact panel' },
+  });
+}
+
+async function rejectArtifact(artifactId) {
+  return apiRequest(`/api/artifacts/${artifactId}/reject`, {
+    rejected_by: 'command-center-artifact-governance',
+    reason: 'Artifact needs revisions before client delivery.',
+    evidence: { review: 'Rejected from Command Center artifact panel' },
+  });
+}
+
 async function routeAIResource() {
   return apiRequest('/api/ai-resources/route', {
     capability: 'chat',
@@ -1166,6 +1185,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [missions, setMissions] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [artifact, setArtifact] = useState(null);
 
   const refreshMissions = useCallback(async () => {
     setStatus('loading');
@@ -1200,6 +1220,37 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }
 
+  async function handleArtifactGeneration(missionId) {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await generateArtifactFromMission(missionId);
+      setArtifact(body.artifact);
+      onActionComplete();
+      setStatus('ready');
+    } catch (artifactError) {
+      setStatus('error');
+      setError(artifactError.message);
+    }
+  }
+
+  async function handleArtifactDecision(decision) {
+    if (!artifact) return;
+    setStatus('loading');
+    setError('');
+    try {
+      const body = decision === 'approve'
+        ? await approveArtifact(artifact.artifact_id)
+        : await rejectArtifact(artifact.artifact_id);
+      setArtifact(body.artifact);
+      onActionComplete();
+      setStatus('ready');
+    } catch (artifactError) {
+      setStatus('error');
+      setError(artifactError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1210,6 +1261,23 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
         {status === 'loading' ? 'Loading...' : 'Refresh Mission History'}
       </button>
       {error && <p className="error">{error}</p>}
+      {artifact && (
+        <div className="mission-result">
+          <strong>{artifact.title}</strong>
+          <span>{artifact.status}</span>
+          <p>{artifact.content}</p>
+          {artifact.status === 'awaiting_approval' && (
+            <div className="mission-actions">
+              <button onClick={() => handleArtifactDecision('approve')} disabled={status === 'loading'}>
+                Approve Artifact
+              </button>
+              <button onClick={() => handleArtifactDecision('reject')} disabled={status === 'loading'}>
+                Reject Artifact
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <div className="mission-history">
         {missions.length ? (
           missions.map((item) => (
@@ -1231,6 +1299,12 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                     disabled={status === 'loading'}
                   >
                     Reject
+                  </button>
+                  <button
+                    onClick={() => handleArtifactGeneration(item.mission_id)}
+                    disabled={status === 'loading'}
+                  >
+                    Generate Artifact
                   </button>
                 </div>
               )}

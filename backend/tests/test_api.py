@@ -973,6 +973,89 @@ def test_plugin_chat_rejects_deleted_plugin() -> None:
     assert "must be restored" in chat_response.json()["detail"]
 
 
+def test_artifact_can_be_generated_from_mission_and_approved() -> None:
+    client = TestClient(create_app())
+    mission_response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare a proposal follow-up artifact.",
+            "requested_by": "command-center-user",
+        },
+    )
+    mission_id = mission_response.json()["mission"]["mission_id"]
+
+    artifact_response = client.post(f"/api/artifacts/from-mission/{mission_id}")
+
+    assert artifact_response.status_code == 200
+    artifact = artifact_response.json()["artifact"]
+    assert artifact["mission_id"] == mission_id
+    assert artifact["plugin_id"] == "crm"
+    assert artifact["status"] == "awaiting_approval"
+    assert artifact["data_platform"] == "DB MARIAM"
+
+    approve_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/approve",
+        json={
+            "approved_by": "artifact-governance",
+            "evidence": {"review": "artifact-approved"},
+        },
+    )
+
+    assert approve_response.status_code == 200
+    assert approve_response.json()["artifact"]["status"] == "approved"
+
+    list_response = client.get("/api/artifacts")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert artifact["artifact_id"] in [
+        item["artifact_id"] for item in list_response.json()["artifacts"]
+    ]
+    assert artifact["artifact_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "artifact.approve"
+    ]
+    assert artifact["artifact_id"] in [
+        event["payload"].get("artifact_id")
+        for event in event_response.json()["events"]
+        if event["name"] in {"artifact.generated", "artifact.approved"}
+    ]
+
+
+def test_artifact_can_be_rejected_with_governance_reason() -> None:
+    client = TestClient(create_app())
+    mission_id = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare an incomplete artifact.",
+            "requested_by": "command-center-user",
+        },
+    ).json()["mission"]["mission_id"]
+    artifact = client.post(f"/api/artifacts/from-mission/{mission_id}").json()["artifact"]
+
+    reject_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/reject",
+        json={
+            "rejected_by": "artifact-governance",
+            "reason": "Artifact needs stronger evidence before delivery.",
+            "evidence": {"review": "changes-requested"},
+        },
+    )
+
+    assert reject_response.status_code == 200
+    assert reject_response.json()["artifact"]["status"] == "rejected"
+
+    audit_response = client.get("/api/audit")
+    assert artifact["artifact_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "artifact.reject" and record["decision"] == "rejected"
+    ]
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
@@ -2006,6 +2089,24 @@ def test_mission_schema_targets_db_mariam() -> None:
     assert "mission_id UUID NOT NULL REFERENCES missions" in migration
     assert "step_order INTEGER NOT NULL" in migration
     assert "ADD COLUMN IF NOT EXISTS step_order" in step_order
+
+
+def test_artifact_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    artifact_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0004_artifact_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    artifact_upgrade = artifact_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS artifacts" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_artifacts_mission_status" in migration
+    assert "CREATE TABLE IF NOT EXISTS artifacts" in artifact_upgrade
+    assert "mission_id UUID NOT NULL REFERENCES missions" in artifact_upgrade
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:
