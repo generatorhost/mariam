@@ -214,6 +214,14 @@ async function rollbackRuntimeObject(objectId) {
   });
 }
 
+async function exportRuntimeObjectDNA(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/export-dna`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Exported runtime object as DNA from Command Center.',
+    evidence: { review: 'operator-exported-runtime-object-dna' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -227,6 +235,7 @@ async function recordAuditDecision() {
 
 function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
+  const [dnaPackage, setDnaPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -271,6 +280,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handleDNAExport = async (objectId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportRuntimeObjectDNA(objectId);
+      setDnaPackage(body.dna_package);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -281,6 +304,13 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
         {status === 'loading' ? 'Loading...' : 'Refresh Runtime Objects'}
       </button>
       {error && <p className="error">{error}</p>}
+      {dnaPackage && (
+        <div className="mission-result">
+          <strong>DNA Export Ready</strong>
+          <p>{dnaPackage.dna_package_id}</p>
+          <p>{dnaPackage.payload.schema}</p>
+        </div>
+      )}
       <div className="runtime-object-history">
         {runtimeObjects.length ? (
           runtimeObjects.map((item) => (
@@ -335,6 +365,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Delete
+                    </button>
+                    <button
+                      onClick={() => handleDNAExport(item.object_id)}
+                      disabled={status === 'loading'}
+                    >
+                      Export DNA
                     </button>
                   </>
                 )}

@@ -97,3 +97,16 @@ def rollback_runtime_object(
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.post("/{object_id}/export-dna")
+def export_runtime_object_dna(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        dna_package = service.export_dna(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"dna_package": dna_package.model_dump(mode="json")}

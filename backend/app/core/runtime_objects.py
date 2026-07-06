@@ -26,6 +26,17 @@ class RuntimeObjectPatchRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class RuntimeObjectDNAPackage(BaseModel):
+    dna_package_id: str
+    source_object_id: str
+    object_type: str
+    name: str
+    version: str
+    exported_at: datetime
+    payload: dict
+    data_platform: str = "DB MARIAM"
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

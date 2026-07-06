@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.runtime_objects import (
     RuntimeObject,
+    RuntimeObjectDNAPackage,
     RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
@@ -192,6 +194,69 @@ class RuntimeObjectService:
             },
         )
         return saved
+
+    def export_dna(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObjectDNAPackage:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        exported_at = datetime.now(UTC)
+        manifest = {
+            key: value
+            for key, value in runtime_object.manifest.items()
+            if key != "_rollback_stack"
+        }
+        dna_package = RuntimeObjectDNAPackage(
+            dna_package_id=f"dna-{uuid4()}",
+            source_object_id=runtime_object.object_id,
+            object_type=runtime_object.object_type,
+            name=runtime_object.name,
+            version=runtime_object.version,
+            exported_at=exported_at,
+            payload={
+                "schema": "mariam.runtime_object.dna.v1",
+                "object_type": runtime_object.object_type,
+                "name": runtime_object.name,
+                "status": runtime_object.status,
+                "version": runtime_object.version,
+                "manifest": manifest,
+                "export_policy": {
+                    "requires_governance_review_before_import": True,
+                    "source_data_platform": runtime_object.data_platform,
+                },
+            },
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.export_dna",
+                target_type=runtime_object.object_type,
+                target_id=runtime_object.object_id,
+                decision="approved",
+                evidence={
+                    "name": runtime_object.name,
+                    "version": runtime_object.version,
+                    "reason": request.reason,
+                    "dna_package_id": dna_package.dna_package_id,
+                    "data_platform": runtime_object.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.export_dna",
+            "runtime-object-service",
+            {
+                "object_id": runtime_object.object_id,
+                "dna_package_id": dna_package.dna_package_id,
+                "object_type": runtime_object.object_type,
+                "name": runtime_object.name,
+                "version": runtime_object.version,
+                "actor_id": request.actor_id,
+                "data_platform": runtime_object.data_platform,
+            },
+        )
+        return dna_package
 
     def _change_status(
         self,

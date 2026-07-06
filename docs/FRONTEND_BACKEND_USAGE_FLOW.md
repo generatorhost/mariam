@@ -284,6 +284,21 @@ POST /api/runtime-objects/{object_id}/rollback
 6. The backend emits `runtime_object.rollback`.
 7. The frontend refreshes Runtime Object History and the Command Center summary.
 
+### Export Runtime Object As DNA
+1. User presses `Export DNA` on a runtime object.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/{object_id}/export-dna
+```
+
+3. The backend loads the runtime object from the runtime object repository.
+4. The backend builds a `mariam.runtime_object.dna.v1` package from the runtime object metadata and manifest.
+5. The backend excludes internal rollback stack data from the exported manifest.
+6. The backend records `runtime_object.export_dna` with actor, reason, DNA package id, evidence, and `DB MARIAM`.
+7. The backend emits `runtime_object.export_dna`.
+8. The frontend displays the DNA package id and schema.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -412,6 +427,7 @@ pytest
 - Runtime objects can be soft-deleted and restored without losing audit history.
 - Runtime objects can be patched/upgraded through a governed endpoint.
 - Runtime object upgrades can be rolled back to the previous manifest snapshot.
+- Runtime objects can be exported as governed DNA packages.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

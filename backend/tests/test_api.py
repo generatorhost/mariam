@@ -318,6 +318,61 @@ def test_runtime_object_patch_can_be_rolled_back_with_audit() -> None:
     ]
 
 
+def test_runtime_object_can_be_exported_as_dna_with_audit() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "DNA Export Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+    client.patch(
+        f"/api/runtime-objects/{object_id}",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Prepare export metadata.",
+            "version": "0.2.0",
+            "manifest_updates": {"benchmark": "passed"},
+            "evidence": {"compatibility": "passed"},
+        },
+    )
+
+    export_response = client.post(
+        f"/api/runtime-objects/{object_id}/export-dna",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Export provider as DNA.",
+            "evidence": {"export_review": "passed"},
+        },
+    )
+
+    assert export_response.status_code == 200
+    dna_package = export_response.json()["dna_package"]
+    assert dna_package["dna_package_id"].startswith("dna-")
+    assert dna_package["source_object_id"] == object_id
+    assert dna_package["payload"]["schema"] == "mariam.runtime_object.dna.v1"
+    assert dna_package["payload"]["manifest"]["benchmark"] == "passed"
+    assert "_rollback_stack" not in dna_package["payload"]["manifest"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert object_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.export_dna"
+    ]
+    assert dna_package["dna_package_id"] in [
+        event["payload"].get("dna_package_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.export_dna"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(
