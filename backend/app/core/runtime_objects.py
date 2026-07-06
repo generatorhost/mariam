@@ -37,6 +37,13 @@ class RuntimeObjectDNAPackage(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class RuntimeObjectDNAImportRequest(BaseModel):
+    actor_id: str = Field(default="runtime-governance", min_length=2)
+    reason: str = Field(default="Governed runtime object DNA import.", min_length=5)
+    dna_package: RuntimeObjectDNAPackage
+    evidence: dict = Field(default_factory=dict)
+
+
 class RuntimeObject(BaseModel):
     object_id: str
     object_type: str

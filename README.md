@@ -100,6 +100,7 @@ The current rebuild foundation supports a small end-to-end mission flow:
 11. Press **Upgrade** to patch runtime object metadata and version through a governed audit trail.
 12. Press **Rollback** to restore the previous runtime object version and manifest snapshot.
 13. Press **Export DNA** to produce a governed JSON DNA package for the runtime object.
+14. Press **Import Last DNA** to create a disabled runtime object from the exported DNA package for governance review.
 
 ## First Plugin Registry Flow
 

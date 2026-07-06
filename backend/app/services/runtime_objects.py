@@ -5,6 +5,7 @@ from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.runtime_objects import (
     RuntimeObject,
+    RuntimeObjectDNAImportRequest,
     RuntimeObjectDNAPackage,
     RuntimeObjectPatchRequest,
     RuntimeObjectRequest,
@@ -257,6 +258,66 @@ class RuntimeObjectService:
             },
         )
         return dna_package
+
+    def import_dna(self, request: RuntimeObjectDNAImportRequest) -> RuntimeObject:
+        dna_package = request.dna_package
+        payload = dna_package.payload
+        if payload.get("schema") != "mariam.runtime_object.dna.v1":
+            raise ValueError("Unsupported runtime object DNA schema.")
+
+        now = datetime.now(UTC)
+        imported = RuntimeObject(
+            object_id=str(uuid4()),
+            object_type=payload["object_type"],
+            name=f"{payload['name']} Imported",
+            status="disabled",
+            version=payload["version"],
+            manifest={
+                **payload.get("manifest", {}),
+                "dna_import": {
+                    "source_dna_package_id": dna_package.dna_package_id,
+                    "source_object_id": dna_package.source_object_id,
+                    "imported_at": now.isoformat(),
+                    "requires_governance_review_before_enable": True,
+                },
+            },
+            created_at=now,
+            updated_at=now,
+        )
+        saved = self._repository.save(imported)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.import_dna",
+                target_type=saved.object_type,
+                target_id=saved.object_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "source_dna_package_id": dna_package.dna_package_id,
+                    "source_object_id": dna_package.source_object_id,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.import_dna",
+            "runtime-object-service",
+            {
+                "object_id": saved.object_id,
+                "source_dna_package_id": dna_package.dna_package_id,
+                "object_type": saved.object_type,
+                "name": saved.name,
+                "status": saved.status,
+                "version": saved.version,
+                "actor_id": request.actor_id,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
 
     def _change_status(
         self,

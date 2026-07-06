@@ -222,6 +222,15 @@ async function exportRuntimeObjectDNA(objectId) {
   });
 }
 
+async function importRuntimeObjectDNA(dnaPackage) {
+  return apiRequest('/api/runtime-objects/import-dna', {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Imported runtime object DNA from Command Center for governance review.',
+    dna_package: dnaPackage,
+    evidence: { review: 'operator-imported-runtime-object-dna' },
+  });
+}
+
 async function recordAuditDecision() {
   return apiRequest('/api/audit', {
     actor_id: 'governance-gate',
@@ -236,6 +245,7 @@ async function recordAuditDecision() {
 function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [dnaPackage, setDnaPackage] = useState(null);
+  const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -286,6 +296,21 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       const body = await exportRuntimeObjectDNA(objectId);
       setDnaPackage(body.dna_package);
+      setImportedRuntimeObject(null);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
+  const handleDNAImport = async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await importRuntimeObjectDNA(dnaPackage);
+      setImportedRuntimeObject(body.runtime_object);
       await refreshRuntimeObjects();
       onActionComplete();
     } catch (runtimeError) {
@@ -309,6 +334,16 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           <strong>DNA Export Ready</strong>
           <p>{dnaPackage.dna_package_id}</p>
           <p>{dnaPackage.payload.schema}</p>
+          <button onClick={handleDNAImport} disabled={status === 'loading'}>
+            Import Last DNA
+          </button>
+        </div>
+      )}
+      {importedRuntimeObject && (
+        <div className="mission-result">
+          <strong>DNA Import Ready For Review</strong>
+          <p>{importedRuntimeObject.name}</p>
+          <p>{importedRuntimeObject.status} / v{importedRuntimeObject.version}</p>
         </div>
       )}
       <div className="runtime-object-history">

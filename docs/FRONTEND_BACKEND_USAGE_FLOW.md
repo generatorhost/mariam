@@ -299,6 +299,21 @@ POST /api/runtime-objects/{object_id}/export-dna
 7. The backend emits `runtime_object.export_dna`.
 8. The frontend displays the DNA package id and schema.
 
+### Import Runtime Object DNA
+1. User presses `Import Last DNA` after a successful export.
+2. The frontend sends:
+
+```http
+POST /api/runtime-objects/import-dna
+```
+
+3. The backend validates the DNA package schema.
+4. The backend creates a new runtime object from the package with status `disabled`.
+5. The backend records source DNA metadata in the imported object's manifest.
+6. The backend records `runtime_object.import_dna` with actor, reason, source package id, evidence, and `DB MARIAM`.
+7. The backend emits `runtime_object.import_dna`.
+8. The frontend shows the imported object as ready for governance review and refreshes Runtime Object History.
+
 ### Register CRM Plugin
 1. User presses `Register CRM Plugin`.
 2. The frontend sends `POST /api/plugins`.
@@ -428,6 +443,7 @@ pytest
 - Runtime objects can be patched/upgraded through a governed endpoint.
 - Runtime object upgrades can be rolled back to the previous manifest snapshot.
 - Runtime objects can be exported as governed DNA packages.
+- Runtime object DNA packages can be imported as disabled runtime objects for review.
 - Registered plugins are available from `GET /api/plugins`.
 - Frontend Plugin Registry History displays registered Plugin-managed Business Units.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

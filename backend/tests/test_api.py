@@ -373,6 +373,61 @@ def test_runtime_object_can_be_exported_as_dna_with_audit() -> None:
     ]
 
 
+def test_runtime_object_dna_can_be_imported_disabled_with_audit() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "DNA Import Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    source_object_id = create_response.json()["runtime_object"]["object_id"]
+    export_response = client.post(
+        f"/api/runtime-objects/{source_object_id}/export-dna",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Export before import test.",
+            "evidence": {"export_review": "passed"},
+        },
+    )
+    dna_package = export_response.json()["dna_package"]
+
+    import_response = client.post(
+        "/api/runtime-objects/import-dna",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Import DNA package for review.",
+            "dna_package": dna_package,
+            "evidence": {"import_review": "requires-enable-approval"},
+        },
+    )
+
+    assert import_response.status_code == 200
+    imported = import_response.json()["runtime_object"]
+    assert imported["object_id"] != source_object_id
+    assert imported["name"] == "DNA Import Provider Imported"
+    assert imported["status"] == "disabled"
+    assert imported["manifest"]["dna_import"]["source_dna_package_id"] == dna_package["dna_package_id"]
+    assert imported["manifest"]["dna_import"]["requires_governance_review_before_enable"] is True
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert imported["object_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "runtime_object.import_dna"
+    ]
+    assert imported["object_id"] in [
+        event["payload"].get("object_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "runtime_object.import_dna"
+    ]
+
+
 def test_audit_endpoint_records_governance_decision() -> None:
     client = TestClient(create_app())
     response = client.post(

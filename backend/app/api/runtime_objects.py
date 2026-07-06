@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.runtime_objects import RuntimeObjectPatchRequest, RuntimeObjectRequest, RuntimeObjectStateChangeRequest
+from app.core.runtime_objects import (
+    RuntimeObjectDNAImportRequest,
+    RuntimeObjectPatchRequest,
+    RuntimeObjectRequest,
+    RuntimeObjectStateChangeRequest,
+)
 from app.dependencies import get_runtime_object_service
 from app.services.runtime_objects import RuntimeObjectService
 
@@ -18,6 +23,18 @@ def create_runtime_object(
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     runtime_object = service.create(request)
+    return {"runtime_object": runtime_object.model_dump(mode="json")}
+
+
+@router.post("/import-dna")
+def import_runtime_object_dna(
+    request: RuntimeObjectDNAImportRequest,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        runtime_object = service.import_dna(request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"runtime_object": runtime_object.model_dump(mode="json")}
 
 
