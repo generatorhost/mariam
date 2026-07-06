@@ -150,6 +150,46 @@ class RuntimeRegistry:
             "data_platform": "DB MARIAM",
         }
 
+    def record_plugin_chat_request(
+        self,
+        plugin_id: str,
+        mission_id: str,
+        requested_by: str,
+        user_request: str,
+        evidence: dict,
+    ) -> None:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        if plugin.status == "deleted":
+            raise ValueError(f"Plugin {plugin_id} must be restored before chat execution.")
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=requested_by,
+                action="plugin.chat_request",
+                target_type="plugin",
+                target_id=plugin.plugin_id,
+                decision="approved",
+                evidence={
+                    "mission_id": mission_id,
+                    "user_request": user_request,
+                    "chief_agent_role": plugin.chief_agent_role,
+                    "governance_gate": "mission_approval_before_delivery",
+                    **evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.chat_request",
+            "runtime-registry",
+            {
+                "plugin_id": plugin.plugin_id,
+                "mission_id": mission_id,
+                "requested_by": requested_by,
+                "chief_agent_role": plugin.chief_agent_role,
+            },
+        )
+
     def update_plugin_settings(
         self,
         plugin_id: str,

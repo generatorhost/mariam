@@ -131,7 +131,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 22. Press **Review Plugin Timeline** to inspect audit and runtime events for one Plugin.
 23. Press **Update Plugin Settings** to persist governed settings values against the Plugin schema.
 24. Press **Open Plugin Dashboard** to render the Plugin dashboard view model from backend runtime data.
-25. The backend emits plugin lifecycle events and records governance audit evidence.
+25. Press **Send Plugin Chat Request** to create a governed mission through the Plugin Chief Agent flow.
+26. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

@@ -97,6 +97,14 @@ async function updatePluginSettings(pluginId) {
   }, { method: 'PATCH' });
 }
 
+async function sendPluginChatRequest(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/chat`, {
+    requested_by: 'command-center-user',
+    user_request: 'Prepare a follow-up plan for a qualified CRM lead.',
+    evidence: { source: 'command-center-plugin-chat' },
+  });
+}
+
 async function loadRuntimeObjects() {
   const body = await apiGet('/api/runtime-objects');
   return (body.runtime_objects || []).sort(
@@ -663,6 +671,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [pluginTimeline, setPluginTimeline] = useState(null);
   const [pluginSettings, setPluginSettings] = useState(null);
   const [pluginDashboard, setPluginDashboard] = useState(null);
+  const [pluginChat, setPluginChat] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -816,6 +825,20 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginChatRequest = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await sendPluginChatRequest(pluginId);
+      setPluginChat(body.chat);
+      await refreshPlugins();
+      onActionComplete();
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -890,6 +913,15 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>
             {pluginDashboard.status} / {pluginDashboard.workflows.length} workflows /{' '}
             {pluginDashboard.activity.audit_records} audit records.
+          </p>
+        </div>
+      )}
+      {pluginChat && (
+        <div className="mission-result">
+          <strong>Plugin Chat Mission Created</strong>
+          <span>{pluginChat.mission_id}</span>
+          <p>
+            {pluginChat.chief_agent_role} queued mission with {pluginChat.status} status.
           </p>
         </div>
       )}
@@ -982,6 +1014,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   disabled={status === 'loading'}
                 >
                   Open Plugin Dashboard
+                </button>
+                <button
+                  onClick={() => handlePluginChatRequest(plugin.plugin_id)}
+                  disabled={status === 'loading' || plugin.status === 'deleted'}
+                >
+                  Send Plugin Chat Request
                 </button>
                 {plugin.status === 'deleted' ? (
                   <button

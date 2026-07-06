@@ -37,6 +37,12 @@ class PluginSettingsUpdateRequest(PluginStateChangeRequest):
     settings: dict = Field(default_factory=dict)
 
 
+class PluginChatRequest(BaseModel):
+    user_request: str = Field(min_length=3)
+    requested_by: str = Field(default="plugin-user", min_length=2)
+    evidence: dict = Field(default_factory=dict)
+
+
 class PluginDNAPackage(BaseModel):
     dna_package_id: str
     source_plugin_id: str

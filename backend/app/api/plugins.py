@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.plugin_manifest import (
     PluginApprovalRequest,
+    PluginChatRequest,
     PluginDNAImportRequest,
     PluginImpactRequest,
     PluginManifest,
@@ -9,7 +10,9 @@ from app.core.plugin_manifest import (
     PluginSettingsUpdateRequest,
     PluginStateChangeRequest,
 )
-from app.dependencies import get_runtime_registry
+from app.core.missions import MissionRequest
+from app.dependencies import get_mission_service, get_runtime_registry
+from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
@@ -60,6 +63,46 @@ def get_plugin_dashboard(
         return registry.plugin_dashboard(plugin_id)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.post("/{plugin_id}/chat")
+def send_plugin_chat_request(
+    plugin_id: str,
+    request: PluginChatRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+    mission_service: MissionService = Depends(get_mission_service),
+) -> dict:
+    try:
+        dashboard = registry.plugin_dashboard(plugin_id)
+        if dashboard["status"] == "deleted":
+            raise ValueError(f"Plugin {plugin_id} must be restored before chat execution.")
+        mission = mission_service.create(
+            MissionRequest(
+                plugin_id=plugin_id,
+                user_request=request.user_request,
+                requested_by=request.requested_by,
+            )
+        )
+        registry.record_plugin_chat_request(
+            plugin_id=plugin_id,
+            mission_id=mission.mission_id,
+            requested_by=request.requested_by,
+            user_request=request.user_request,
+            evidence=request.evidence,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {
+        "chat": {
+            "plugin_id": plugin_id,
+            "chief_agent_role": dashboard["chief_agent_role"],
+            "mission_id": mission.mission_id,
+            "status": mission.status,
+            "governance_gate": mission.governance_gate,
+            "data_platform": mission.data_platform,
+        },
+        "mission": mission.model_dump(mode="json"),
+    }
 
 
 @router.patch("/{plugin_id}/settings")

@@ -887,6 +887,92 @@ def test_plugin_dashboard_returns_runtime_view_model() -> None:
     assert dashboard["data_platform"] == "DB MARIAM"
 
 
+def test_plugin_chat_request_creates_governed_mission() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    chat_response = client.post(
+        f"/api/plugins/{plugin_id}/chat",
+        json={
+            "requested_by": "command-center-user",
+            "user_request": "Prepare a follow-up plan for the Acme lead.",
+            "evidence": {"source": "plugin-chat"},
+        },
+    )
+
+    assert chat_response.status_code == 200
+    body = chat_response.json()
+    assert body["chat"]["plugin_id"] == plugin_id
+    assert body["chat"]["chief_agent_role"] == "CRM Chief Agent"
+    assert body["chat"]["status"] == "awaiting_approval"
+    assert body["chat"]["data_platform"] == "DB MARIAM"
+    mission_id = body["chat"]["mission_id"]
+
+    mission_response = client.get("/api/missions")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert mission_id in [mission["mission_id"] for mission in mission_response.json()["missions"]]
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.chat_request"
+    ]
+    assert mission_id in [
+        event["payload"].get("mission_id")
+        for event in event_response.json()["events"]
+        if event["name"] in {"mission.created", "plugin.chat_request"}
+    ]
+
+
+def test_plugin_chat_rejects_deleted_plugin() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze before chat delete rejection.",
+            "intended_action": "delete",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    if impact_response.json()["impact_report"]["risk_level"] == "high":
+        client.post(
+            f"/api/plugins/{plugin_id}/approve-change",
+            json={
+                "actor_id": "plugin-governance",
+                "reason": "Approve delete before chat rejection.",
+                "intended_action": "delete",
+                "evidence": {"approval": "granted"},
+            },
+        )
+    client.post(
+        f"/api/plugins/{plugin_id}/delete",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Soft delete before chat rejection.",
+            "evidence": {"review": "approved-delete"},
+        },
+    )
+
+    chat_response = client.post(
+        f"/api/plugins/{plugin_id}/chat",
+        json={
+            "requested_by": "command-center-user",
+            "user_request": "Prepare a follow-up plan.",
+            "evidence": {"source": "plugin-chat"},
+        },
+    )
+
+    assert chat_response.status_code == 400
+    assert "must be restored" in chat_response.json()["detail"]
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

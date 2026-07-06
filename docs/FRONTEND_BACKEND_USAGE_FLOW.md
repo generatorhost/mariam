@@ -592,6 +592,21 @@ GET /api/plugins/{plugin_id}/dashboard
 4. The backend returns a dashboard view model with route, status, Chief Agent, swarm roles, workflows, permissions, settings, lifecycle gates, activity counts, and `DB MARIAM`.
 5. The frontend displays the dashboard route, plugin status, workflow count, and audit count.
 
+### Send Plugin Chat Request
+1. User presses `Send Plugin Chat Request` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/chat
+```
+
+3. The backend verifies that the plugin exists and is not deleted.
+4. The backend creates a governed mission through the Mission Service.
+5. The mission enters `awaiting_approval` status and references `DB MARIAM`.
+6. The backend records `plugin.chat_request` in the audit log.
+7. The backend emits `plugin.chat_request` and `mission.created`.
+8. The frontend displays the mission id, Chief Agent role, and mission status.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -724,6 +739,7 @@ pytest
 - Plugin timeline can be reviewed from one endpoint with audit and runtime events.
 - Plugin settings can be read and updated through schema-aware governed endpoints.
 - Plugin dashboard view model can be opened from backend runtime data.
+- Plugin chat requests create governed missions through the Plugin Chief Agent flow.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.
