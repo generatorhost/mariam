@@ -80,6 +80,10 @@ async function loadPlugins() {
   return body.plugins || [];
 }
 
+async function loadPluginTimeline(pluginId) {
+  return apiGet(`/api/plugins/${pluginId}/timeline`);
+}
+
 async function loadRuntimeObjects() {
   const body = await apiGet('/api/runtime-objects');
   return (body.runtime_objects || []).sort(
@@ -643,6 +647,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
   const [pluginApprovalReport, setPluginApprovalReport] = useState(null);
   const [pluginDnaPackage, setPluginDnaPackage] = useState(null);
   const [pluginDnaImport, setPluginDnaImport] = useState(null);
+  const [pluginTimeline, setPluginTimeline] = useState(null);
 
   const refreshPlugins = useCallback(async () => {
     setStatus('loading');
@@ -756,6 +761,19 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
+  const handlePluginTimeline = async (pluginId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const timeline = await loadPluginTimeline(pluginId);
+      setPluginTimeline(timeline);
+      setStatus('ready');
+    } catch (pluginError) {
+      setStatus('error');
+      setError(pluginError.message);
+    }
+  };
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -804,6 +822,16 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
           <strong>Plugin DNA Imported</strong>
           <span>{pluginDnaImport.plugin_id}</span>
           <p>{pluginDnaImport.status} review state before validation.</p>
+        </div>
+      )}
+      {pluginTimeline && (
+        <div className="mission-result">
+          <strong>Plugin Timeline</strong>
+          <span>{pluginTimeline.plugin.plugin_id}</span>
+          <p>
+            {pluginTimeline.summary.audit_records} audit records and{' '}
+            {pluginTimeline.summary.events} runtime events.
+          </p>
         </div>
       )}
       <div className="plugin-history">
@@ -877,6 +905,12 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   disabled={status === 'loading' || plugin.status === 'deleted'}
                 >
                   Export Plugin DNA
+                </button>
+                <button
+                  onClick={() => handlePluginTimeline(plugin.plugin_id)}
+                  disabled={status === 'loading'}
+                >
+                  Review Plugin Timeline
                 </button>
                 {plugin.status === 'deleted' ? (
                   <button

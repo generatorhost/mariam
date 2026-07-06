@@ -551,6 +551,20 @@ POST /api/plugins/import-dna
 7. The backend emits `plugin.import_dna`.
 8. The frontend refreshes Plugin Registry History and the Command Center summary.
 
+### Review Plugin Timeline
+1. User presses `Review Plugin Timeline` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+GET /api/plugins/{plugin_id}/timeline
+```
+
+3. The backend reads the plugin manifest from the plugin repository.
+4. The backend filters audit records where `target_type` is `plugin` and `target_id` matches the plugin id.
+5. The backend filters runtime events whose payload references the plugin id.
+6. The backend returns plugin status, audit records, runtime events, rollback count, and summary counts.
+7. The frontend displays the plugin id with audit and event counts.
+
 ### Record Audit Decision
 1. User presses `Record Audit Decision`.
 2. The frontend sends `POST /api/audit`.
@@ -680,6 +694,7 @@ pytest
 - Plugins can be rolled back to the previous governed lifecycle state.
 - Plugins can be exported as governed DNA packages.
 - Plugin DNA packages can be imported as disabled Plugin-managed Business Units for review.
+- Plugin timeline can be reviewed from one endpoint with audit and runtime events.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.
 - The backend creates a governed mission plan.
 - The backend can approve a mission through a governance endpoint.

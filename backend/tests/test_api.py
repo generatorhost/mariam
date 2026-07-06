@@ -748,6 +748,43 @@ def test_plugin_dna_can_be_imported_as_disabled_plugin_for_review() -> None:
     ]
 
 
+def test_plugin_timeline_reads_plugin_audit_and_events() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate before timeline review.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    client.post(
+        f"/api/plugins/{plugin_id}/export-dna",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Export before timeline review.",
+            "evidence": {"export": "approved"},
+        },
+    )
+
+    timeline_response = client.get(f"/api/plugins/{plugin_id}/timeline")
+
+    assert timeline_response.status_code == 200
+    timeline = timeline_response.json()
+    assert timeline["plugin"]["plugin_id"] == plugin_id
+    assert timeline["summary"]["audit_records"] >= 3
+    assert timeline["summary"]["events"] >= 3
+    assert {"plugin.register", "plugin.validate", "plugin.export_dna"} <= {
+        record["action"] for record in timeline["audit_records"]
+    }
+    assert {"plugin.registered", "plugin.validate", "plugin.export_dna"} <= {
+        event["name"] for event in timeline["events"]
+    }
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

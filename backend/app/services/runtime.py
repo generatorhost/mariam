@@ -62,6 +62,53 @@ class RuntimeRegistry:
     def list_plugins(self) -> list[PluginManifest]:
         return self._plugin_repository.list()
 
+    def plugin_timeline(self, plugin_id: str) -> dict:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        audit_records = [
+            record
+            for record in self._audit_service.list()
+            if record.target_type == "plugin" and record.target_id == plugin_id
+        ]
+        events = [
+            event
+            for event in self._event_bus.list_events()
+            if event.payload.get("plugin_id") == plugin_id
+            or event.payload.get("source_plugin_id") == plugin_id
+        ]
+        return {
+            "plugin": plugin.model_dump(),
+            "audit_records": [
+                {
+                    "audit_id": record.audit_id,
+                    "actor_id": record.actor_id,
+                    "action": record.action,
+                    "decision": record.decision,
+                    "evidence": record.evidence,
+                    "created_at": record.created_at,
+                }
+                for record in audit_records
+            ],
+            "events": [
+                {
+                    "event_id": event.event_id,
+                    "name": event.name,
+                    "source": event.source,
+                    "payload": event.payload,
+                    "created_at": event.created_at,
+                }
+                for event in events
+            ],
+            "summary": {
+                "audit_records": len(audit_records),
+                "events": len(events),
+                "rollback_points": len(plugin.rollback_stack),
+                "status": plugin.status,
+                "version": plugin.version,
+            },
+        }
+
     def patch_plugin(self, plugin_id: str, request: PluginPatchRequest) -> PluginManifest:
         plugin = self._plugin_repository.get(plugin_id)
         if plugin is None:

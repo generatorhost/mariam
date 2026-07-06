@@ -28,6 +28,17 @@ def register_plugin(
     return {"plugin": plugin.model_dump()}
 
 
+@router.get("/{plugin_id}/timeline")
+def get_plugin_timeline(
+    plugin_id: str,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        return registry.plugin_timeline(plugin_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 @router.post("/{plugin_id}/enable")
 def enable_plugin(
     plugin_id: str,
