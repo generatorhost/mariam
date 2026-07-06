@@ -31,6 +31,27 @@ def approve_runtime_object_change(client: TestClient, object_id: str, intended_a
     assert response.status_code == 200
 
 
+def validate_and_enable_plugin(client: TestClient, plugin_id: str) -> None:
+    validate_response = client.post(
+        f"/api/plugins/{plugin_id}/validate",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Validate before enable.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    assert validate_response.status_code == 200
+    enable_response = client.post(
+        f"/api/plugins/{plugin_id}/enable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Enable after validation.",
+            "evidence": {"review": "passed"},
+        },
+    )
+    assert enable_response.status_code == 200
+
+
 def test_root_points_to_architecture_library() -> None:
     client = TestClient(create_app())
     response = client.get("/")
@@ -141,6 +162,18 @@ def test_plugin_can_be_enabled_and_disabled_with_audit() -> None:
     assert impact_response.status_code == 200
     assert impact_response.json()["impact_report"]["risk_level"] == "high"
 
+    approval_response = client.post(
+        f"/api/plugins/{plugin_id}/approve-change",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Approve high-risk plugin disable.",
+            "intended_action": "disable",
+            "evidence": {"approval": "granted"},
+        },
+    )
+    assert approval_response.status_code == 200
+    assert approval_response.json()["approval_report"]["impact_id"] == impact_response.json()["impact_report"]["impact_id"]
+
     disable_response = client.post(
         f"/api/plugins/{plugin_id}/disable",
         json={
@@ -175,22 +208,7 @@ def test_plugin_disable_requires_impact_analysis() -> None:
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
-    client.post(
-        f"/api/plugins/{plugin_id}/validate",
-        json={
-            "actor_id": "plugin-governance",
-            "reason": "Validate before enable.",
-            "evidence": {"review": "passed"},
-        },
-    )
-    client.post(
-        f"/api/plugins/{plugin_id}/enable",
-        json={
-            "actor_id": "plugin-governance",
-            "reason": "Enable before disable gate test.",
-            "evidence": {"review": "passed"},
-        },
-    )
+    validate_and_enable_plugin(client, plugin_id)
 
     disable_response = client.post(
         f"/api/plugins/{plugin_id}/disable",
@@ -203,6 +221,88 @@ def test_plugin_disable_requires_impact_analysis() -> None:
 
     assert disable_response.status_code == 400
     assert "requires impact analysis" in disable_response.json()["detail"]
+
+
+def test_high_risk_plugin_disable_requires_change_approval() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    validate_and_enable_plugin(client, plugin_id)
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze high-risk plugin disable.",
+            "intended_action": "disable",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    assert impact_response.status_code == 200
+    assert impact_response.json()["impact_report"]["risk_level"] == "high"
+
+    disable_response = client.post(
+        f"/api/plugins/{plugin_id}/disable",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt disable without approval.",
+            "evidence": {"review": "missing-approval"},
+        },
+    )
+
+    assert disable_response.status_code == 400
+    assert "requires approval" in disable_response.json()["detail"]
+
+
+def test_plugin_change_approval_records_audit_event_and_stamp() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze before approval.",
+            "intended_action": "disable",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    impact_id = impact_response.json()["impact_report"]["impact_id"]
+
+    approval_response = client.post(
+        f"/api/plugins/{plugin_id}/approve-change",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Approve plugin disable.",
+            "intended_action": "disable",
+            "evidence": {"approval": "granted"},
+        },
+    )
+
+    assert approval_response.status_code == 200
+    report = approval_response.json()["approval_report"]
+    assert report["approval_id"].startswith("plugin-approval-")
+    assert report["impact_id"] == impact_id
+    assert report["intended_action"] == "disable"
+
+    list_response = client.get("/api/plugins")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+
+    assert plugin["change_approval"]["approval_id"] == report["approval_id"]
+    assert plugin["change_approval"]["impact_id"] == impact_id
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "plugin.approve_change"
+    ]
+    assert report["approval_id"] in [
+        event["payload"].get("approval_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "plugin.approve_change"
+    ]
 
 
 def test_plugin_impact_analysis_records_audit_event_and_stamp() -> None:

@@ -13,6 +13,10 @@ class PluginImpactRequest(PluginStateChangeRequest):
     intended_action: str = Field(default="disable", min_length=2)
 
 
+class PluginApprovalRequest(PluginStateChangeRequest):
+    intended_action: str = Field(default="disable", min_length=2)
+
+
 class PluginManifest(BaseModel):
     plugin_id: str = Field(min_length=3)
     name: str = Field(min_length=3)
@@ -20,6 +24,7 @@ class PluginManifest(BaseModel):
     status: str = "registered"
     validation: dict = Field(default_factory=dict)
     impact_analysis: dict = Field(default_factory=dict)
+    change_approval: dict = Field(default_factory=dict)
     dashboard_route: str
     settings_schema: dict
     api_prefix: str
@@ -58,6 +63,15 @@ class PluginImpactReport(BaseModel):
     affected_dependencies: list[str]
     governance_notes: list[str]
     analyzed_at: datetime
+    data_platform: str = "DB MARIAM"
+
+
+class PluginApprovalReport(BaseModel):
+    approval_id: str
+    plugin_id: str
+    intended_action: str
+    impact_id: str
+    approved_at: datetime
     data_platform: str = "DB MARIAM"
 
 

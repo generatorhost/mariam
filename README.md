@@ -117,10 +117,12 @@ The current rebuild foundation supports a small end-to-end mission flow:
 8. The backend stores a successful validation stamp on the plugin manifest and records `plugin.validate`.
 9. Press **Analyze Plugin Impact** before disabling a Plugin-managed Business Unit.
 10. The backend stores impact analysis for dashboard/API/workflow/dependency risk and records `plugin.impact_analysis`.
-11. Press **Enable Plugin** or **Disable Plugin** in Plugin Registry History to change Plugin-managed Business Unit status.
-12. Enable requires a successful plugin validation stamp; the backend rejects unvalidated activation.
-13. Disable requires a matching plugin impact analysis stamp; the backend rejects unanalyzed deactivation.
-14. The backend emits plugin lifecycle events and records governance audit evidence.
+11. Press **Approve Plugin Change** when the analyzed change is high risk.
+12. The backend links approval to the impact analysis and records `plugin.approve_change`.
+13. Press **Enable Plugin** or **Disable Plugin** in Plugin Registry History to change Plugin-managed Business Unit status.
+14. Enable requires a successful plugin validation stamp; the backend rejects unvalidated activation.
+15. Disable requires a matching plugin impact analysis stamp; high-risk disable also requires approval.
+16. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

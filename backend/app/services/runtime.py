@@ -5,6 +5,8 @@ from uuid import uuid4
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.core.plugin_manifest import (
+    PluginApprovalReport,
+    PluginApprovalRequest,
     PluginImpactReport,
     PluginImpactRequest,
     PluginManifest,
@@ -161,6 +163,13 @@ class RuntimeRegistry:
             raise ValueError(f"Plugin {plugin_id} was not found.")
         if plugin.impact_analysis.get("intended_action") != "disable":
             raise ValueError(f"Plugin {plugin_id} requires impact analysis before disable.")
+        if plugin.impact_analysis.get("risk_level") == "high":
+            approval = plugin.change_approval
+            if (
+                approval.get("intended_action") != "disable"
+                or approval.get("impact_id") != plugin.impact_analysis.get("impact_id")
+            ):
+                raise ValueError(f"Plugin {plugin_id} requires approval before high-risk disable.")
         return self._change_plugin_status(plugin_id, "disabled", "disable", request)
 
     def analyze_plugin_impact(
@@ -231,6 +240,69 @@ class RuntimeRegistry:
                 "impact_id": report.impact_id,
                 "intended_action": report.intended_action,
                 "risk_level": report.risk_level,
+                "actor_id": request.actor_id,
+            },
+        )
+        return report
+
+    def approve_plugin_change(
+        self,
+        plugin_id: str,
+        request: PluginApprovalRequest,
+    ) -> PluginApprovalReport:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        impact_analysis = plugin.impact_analysis
+        if impact_analysis.get("intended_action") != request.intended_action:
+            raise ValueError(
+                f"Plugin {plugin_id} requires impact analysis before approval for {request.intended_action}."
+            )
+        report = PluginApprovalReport(
+            approval_id=f"plugin-approval-{uuid4()}",
+            plugin_id=plugin.plugin_id,
+            intended_action=request.intended_action,
+            impact_id=impact_analysis["impact_id"],
+            approved_at=datetime.now(UTC),
+        )
+        self._plugin_repository.update(
+            plugin.model_copy(
+                update={
+                    "change_approval": {
+                        "approval_id": report.approval_id,
+                        "intended_action": report.intended_action,
+                        "impact_id": report.impact_id,
+                        "approved_at": report.approved_at.isoformat(),
+                    }
+                }
+            )
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="plugin.approve_change",
+                target_type="plugin",
+                target_id=plugin.plugin_id,
+                decision="approved",
+                evidence={
+                    "name": plugin.name,
+                    "version": plugin.version,
+                    "reason": request.reason,
+                    "approval_id": report.approval_id,
+                    "impact_id": report.impact_id,
+                    "intended_action": report.intended_action,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "plugin.approve_change",
+            "runtime-registry",
+            {
+                "plugin_id": plugin.plugin_id,
+                "approval_id": report.approval_id,
+                "impact_id": report.impact_id,
+                "intended_action": report.intended_action,
                 "actor_id": request.actor_id,
             },
         )
