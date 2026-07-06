@@ -1084,9 +1084,13 @@ def test_approved_artifact_can_be_packaged_for_delivery() -> None:
     assert delivery_package["status"] == "ready_for_client_delivery"
     assert delivery_package["data_platform"] == "DB MARIAM"
 
+    delivery_list_response = client.get("/api/artifacts/deliveries")
     audit_response = client.get("/api/audit")
     event_response = client.get("/api/runtime/events")
 
+    assert delivery_package["delivery_id"] in [
+        item["delivery_id"] for item in delivery_list_response.json()["delivery_packages"]
+    ]
     assert artifact["artifact_id"] in [
         record["target_id"]
         for record in audit_response.json()["audit_records"]
@@ -2182,6 +2186,25 @@ def test_artifact_schema_targets_db_mariam() -> None:
     assert "idx_artifacts_mission_status" in migration
     assert "CREATE TABLE IF NOT EXISTS artifacts" in artifact_upgrade
     assert "mission_id UUID NOT NULL REFERENCES missions" in artifact_upgrade
+
+
+def test_delivery_package_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    delivery_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0005_delivery_package_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    delivery_upgrade = delivery_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS delivery_packages" in migration
+    assert "package_manifest JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_delivery_packages_plugin_status" in migration
+    assert "CREATE TABLE IF NOT EXISTS delivery_packages" in delivery_upgrade
+    assert "artifact_id UUID NOT NULL REFERENCES artifacts" in delivery_upgrade
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:

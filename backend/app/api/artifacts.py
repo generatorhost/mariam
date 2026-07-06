@@ -12,6 +12,16 @@ def list_artifacts(service: ArtifactService = Depends(get_artifact_service)) -> 
     return {"artifacts": [artifact.model_dump(mode="json") for artifact in service.list()]}
 
 
+@router.get("/deliveries")
+def list_delivery_packages(service: ArtifactService = Depends(get_artifact_service)) -> dict:
+    return {
+        "delivery_packages": [
+            delivery_package.model_dump(mode="json")
+            for delivery_package in service.list_delivery_packages()
+        ]
+    }
+
+
 @router.post("/from-mission/{mission_id}")
 def generate_artifact_from_mission(
     mission_id: str,

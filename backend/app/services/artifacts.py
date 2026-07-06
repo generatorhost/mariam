@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.core.artifacts import (
     Artifact,
     ArtifactApprovalRequest,
@@ -10,7 +12,7 @@ from app.core.artifacts import (
 )
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
-from app.repositories.artifacts import ArtifactRepository
+from app.repositories.artifacts import ArtifactRepository, DeliveryPackageRepository
 from app.services.audit import AuditService
 from app.services.missions import MissionService
 
@@ -20,11 +22,13 @@ class ArtifactService:
         self,
         event_bus: InMemoryEventBus,
         repository: ArtifactRepository,
+        delivery_repository: DeliveryPackageRepository,
         audit_service: AuditService,
         mission_service: MissionService,
     ) -> None:
         self._event_bus = event_bus
         self._repository = repository
+        self._delivery_repository = delivery_repository
         self._audit_service = audit_service
         self._mission_service = mission_service
 
@@ -124,6 +128,7 @@ class ArtifactService:
         if artifact.status != ArtifactStatus.approved:
             raise ValueError(f"Artifact {artifact_id} must be approved before delivery packaging.")
         delivery_package = create_delivery_package(artifact, request.destination)
+        saved_delivery = self._delivery_repository.save(delivery_package)
         self._audit_service.record(
             AuditRecordRequest(
                 actor_id=request.packaged_by,
@@ -132,11 +137,11 @@ class ArtifactService:
                 target_id=artifact_id,
                 decision="approved",
                 evidence={
-                    "delivery_id": delivery_package.delivery_id,
-                    "mission_id": delivery_package.mission_id,
-                    "plugin_id": delivery_package.plugin_id,
-                    "destination": delivery_package.destination,
-                    "data_platform": delivery_package.data_platform,
+                    "delivery_id": saved_delivery.delivery_id,
+                    "mission_id": saved_delivery.mission_id,
+                    "plugin_id": saved_delivery.plugin_id,
+                    "destination": saved_delivery.destination,
+                    "data_platform": saved_delivery.data_platform,
                     **request.evidence,
                 },
             )
@@ -145,18 +150,21 @@ class ArtifactService:
             "artifact.delivery_packaged",
             "artifact-service",
             {
-                "delivery_id": delivery_package.delivery_id,
-                "artifact_id": delivery_package.artifact_id,
-                "mission_id": delivery_package.mission_id,
-                "plugin_id": delivery_package.plugin_id,
-                "destination": delivery_package.destination,
-                "status": delivery_package.status,
+                "delivery_id": saved_delivery.delivery_id,
+                "artifact_id": saved_delivery.artifact_id,
+                "mission_id": saved_delivery.mission_id,
+                "plugin_id": saved_delivery.plugin_id,
+                "destination": saved_delivery.destination,
+                "status": saved_delivery.status,
             },
         )
-        return delivery_package
+        return saved_delivery
 
     def list(self) -> list[Artifact]:
         return self._repository.list()
+
+    def list_delivery_packages(self) -> list[DeliveryPackage]:
+        return self._delivery_repository.list()
 
     def _get(self, artifact_id: str) -> Artifact:
         artifact = self._repository.get(artifact_id)

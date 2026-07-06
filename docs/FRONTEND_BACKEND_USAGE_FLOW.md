@@ -659,9 +659,22 @@ POST /api/artifacts/{artifact_id}/package-delivery
 
 3. The backend verifies that the artifact status is `approved`.
 4. The backend creates a delivery package with `ready_for_client_delivery` status.
-5. The backend records `artifact.package_delivery` in the audit log.
-6. The backend emits `artifact.delivery_packaged`.
-7. The frontend displays delivery id, destination, and delivery status.
+5. The backend stores the delivery package in `DB MARIAM`.
+6. The backend records `artifact.package_delivery` in the audit log.
+7. The backend emits `artifact.delivery_packaged`.
+8. The frontend displays delivery id, destination, and delivery status.
+9. The frontend refreshes delivery package history.
+
+### Refresh Delivery Packages
+1. User presses `Refresh Delivery Packages`.
+2. The frontend sends:
+
+```http
+GET /api/artifacts/deliveries
+```
+
+3. The backend reads delivery packages through the configured delivery package repository.
+4. The frontend displays recent package status, destination, plugin id, artifact id, and timestamp.
 
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
@@ -672,6 +685,8 @@ POST /api/artifacts/{artifact_id}/package-delivery
 - Runtime Object repository: `backend/app/repositories/runtime_objects.py`
 - Plugin API layer: `backend/app/api/plugins.py`
 - Plugin repository: `backend/app/repositories/plugins.py`
+- Artifact API layer: `backend/app/api/artifacts.py`
+- Artifact repository: `backend/app/repositories/artifacts.py`
 - Mission model: `backend/app/core/missions.py`
 - Mission service: `backend/app/services/missions.py`
 - Mission repository: `backend/app/repositories/missions.py`
@@ -696,6 +711,8 @@ The migration adds:
 - `runtime_objects`
 - `missions`
 - `mission_steps`
+- `artifacts`
+- `delivery_packages`
 
 These tables are the first executable Mission DB boundary.
 Docker sets `MARIAM_AUDIT_STORE=postgres` and writes governance decisions into `DB MARIAM`.
@@ -703,6 +720,7 @@ Docker sets `MARIAM_RUNTIME_OBJECT_STORE=postgres` and writes runtime objects in
 Docker sets `MARIAM_EVENT_STORE=postgres` and writes runtime event history into `DB MARIAM`.
 Docker sets `MARIAM_PLUGIN_STORE=postgres` and writes plugin registry history into `DB MARIAM`.
 Local tests use the memory mission repository; Docker sets `MARIAM_MISSION_STORE=postgres` and writes mission history into `DB MARIAM`.
+Artifact and delivery package history also use the mission store setting for the current executable foundation.
 
 ## Result Contract
 A successful mission response contains:
@@ -740,6 +758,7 @@ pytest
 - Opening the frontend loads a real backend Command Center summary.
 - Pressing each frontend action button has a real backend result.
 - Frontend exposes status, mission, AI routing, plugin registration, runtime object, and audit flows.
+- Delivery packages can be read back from persisted history.
 - Audit records are available from `GET /api/audit`.
 - Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.

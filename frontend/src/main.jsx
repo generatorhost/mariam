@@ -61,6 +61,13 @@ async function loadMissions() {
   );
 }
 
+async function loadDeliveryPackages() {
+  const body = await apiGet('/api/artifacts/deliveries');
+  return (body.delivery_packages || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function loadAuditRecords() {
   const body = await apiGet('/api/audit');
   return (body.audit_records || []).sort(
@@ -1191,6 +1198,7 @@ function AuditHistoryPanel({ refreshVersion }) {
 
 function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [missions, setMissions] = useState([]);
+  const [deliveryPackages, setDeliveryPackages] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [artifact, setArtifact] = useState(null);
@@ -1208,9 +1216,22 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }, []);
 
+  const refreshDeliveryPackages = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setDeliveryPackages((await loadDeliveryPackages()).slice(0, 5));
+      setStatus('ready');
+    } catch (deliveryError) {
+      setStatus('error');
+      setError(deliveryError.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshMissions();
-  }, [refreshMissions, refreshVersion]);
+    refreshDeliveryPackages();
+  }, [refreshMissions, refreshDeliveryPackages, refreshVersion]);
 
   async function handleHistoryDecision(missionId, decision) {
     setStatus('loading');
@@ -1267,6 +1288,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       const body = await packageArtifactDelivery(artifact.artifact_id);
       setDeliveryPackage(body.delivery_package);
+      await refreshDeliveryPackages();
       onActionComplete();
       setStatus('ready');
     } catch (artifactError) {
@@ -1316,6 +1338,25 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>{deliveryPackage.destination} / {deliveryPackage.status}</p>
         </div>
       )}
+      <div className="mission-actions">
+        <button onClick={refreshDeliveryPackages} disabled={status === 'loading'}>
+          Refresh Delivery Packages
+        </button>
+      </div>
+      <div className="mission-history">
+        {deliveryPackages.length ? (
+          deliveryPackages.map((item) => (
+            <article key={item.delivery_id}>
+              <strong>{item.status}</strong>
+              <span>{item.destination}</span>
+              <p>{item.plugin_id} / artifact {item.artifact_id}</p>
+              <time>{new Date(item.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No delivery packages recorded yet.</p>
+        )}
+      </div>
       <div className="mission-history">
         {missions.length ? (
           missions.map((item) => (
