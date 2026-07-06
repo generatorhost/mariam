@@ -65,6 +65,32 @@ def disable_plugin(
     return {"plugin": plugin.model_dump()}
 
 
+@router.post("/{plugin_id}/delete")
+def soft_delete_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.soft_delete_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}
+
+
+@router.post("/{plugin_id}/restore")
+def restore_plugin(
+    plugin_id: str,
+    request: PluginStateChangeRequest,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        plugin = registry.restore_plugin(plugin_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"plugin": plugin.model_dump()}
+
+
 @router.post("/{plugin_id}/impact-analysis")
 def analyze_plugin_impact(
     plugin_id: str,

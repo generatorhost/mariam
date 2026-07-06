@@ -176,20 +176,20 @@ async function disablePlugin(pluginId) {
   });
 }
 
-async function analyzePluginImpact(pluginId) {
+async function analyzePluginImpact(pluginId, intendedAction = 'disable') {
   return apiRequest(`/api/plugins/${pluginId}/impact-analysis`, {
     actor_id: 'command-center-plugin-governance',
     reason: 'Analyzed Plugin-managed Business Unit impact from Command Center.',
-    intended_action: 'disable',
+    intended_action: intendedAction,
     evidence: { review: 'operator-analyzed-plugin-impact' },
   });
 }
 
-async function approvePluginChange(pluginId) {
+async function approvePluginChange(pluginId, intendedAction = 'disable') {
   return apiRequest(`/api/plugins/${pluginId}/approve-change`, {
     actor_id: 'command-center-plugin-governance',
     reason: 'Approved Plugin-managed Business Unit change from Command Center.',
-    intended_action: 'disable',
+    intended_action: intendedAction,
     evidence: { approval: 'operator-approved-plugin-change' },
   });
 }
@@ -199,6 +199,22 @@ async function rollbackPlugin(pluginId) {
     actor_id: 'command-center-plugin-governance',
     reason: 'Rolled back Plugin-managed Business Unit from Command Center.',
     evidence: { review: 'operator-rolled-back-plugin' },
+  });
+}
+
+async function softDeletePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/delete`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Soft-deleted Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-soft-deleted-plugin' },
+  });
+}
+
+async function restorePlugin(pluginId) {
+  return apiRequest(`/api/plugins/${pluginId}/restore`, {
+    actor_id: 'command-center-plugin-governance',
+    reason: 'Restored Plugin-managed Business Unit from Command Center.',
+    evidence: { review: 'operator-restored-plugin' },
   });
 }
 
@@ -616,6 +632,10 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
         await enablePlugin(pluginId);
       } else if (nextState === 'rollback') {
         await rollbackPlugin(pluginId);
+      } else if (nextState === 'deleted') {
+        await softDeletePlugin(pluginId);
+      } else if (nextState === 'restored') {
+        await restorePlugin(pluginId);
       } else {
         await disablePlugin(pluginId);
       }
@@ -641,11 +661,11 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
-  const handlePluginImpactAnalysis = async (pluginId) => {
+  const handlePluginImpactAnalysis = async (pluginId, intendedAction = 'disable') => {
     setStatus('loading');
     setError('');
     try {
-      const body = await analyzePluginImpact(pluginId);
+      const body = await analyzePluginImpact(pluginId, intendedAction);
       setPluginImpactReport(body.impact_report);
       await refreshPlugins();
       onActionComplete();
@@ -655,11 +675,11 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   };
 
-  const handlePluginApproval = async (pluginId) => {
+  const handlePluginApproval = async (pluginId, intendedAction = 'disable') => {
     setStatus('loading');
     setError('');
     try {
-      const body = await approvePluginChange(pluginId);
+      const body = await approvePluginChange(pluginId, intendedAction);
       setPluginApprovalReport(body.approval_report);
       await refreshPlugins();
       onActionComplete();
@@ -731,16 +751,28 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                   Validate Plugin
                 </button>
                 <button
-                  onClick={() => handlePluginImpactAnalysis(plugin.plugin_id)}
+                  onClick={() => handlePluginImpactAnalysis(plugin.plugin_id, 'disable')}
                   disabled={status === 'loading'}
                 >
-                  Analyze Plugin Impact
+                  Analyze Disable Impact
                 </button>
                 <button
-                  onClick={() => handlePluginApproval(plugin.plugin_id)}
+                  onClick={() => handlePluginImpactAnalysis(plugin.plugin_id, 'delete')}
                   disabled={status === 'loading'}
                 >
-                  Approve Plugin Change
+                  Analyze Delete Impact
+                </button>
+                <button
+                  onClick={() => handlePluginApproval(plugin.plugin_id, 'disable')}
+                  disabled={status === 'loading'}
+                >
+                  Approve Disable
+                </button>
+                <button
+                  onClick={() => handlePluginApproval(plugin.plugin_id, 'delete')}
+                  disabled={status === 'loading'}
+                >
+                  Approve Delete
                 </button>
                 {(plugin.rollback_stack || []).length > 0 && (
                   <button
@@ -750,7 +782,14 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                     Rollback Plugin
                   </button>
                 )}
-                {plugin.status === 'enabled' ? (
+                {plugin.status === 'deleted' ? (
+                  <button
+                    onClick={() => handlePluginStateChange(plugin.plugin_id, 'restored')}
+                    disabled={status === 'loading'}
+                  >
+                    Restore Plugin
+                  </button>
+                ) : plugin.status === 'enabled' ? (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'disabled')}
                     disabled={status === 'loading'}
@@ -763,6 +802,14 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                     disabled={status === 'loading'}
                   >
                     Enable Plugin
+                  </button>
+                )}
+                {plugin.status !== 'deleted' && (
+                  <button
+                    onClick={() => handlePluginStateChange(plugin.plugin_id, 'deleted')}
+                    disabled={status === 'loading'}
+                  >
+                    Soft Delete Plugin
                   </button>
                 )}
               </div>

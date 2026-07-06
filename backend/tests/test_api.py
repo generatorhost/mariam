@@ -360,6 +360,124 @@ def test_plugin_state_change_can_be_rolled_back_with_audit() -> None:
     ]
 
 
+def test_plugin_soft_delete_requires_impact_analysis() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    delete_response = client.post(
+        f"/api/plugins/{plugin_id}/delete",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt soft delete without impact analysis.",
+            "evidence": {"review": "missing-impact-analysis"},
+        },
+    )
+
+    assert delete_response.status_code == 400
+    assert "requires impact analysis" in delete_response.json()["detail"]
+
+
+def test_high_risk_plugin_soft_delete_requires_change_approval() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    validate_and_enable_plugin(client, plugin_id)
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze high-risk plugin delete.",
+            "intended_action": "delete",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    assert impact_response.status_code == 200
+    assert impact_response.json()["impact_report"]["risk_level"] == "high"
+
+    delete_response = client.post(
+        f"/api/plugins/{plugin_id}/delete",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Attempt high-risk soft delete without approval.",
+            "evidence": {"review": "missing-approval"},
+        },
+    )
+
+    assert delete_response.status_code == 400
+    assert "requires approval" in delete_response.json()["detail"]
+
+
+def test_plugin_can_be_soft_deleted_and_restored_with_audit() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+    validate_and_enable_plugin(client, plugin_id)
+    impact_response = client.post(
+        f"/api/plugins/{plugin_id}/impact-analysis",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Analyze before soft delete.",
+            "intended_action": "delete",
+            "evidence": {"review": "impact-analyzed"},
+        },
+    )
+    impact_id = impact_response.json()["impact_report"]["impact_id"]
+    approval_response = client.post(
+        f"/api/plugins/{plugin_id}/approve-change",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Approve high-risk soft delete.",
+            "intended_action": "delete",
+            "evidence": {"approval": "granted"},
+        },
+    )
+    assert approval_response.status_code == 200
+    assert approval_response.json()["approval_report"]["impact_id"] == impact_id
+
+    delete_response = client.post(
+        f"/api/plugins/{plugin_id}/delete",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Soft delete plugin while retaining audit history.",
+            "evidence": {"review": "approved-delete"},
+        },
+    )
+    assert delete_response.status_code == 200
+    assert delete_response.json()["plugin"]["status"] == "deleted"
+
+    restore_response = client.post(
+        f"/api/plugins/{plugin_id}/restore",
+        json={
+            "actor_id": "plugin-governance",
+            "reason": "Restore plugin for disabled review state.",
+            "evidence": {"review": "restore-approved"},
+        },
+    )
+    assert restore_response.status_code == 200
+    assert restore_response.json()["plugin"]["status"] == "disabled"
+
+    list_response = client.get("/api/plugins")
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+    plugin = next(plugin for plugin in list_response.json()["plugins"] if plugin["plugin_id"] == plugin_id)
+
+    assert plugin["status"] == "disabled"
+    assert plugin_id in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] in {"plugin.soft_delete", "plugin.restore"}
+    ]
+    assert plugin_id in [
+        event["payload"].get("plugin_id")
+        for event in event_response.json()["events"]
+        if event["name"] in {"plugin.soft_delete", "plugin.restore"}
+    ]
+
+
 def test_plugin_impact_analysis_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"

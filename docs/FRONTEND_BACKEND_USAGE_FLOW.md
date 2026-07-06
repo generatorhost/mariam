@@ -402,14 +402,14 @@ POST /api/plugins/{plugin_id}/validate
 8. The Plugin Registry History panel refreshes and shows the validation stamp.
 
 ### Analyze Plugin Impact
-1. User presses `Analyze Plugin Impact` on a Plugin-managed Business Unit.
+1. User presses `Analyze Disable Impact` or `Analyze Delete Impact` on a Plugin-managed Business Unit.
 2. The frontend sends:
 
 ```http
 POST /api/plugins/{plugin_id}/impact-analysis
 ```
 
-3. The backend analyzes affected workflows, permissions, provider dependencies, connector dependencies, and runtime dependencies.
+3. The backend analyzes affected workflows, permissions, provider dependencies, connector dependencies, and runtime dependencies for the requested intended action.
 4. The backend stores an impact analysis stamp in the plugin manifest.
 5. The backend records `plugin.impact_analysis` in the audit log.
 6. The backend emits `plugin.impact_analysis`.
@@ -417,7 +417,7 @@ POST /api/plugins/{plugin_id}/impact-analysis
 8. The Plugin Registry History panel refreshes and shows the impact stamp.
 
 ### Approve Plugin Change
-1. User presses `Approve Plugin Change` after impact analysis.
+1. User presses `Approve Disable` or `Approve Delete` after impact analysis.
 2. The frontend sends:
 
 ```http
@@ -462,6 +462,35 @@ POST /api/plugins/{plugin_id}/disable
 8. The backend records `plugin.disable` in the audit log.
 9. The backend emits `plugin.disable`.
 10. The frontend refreshes Plugin Registry History and the Command Center summary.
+
+### Soft Delete Plugin
+1. User presses `Soft Delete Plugin` on a Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/delete
+```
+
+3. The backend requires a matching plugin impact analysis stamp for `delete`.
+4. If the impact risk is high, the backend requires a matching change approval stamp for `delete`.
+5. If gates pass, the backend updates the plugin status to `deleted`.
+6. The backend records `plugin.soft_delete` in the audit log.
+7. The backend emits `plugin.soft_delete`.
+8. The frontend refreshes Plugin Registry History and the Command Center summary.
+
+### Restore Plugin
+1. User presses `Restore Plugin` on a deleted Plugin-managed Business Unit.
+2. The frontend sends:
+
+```http
+POST /api/plugins/{plugin_id}/restore
+```
+
+3. The backend verifies that the plugin status is `deleted`.
+4. The backend restores the plugin to `disabled` review state.
+5. The backend records `plugin.restore` in the audit log.
+6. The backend emits `plugin.restore`.
+7. The frontend refreshes Plugin Registry History and the Command Center summary.
 
 ### Rollback Plugin
 1. User presses `Rollback Plugin` on a Plugin-managed Business Unit with stored rollback points.
@@ -598,6 +627,8 @@ pytest
 - Plugins require impact analysis before disable.
 - Successful plugin impact analysis is persisted as a plugin manifest stamp.
 - High-risk plugin disable requires a matching change approval stamp.
+- Plugins can be soft-deleted without removing audit history or manifest data.
+- Deleted plugins can be restored to disabled review state.
 - Plugin lifecycle state changes create rollback points.
 - Plugins can be rolled back to the previous governed lifecycle state.
 - The Command Center status panel reads aggregated counts and recent runtime activity from `GET /api/runtime/summary`.

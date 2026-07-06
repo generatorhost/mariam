@@ -115,15 +115,17 @@ The current rebuild foundation supports a small end-to-end mission flow:
 6. Plugin Registry History reads `GET /api/plugins` and refreshes automatically after plugin registration.
 7. Press **Validate Plugin** to run plugin dashboard, API, permissions, tests, Chief Agent, and data-boundary checks.
 8. The backend stores a successful validation stamp on the plugin manifest and records `plugin.validate`.
-9. Press **Analyze Plugin Impact** before disabling a Plugin-managed Business Unit.
+9. Press **Analyze Disable Impact** or **Analyze Delete Impact** before disabling or soft-deleting a Plugin-managed Business Unit.
 10. The backend stores impact analysis for dashboard/API/workflow/dependency risk and records `plugin.impact_analysis`.
-11. Press **Approve Plugin Change** when the analyzed change is high risk.
+11. Press **Approve Disable** or **Approve Delete** when the analyzed change is high risk.
 12. The backend links approval to the impact analysis and records `plugin.approve_change`.
 13. Press **Enable Plugin** or **Disable Plugin** in Plugin Registry History to change Plugin-managed Business Unit status.
 14. Enable requires a successful plugin validation stamp; the backend rejects unvalidated activation.
 15. Disable requires a matching plugin impact analysis stamp; high-risk disable also requires approval.
-16. Press **Rollback Plugin** when a rollback point exists to restore the previous governed lifecycle state.
-17. The backend emits plugin lifecycle events and records governance audit evidence.
+16. Press **Soft Delete Plugin** to mark a plugin deleted without removing audit history or manifest data.
+17. Press **Restore Plugin** to return a deleted plugin to disabled review state.
+18. Press **Rollback Plugin** when a rollback point exists to restore the previous governed lifecycle state.
+19. The backend emits plugin lifecycle events and records governance audit evidence.
 
 ## First Audit Flow
 

@@ -161,16 +161,23 @@ class RuntimeRegistry:
         plugin = self._plugin_repository.get(plugin_id)
         if plugin is None:
             raise ValueError(f"Plugin {plugin_id} was not found.")
-        if plugin.impact_analysis.get("intended_action") != "disable":
-            raise ValueError(f"Plugin {plugin_id} requires impact analysis before disable.")
-        if plugin.impact_analysis.get("risk_level") == "high":
-            approval = plugin.change_approval
-            if (
-                approval.get("intended_action") != "disable"
-                or approval.get("impact_id") != plugin.impact_analysis.get("impact_id")
-            ):
-                raise ValueError(f"Plugin {plugin_id} requires approval before high-risk disable.")
+        self._require_plugin_change_gates(plugin, "disable")
         return self._change_plugin_status(plugin_id, "disabled", "disable", request)
+
+    def soft_delete_plugin(self, plugin_id: str, request: PluginStateChangeRequest) -> PluginManifest:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        self._require_plugin_change_gates(plugin, "delete")
+        return self._change_plugin_status(plugin_id, "deleted", "soft_delete", request)
+
+    def restore_plugin(self, plugin_id: str, request: PluginStateChangeRequest) -> PluginManifest:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        if plugin.status != "deleted":
+            raise ValueError(f"Plugin {plugin_id} is not deleted.")
+        return self._change_plugin_status(plugin_id, "disabled", "restore", request)
 
     def analyze_plugin_impact(
         self,
@@ -408,6 +415,21 @@ class RuntimeRegistry:
             },
         )
         return saved
+
+    def _require_plugin_change_gates(self, plugin: PluginManifest, intended_action: str) -> None:
+        if plugin.impact_analysis.get("intended_action") != intended_action:
+            raise ValueError(
+                f"Plugin {plugin.plugin_id} requires impact analysis before {intended_action}."
+            )
+        if plugin.impact_analysis.get("risk_level") == "high":
+            approval = plugin.change_approval
+            if (
+                approval.get("intended_action") != intended_action
+                or approval.get("impact_id") != plugin.impact_analysis.get("impact_id")
+            ):
+                raise ValueError(
+                    f"Plugin {plugin.plugin_id} requires approval before high-risk {intended_action}."
+                )
 
     def health(self) -> list[RuntimeStatus]:
         return [
