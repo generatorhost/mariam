@@ -595,7 +595,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -700,6 +700,12 @@ def verify_api_smoke_flow() -> None:
         delivery_package["package_manifest"]["quality_review_id"] == quality_review["review_id"],
         "Delivery package is missing the quality review trace.",
     )
+    assert_condition(
+        delivery_package["package_manifest"]["evidence_signed"] is True
+        and delivery_package["package_manifest"]["evidence_signature_algorithm"] == "sha256"
+        and len(delivery_package["package_manifest"]["evidence_signature"]) == 64,
+        "Delivery package is missing the signed evidence bundle.",
+    )
 
     confirmed = request_json(
         f"/api/artifacts/deliveries/{delivery_package['delivery_id']}/confirm",
@@ -710,7 +716,13 @@ def verify_api_smoke_flow() -> None:
             "evidence": {"verification": "client-delivery-confirmed"},
         },
     )["delivery_package"]
-    assert_condition(confirmed["status"] == "delivered_to_client", "Delivery was not confirmed to client.")
+    assert_condition(
+        confirmed["status"] == "delivered_to_client"
+        and confirmed["package_manifest"]["delivery_confirmation_requires_signature"] is True
+        and confirmed["package_manifest"]["evidence_signature"]
+        == delivery_package["package_manifest"]["evidence_signature"],
+        "Delivery was not confirmed to client with a signed evidence bundle.",
+    )
     print("[verify] ok: mission -> artifact -> revision -> quality -> package -> client delivery")
 
 

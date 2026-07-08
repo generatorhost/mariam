@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+
 from app.core.artifacts import (
     Artifact,
     ArtifactApprovalRequest,
@@ -185,10 +188,24 @@ class ArtifactService:
         if quality_review is None or not quality_review.passed:
             raise ValueError(f"Artifact {artifact_id} must pass quality review before delivery packaging.")
         delivery_package = create_delivery_package(artifact, request.destination)
+        evidence_bundle = {
+            "artifact_id": artifact.artifact_id,
+            "mission_id": artifact.mission_id,
+            "plugin_id": artifact.plugin_id,
+            "quality_review_id": quality_review.review_id,
+            "quality_score": quality_review.score,
+            "destination": request.destination,
+            "data_platform": artifact.data_platform,
+        }
+        evidence_signature = self._sign_evidence_bundle(evidence_bundle)
         delivery_package.package_manifest.update(
             {
                 "quality_review_id": quality_review.review_id,
                 "quality_score": quality_review.score,
+                "evidence_bundle": evidence_bundle,
+                "evidence_signature": evidence_signature,
+                "evidence_signature_algorithm": "sha256",
+                "evidence_signed": True,
             }
         )
         saved_delivery = self._delivery_repository.save(delivery_package)
@@ -204,6 +221,7 @@ class ArtifactService:
                     "mission_id": saved_delivery.mission_id,
                     "plugin_id": saved_delivery.plugin_id,
                     "destination": saved_delivery.destination,
+                    "evidence_signature": evidence_signature,
                     "data_platform": saved_delivery.data_platform,
                     **request.evidence,
                 },
@@ -283,6 +301,7 @@ class ArtifactService:
             raise ValueError(
                 f"Delivery package {delivery_id} must be ready_for_client_delivery before confirmation."
             )
+        self._verify_delivery_signature(delivery_package)
         confirmed = delivery_package.model_copy(
             update={
                 "status": "delivered_to_client",
@@ -291,6 +310,7 @@ class ArtifactService:
                     "client_reference": request.client_reference,
                     "delivered_by": request.delivered_by,
                     "delivery_confirmed": True,
+                    "delivery_confirmation_requires_signature": True,
                 },
             }
         )
@@ -307,6 +327,7 @@ class ArtifactService:
                     "mission_id": saved_delivery.mission_id,
                     "plugin_id": saved_delivery.plugin_id,
                     "client_reference": request.client_reference,
+                    "evidence_signature": saved_delivery.package_manifest["evidence_signature"],
                     "data_platform": saved_delivery.data_platform,
                     **request.evidence,
                 },
@@ -325,6 +346,23 @@ class ArtifactService:
             },
         )
         return saved_delivery
+
+    def _sign_evidence_bundle(self, evidence_bundle: dict) -> str:
+        canonical_payload = json.dumps(evidence_bundle, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+
+    def _verify_delivery_signature(self, delivery_package: DeliveryPackage) -> None:
+        evidence_bundle = delivery_package.package_manifest.get("evidence_bundle")
+        evidence_signature = delivery_package.package_manifest.get("evidence_signature")
+        if not isinstance(evidence_bundle, dict) or not isinstance(evidence_signature, str):
+            raise ValueError(
+                f"Delivery package {delivery_package.delivery_id} must include a signed evidence bundle before confirmation."
+            )
+        expected_signature = self._sign_evidence_bundle(evidence_bundle)
+        if evidence_signature != expected_signature:
+            raise ValueError(
+                f"Delivery package {delivery_package.delivery_id} has an invalid evidence bundle signature."
+            )
 
     def _get(self, artifact_id: str) -> Artifact:
         artifact = self._repository.get(artifact_id)

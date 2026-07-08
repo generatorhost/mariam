@@ -1404,6 +1404,12 @@ def test_approved_artifact_can_be_packaged_for_delivery() -> None:
     assert delivery_package["status"] == "ready_for_client_delivery"
     assert delivery_package["data_platform"] == "DB MARIAM"
     assert delivery_package["package_manifest"]["quality_score"] == 100
+    assert delivery_package["package_manifest"]["evidence_signed"] is True
+    assert delivery_package["package_manifest"]["evidence_signature_algorithm"] == "sha256"
+    assert len(delivery_package["package_manifest"]["evidence_signature"]) == 64
+    assert delivery_package["package_manifest"]["evidence_bundle"]["quality_review_id"] == (
+        quality_response.json()["quality_review"]["review_id"]
+    )
 
     quality_list_response = client.get("/api/artifacts/quality-reviews")
     delivery_list_response = client.get("/api/artifacts/deliveries")
@@ -1477,6 +1483,9 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert confirmed["status"] == "delivered_to_client"
     assert confirmed["package_manifest"]["client_reference"] == "client-confirmation-001"
     assert confirmed["package_manifest"]["delivery_confirmed"] is True
+    assert confirmed["package_manifest"]["delivery_confirmation_requires_signature"] is True
+    assert confirmed["package_manifest"]["evidence_signed"] is True
+    assert len(confirmed["package_manifest"]["evidence_signature"]) == 64
 
     list_response = client.get("/api/artifacts/deliveries")
     audit_response = client.get("/api/audit")
@@ -1493,6 +1502,13 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
         for record in audit_response.json()["audit_records"]
         if record["action"] == "artifact.confirm_delivery"
     ]
+    confirm_record = next(
+        record
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "artifact.confirm_delivery"
+        and record["target_id"] == confirmed["delivery_id"]
+    )
+    assert confirm_record["evidence"]["evidence_signature"] == confirmed["package_manifest"]["evidence_signature"]
     assert confirmed["delivery_id"] in [
         event["payload"].get("delivery_id")
         for event in event_response.json()["events"]
@@ -2908,8 +2924,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3017,7 +3033,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

@@ -799,10 +799,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=76,
+                completion_percent=78,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add delivery evidence bundle signing before client confirmation.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add delivery evidence bundle verification report in the Command Center UI.",
             ),
             CompletionArea(
                 name="Verification automation",
