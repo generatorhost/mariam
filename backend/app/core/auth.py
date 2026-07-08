@@ -89,6 +89,8 @@ def default_command_center_session() -> UserSession:
             "plugin.register",
             "runtime_object.register",
             "agent_runtime.configure",
+            "workflow.configure",
+            "workflow.run",
             "ai_resource.route",
             "audit.record",
             "runtime.event.publish",

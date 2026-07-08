@@ -16,6 +16,7 @@ from app.api import (
     runtime_objects,
     seed_imports,
     terminology,
+    workflows,
 )
 from app.core.config import get_settings
 from app.core.errors import http_exception_handler, validation_exception_handler
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(runtime_objects.router)
     app.include_router(seed_imports.router)
     app.include_router(terminology.router)
+    app.include_router(workflows.router)
 
     @app.get("/")
     def root() -> dict:

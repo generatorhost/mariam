@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ai_resource_route_store: str = "memory"
     seed_import_store: str = "memory"
     agent_runtime_store: str = "memory"
+    workflow_engine_store: str = "memory"
 
     model_config = SettingsConfigDict(env_prefix="MARIAM_", env_file=".env", extra="ignore")
 

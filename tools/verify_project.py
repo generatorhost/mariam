@@ -479,6 +479,8 @@ def verify_api_smoke_flow() -> None:
         "/api/plugins",
         "/api/agents/societies",
         "/api/agents/executions",
+        "/api/workflows",
+        "/api/workflows/runs",
         "/api/runtime-objects",
         "/api/ai-resources/providers",
     ]

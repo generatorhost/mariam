@@ -385,3 +385,33 @@ CREATE INDEX IF NOT EXISTS idx_agent_societies_plugin_created
 
 CREATE INDEX IF NOT EXISTS idx_agent_execution_plans_plugin_created
     ON agent_execution_plans (plugin_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS workflow_definitions (
+    workflow_id TEXT PRIMARY KEY,
+    plugin_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+    permissions TEXT[] NOT NULL DEFAULT '{}',
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_runs (
+    run_id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL REFERENCES workflow_definitions (workflow_id) ON DELETE CASCADE,
+    plugin_id TEXT NOT NULL,
+    mission_id UUID REFERENCES missions (mission_id) ON DELETE SET NULL,
+    requested_by TEXT NOT NULL,
+    status TEXT NOT NULL,
+    input_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    step_runs JSONB NOT NULL DEFAULT '[]'::jsonb,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_definitions_plugin_created
+    ON workflow_definitions (plugin_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_plugin_created
+    ON workflow_runs (plugin_id, created_at DESC);

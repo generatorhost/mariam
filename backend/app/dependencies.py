@@ -48,6 +48,11 @@ from app.repositories.runtime_objects import (
     PostgresRuntimeObjectRepository,
     RuntimeObjectRepository,
 )
+from app.repositories.workflows import (
+    InMemoryWorkflowEngineRepository,
+    PostgresWorkflowEngineRepository,
+    WorkflowEngineRepository,
+)
 from app.repositories.seed_imports import (
     InMemorySeedImportRepository,
     PostgresSeedImportRepository,
@@ -63,6 +68,7 @@ from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
 from app.services.runtime_objects import RuntimeObjectService
 from app.services.seed_imports import SeedImportService
+from app.services.workflows import WorkflowEngineService
 
 
 @lru_cache
@@ -152,6 +158,23 @@ def get_agent_runtime_service() -> AgentRuntimeService:
     return AgentRuntimeService(
         get_event_bus(),
         get_agent_runtime_repository(),
+        get_audit_service(),
+    )
+
+
+@lru_cache
+def get_workflow_engine_repository() -> WorkflowEngineRepository:
+    settings = get_settings()
+    if settings.workflow_engine_store == "postgres":
+        return PostgresWorkflowEngineRepository(settings.database_url)
+    return InMemoryWorkflowEngineRepository()
+
+
+@lru_cache
+def get_workflow_engine_service() -> WorkflowEngineService:
+    return WorkflowEngineService(
+        get_event_bus(),
+        get_workflow_engine_repository(),
         get_audit_service(),
     )
 

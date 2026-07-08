@@ -199,6 +199,66 @@ def test_agent_runtime_builds_plugin_society_and_execution_plan() -> None:
     assert execution["tasks"][-1]["governance_gate"] == "human_approval_before_delivery"
 
 
+def test_workflow_engine_defines_and_runs_governed_steps() -> None:
+    client = TestClient(create_app())
+
+    workflow_response = client.post(
+        "/api/workflows",
+        json={
+            "plugin_id": "plugin_video_generation_manager",
+            "name": "Client video delivery workflow",
+            "requested_by": "workflow-governance",
+            "permissions": ["plugin_video_generation_manager.workflow.run"],
+            "steps": [
+                {
+                    "step_key": "intake",
+                    "title": "Analyze client request",
+                    "agent_role": "chief",
+                    "action": "extract_requirements",
+                    "requires_approval": False,
+                },
+                {
+                    "step_key": "generate",
+                    "title": "Generate delivery draft",
+                    "agent_role": "agent",
+                    "action": "produce_artifact",
+                    "requires_approval": False,
+                },
+                {
+                    "step_key": "approve",
+                    "title": "Approve before delivery",
+                    "agent_role": "reviewer",
+                    "action": "human_review",
+                    "requires_approval": True,
+                },
+            ],
+        },
+    )
+
+    assert workflow_response.status_code == 200
+    workflow = workflow_response.json()["workflow"]
+    assert workflow["data_platform"] == "DB MARIAM"
+    assert workflow["plugin_id"] == "plugin_video_generation_manager"
+    assert len(workflow["steps"]) == 3
+
+    run_response = client.post(
+        "/api/workflows/runs",
+        json={
+            "workflow_id": workflow["workflow_id"],
+            "requested_by": "command-center-user",
+            "input_payload": {"client_request": "Produce video proposal"},
+        },
+    )
+
+    assert run_response.status_code == 200
+    workflow_run = run_response.json()["workflow_run"]
+    assert workflow_run["data_platform"] == "DB MARIAM"
+    assert workflow_run["status"] == "awaiting_approval"
+    assert len(workflow_run["step_runs"]) == 3
+    assert workflow_run["step_runs"][-1]["requires_approval"] is True
+    assert workflow_run["step_runs"][-1]["status"] == "awaiting_approval"
+
+
 def test_root_points_to_architecture_library() -> None:
     client = TestClient(create_app())
     response = client.get("/")
