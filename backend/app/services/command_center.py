@@ -1249,10 +1249,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=93,
+                completion_percent=94,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
-                next_step="Add typed API response models for plugin timeline and plugin workspace endpoints.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline and plugin workspace endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
+                next_step="Add typed API response models for plugin dashboard and plugin settings endpoints.",
             ),
             CompletionArea(
                 name="Frontend Command Center",

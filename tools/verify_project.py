@@ -1045,7 +1045,13 @@ def verify_api_smoke_flow() -> None:
         == "#/components/schemas/FrontendBrowserScreenshotPlanResponse"
         and openapi["paths"]["/api/runtime/frontend/browser-screenshot-capture"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
-        == "#/components/schemas/FrontendBrowserScreenshotCaptureResponse",
+        == "#/components/schemas/FrontendBrowserScreenshotCaptureResponse"
+        and openapi["paths"]["/api/plugins/{plugin_id}/timeline"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginTimelineResponse"
+        and openapi["paths"]["/api/plugins/{plugin_id}/workspace"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginWorkspaceResponse",
         "Governed runtime endpoints did not publish typed response models.",
     )
     print("[verify] ok: governed runtime typed response models")
@@ -1274,7 +1280,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

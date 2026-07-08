@@ -3337,12 +3337,33 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/FrontendBrowserScreenshotCaptureResponse"
     )
+    assert (
+        openapi["paths"]["/api/plugins/{plugin_id}/timeline"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginTimelineResponse"
+    )
+    assert (
+        openapi["paths"]["/api/plugins/{plugin_id}/workspace"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginWorkspaceResponse"
+    )
     assert "CompletionAreaResponse" in openapi["components"]["schemas"]
     assert "RuntimeCheckResponse" in openapi["components"]["schemas"]
     assert "RuntimeEventPublishRequest" in openapi["components"]["schemas"]
     assert "RuntimeEventResponse" in openapi["components"]["schemas"]
     assert "RuntimeEventsResponse" in openapi["components"]["schemas"]
     assert "RuntimeEventPublishResponse" in openapi["components"]["schemas"]
+    assert "PluginTimelineResponse" in openapi["components"]["schemas"]
+    assert "PluginTimelineAuditRecordResponse" in openapi["components"]["schemas"]
+    assert "PluginTimelineEventResponse" in openapi["components"]["schemas"]
+    assert "PluginTimelineSummaryResponse" in openapi["components"]["schemas"]
+    assert "PluginWorkspaceResponse" in openapi["components"]["schemas"]
+    assert "PluginDashboardResponse" in openapi["components"]["schemas"]
+    assert "PluginSettingsResponse" in openapi["components"]["schemas"]
+    assert "PluginChiefAgentResponse" in openapi["components"]["schemas"]
+    assert "PluginSwarmAgentResponse" in openapi["components"]["schemas"]
+    assert "PluginWorkspaceActionResponse" in openapi["components"]["schemas"]
+    assert "PluginDataBoundaryResponse" in openapi["components"]["schemas"]
     assert "DataPlatformReadinessResponse" in openapi["components"]["schemas"]
     assert "MigrationRunnerStatusResponse" in openapi["components"]["schemas"]
     assert "SeedDataStatusResponse" in openapi["components"]["schemas"]
@@ -3396,7 +3417,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3681,7 +3702,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

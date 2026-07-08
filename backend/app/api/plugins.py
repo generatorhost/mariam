@@ -1,4 +1,8 @@
+from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.core.plugin_manifest import (
     PluginApprovalRequest,
@@ -18,6 +22,110 @@ from app.services.runtime import RuntimeRegistry
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
 
+class PluginTimelineAuditRecordResponse(BaseModel):
+    audit_id: str
+    actor_id: str
+    action: str
+    decision: str
+    evidence: dict[str, Any]
+    created_at: datetime
+
+
+class PluginTimelineEventResponse(BaseModel):
+    event_id: str
+    name: str
+    source: str
+    payload: dict[str, Any]
+    created_at: datetime
+
+
+class PluginTimelineSummaryResponse(BaseModel):
+    audit_records: int
+    events: int
+    rollback_points: int
+    status: str
+    version: str
+
+
+class PluginTimelineResponse(BaseModel):
+    plugin: PluginManifest
+    audit_records: list[PluginTimelineAuditRecordResponse]
+    events: list[PluginTimelineEventResponse]
+    summary: PluginTimelineSummaryResponse
+
+
+class PluginSettingsResponse(BaseModel):
+    plugin_id: str
+    settings_schema: dict[str, Any]
+    settings_values: dict[str, Any]
+    status: str
+    data_platform: str
+
+
+class PluginDashboardLifecycleResponse(BaseModel):
+    validation_passed: bool
+    impact_ready: bool
+    approval_ready: bool
+    rollback_points: int
+
+
+class PluginDashboardResponse(BaseModel):
+    plugin_id: str
+    name: str
+    version: str
+    status: str
+    dashboard_route: str
+    api_prefix: str
+    data_boundary: str
+    chief_agent_role: str
+    swarm_roles: list[str]
+    workflows: list[str]
+    permissions: list[str]
+    settings_values: dict[str, Any]
+    lifecycle: PluginDashboardLifecycleResponse
+    activity: PluginTimelineSummaryResponse
+    data_platform: str
+
+
+class PluginChiefAgentResponse(BaseModel):
+    role: str
+    entrypoint: str
+    responsibilities: list[str]
+
+
+class PluginSwarmAgentResponse(BaseModel):
+    role: str
+    scope: str
+    data_boundary: str
+
+
+class PluginWorkspaceActionResponse(BaseModel):
+    label: str
+    api: str
+    result: str
+
+
+class PluginDataBoundaryResponse(BaseModel):
+    platform: str
+    boundary: str
+    shared_tables: list[str]
+    private_tables: list[str]
+
+
+class PluginWorkspaceResponse(BaseModel):
+    plugin_id: str
+    title: str
+    status: str
+    dashboard: PluginDashboardResponse
+    settings: PluginSettingsResponse
+    chief_agent: PluginChiefAgentResponse
+    swarm: list[PluginSwarmAgentResponse]
+    workspace_actions: list[PluginWorkspaceActionResponse]
+    data_boundary: PluginDataBoundaryResponse
+    activity: PluginTimelineSummaryResponse
+    data_platform: str
+
+
 @router.get("")
 def list_plugins(registry: RuntimeRegistry = Depends(get_runtime_registry)) -> dict:
     return {"plugins": [plugin.model_dump() for plugin in registry.list_plugins()]}
@@ -33,11 +141,11 @@ def register_plugin(
     return {"plugin": plugin.model_dump()}
 
 
-@router.get("/{plugin_id}/timeline")
+@router.get("/{plugin_id}/timeline", response_model=PluginTimelineResponse)
 def get_plugin_timeline(
     plugin_id: str,
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginTimelineResponse:
     try:
         return registry.plugin_timeline(plugin_id)
     except ValueError as error:
@@ -66,11 +174,11 @@ def get_plugin_dashboard(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
-@router.get("/{plugin_id}/workspace")
+@router.get("/{plugin_id}/workspace", response_model=PluginWorkspaceResponse)
 def get_plugin_workspace(
     plugin_id: str,
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginWorkspaceResponse:
     try:
         return registry.plugin_workspace(plugin_id)
     except ValueError as error:
