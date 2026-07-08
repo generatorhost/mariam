@@ -21,6 +21,12 @@ class DeliveryPackageRepository(Protocol):
     def save(self, delivery_package: DeliveryPackage) -> DeliveryPackage:
         pass
 
+    def get(self, delivery_id: str) -> DeliveryPackage | None:
+        pass
+
+    def update(self, delivery_package: DeliveryPackage) -> DeliveryPackage:
+        pass
+
     def list(self) -> list[DeliveryPackage]:
         pass
 
@@ -49,6 +55,13 @@ class InMemoryDeliveryPackageRepository:
         self._delivery_packages: dict[str, DeliveryPackage] = {}
 
     def save(self, delivery_package: DeliveryPackage) -> DeliveryPackage:
+        self._delivery_packages[delivery_package.delivery_id] = delivery_package
+        return delivery_package
+
+    def get(self, delivery_id: str) -> DeliveryPackage | None:
+        return self._delivery_packages.get(delivery_id)
+
+    def update(self, delivery_package: DeliveryPackage) -> DeliveryPackage:
         self._delivery_packages[delivery_package.delivery_id] = delivery_package
         return delivery_package
 
@@ -157,6 +170,12 @@ class PostgresDeliveryPackageRepository:
                         created_at
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (delivery_id)
+                    DO UPDATE SET
+                        destination = EXCLUDED.destination,
+                        status = EXCLUDED.status,
+                        package_manifest = EXCLUDED.package_manifest,
+                        data_platform = EXCLUDED.data_platform
                     """,
                     (
                         delivery_package.delivery_id,
@@ -171,6 +190,19 @@ class PostgresDeliveryPackageRepository:
                     ),
                 )
         return delivery_package
+
+    def get(self, delivery_id: str) -> DeliveryPackage | None:
+        return next(
+            (
+                delivery_package
+                for delivery_package in self.list()
+                if delivery_package.delivery_id == delivery_id
+            ),
+            None,
+        )
+
+    def update(self, delivery_package: DeliveryPackage) -> DeliveryPackage:
+        return self.save(delivery_package)
 
     def list(self) -> list[DeliveryPackage]:
         import psycopg

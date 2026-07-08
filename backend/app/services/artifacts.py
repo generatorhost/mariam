@@ -6,6 +6,7 @@ from app.core.artifacts import (
     ArtifactDeliveryRequest,
     ArtifactRejectionRequest,
     ArtifactStatus,
+    DeliveryConfirmationRequest,
     DeliveryPackage,
     create_delivery_package,
     create_artifact_from_mission,
@@ -165,6 +166,61 @@ class ArtifactService:
 
     def list_delivery_packages(self) -> list[DeliveryPackage]:
         return self._delivery_repository.list()
+
+    def confirm_delivery(
+        self,
+        delivery_id: str,
+        request: DeliveryConfirmationRequest,
+    ) -> DeliveryPackage:
+        delivery_package = self._delivery_repository.get(delivery_id)
+        if delivery_package is None:
+            raise ValueError(f"Delivery package {delivery_id} was not found.")
+        if delivery_package.status != "ready_for_client_delivery":
+            raise ValueError(
+                f"Delivery package {delivery_id} must be ready_for_client_delivery before confirmation."
+            )
+        confirmed = delivery_package.model_copy(
+            update={
+                "status": "delivered_to_client",
+                "package_manifest": {
+                    **delivery_package.package_manifest,
+                    "client_reference": request.client_reference,
+                    "delivered_by": request.delivered_by,
+                    "delivery_confirmed": True,
+                },
+            }
+        )
+        saved_delivery = self._delivery_repository.update(confirmed)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.delivered_by,
+                action="artifact.confirm_delivery",
+                target_type="delivery_package",
+                target_id=delivery_id,
+                decision="approved",
+                evidence={
+                    "artifact_id": saved_delivery.artifact_id,
+                    "mission_id": saved_delivery.mission_id,
+                    "plugin_id": saved_delivery.plugin_id,
+                    "client_reference": request.client_reference,
+                    "data_platform": saved_delivery.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "artifact.delivery_confirmed",
+            "artifact-service",
+            {
+                "delivery_id": saved_delivery.delivery_id,
+                "artifact_id": saved_delivery.artifact_id,
+                "mission_id": saved_delivery.mission_id,
+                "plugin_id": saved_delivery.plugin_id,
+                "client_reference": request.client_reference,
+                "status": saved_delivery.status,
+            },
+        )
+        return saved_delivery
 
     def _get(self, artifact_id: str) -> Artifact:
         artifact = self._repository.get(artifact_id)

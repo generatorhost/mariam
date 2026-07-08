@@ -169,6 +169,14 @@ async function packageArtifactDelivery(artifactId) {
   });
 }
 
+async function confirmDeliveryPackage(deliveryId) {
+  return apiRequest(`/api/artifacts/deliveries/${deliveryId}/confirm`, {
+    delivered_by: 'command-center-delivery-governance',
+    client_reference: 'client-confirmed-from-command-center',
+    evidence: { delivery: 'Confirmed from Command Center delivery history' },
+  });
+}
+
 async function routeAIResource() {
   return apiRequest('/api/ai-resources/route', {
     capability: 'chat',
@@ -1297,6 +1305,21 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }
 
+  async function handleDeliveryConfirmation(deliveryId) {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await confirmDeliveryPackage(deliveryId);
+      setDeliveryPackage(body.delivery_package);
+      await refreshDeliveryPackages();
+      onActionComplete();
+      setStatus('ready');
+    } catch (deliveryError) {
+      setStatus('error');
+      setError(deliveryError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1351,6 +1374,16 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
               <span>{item.destination}</span>
               <p>{item.plugin_id} / artifact {item.artifact_id}</p>
               <time>{new Date(item.created_at).toLocaleString()}</time>
+              {item.status === 'ready_for_client_delivery' && (
+                <div className="mission-actions">
+                  <button
+                    onClick={() => handleDeliveryConfirmation(item.delivery_id)}
+                    disabled={status === 'loading'}
+                  >
+                    Confirm Client Delivery
+                  </button>
+                </div>
+              )}
             </article>
           ))
         ) : (

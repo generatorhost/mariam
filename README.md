@@ -75,7 +75,8 @@ The current rebuild foundation supports a small end-to-end mission flow:
 18. Press **Approve Artifact** or **Reject Artifact** to record delivery governance before client export.
 19. Press **Package Delivery** after artifact approval to create a client delivery package.
 20. Press **Refresh Delivery Packages** to read stored delivery packages from `DB MARIAM`.
-21. Audit History reads `GET /api/audit` and refreshes automatically after governance decisions.
+21. Press **Confirm Client Delivery** on a ready package to record final client delivery.
+22. Audit History reads `GET /api/audit` and refreshes automatically after governance decisions.
 
 ## First AI Resource Flow
 

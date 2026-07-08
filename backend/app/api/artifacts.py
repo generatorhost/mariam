@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.artifacts import ArtifactApprovalRequest, ArtifactDeliveryRequest, ArtifactRejectionRequest
+from app.core.artifacts import (
+    ArtifactApprovalRequest,
+    ArtifactDeliveryRequest,
+    ArtifactRejectionRequest,
+    DeliveryConfirmationRequest,
+)
 from app.dependencies import get_artifact_service
 from app.services.artifacts import ArtifactService
 
@@ -20,6 +25,19 @@ def list_delivery_packages(service: ArtifactService = Depends(get_artifact_servi
             for delivery_package in service.list_delivery_packages()
         ]
     }
+
+
+@router.post("/deliveries/{delivery_id}/confirm")
+def confirm_delivery_package(
+    delivery_id: str,
+    request: DeliveryConfirmationRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        delivery_package = service.confirm_delivery(delivery_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"delivery_package": delivery_package.model_dump(mode="json")}
 
 
 @router.post("/from-mission/{mission_id}")

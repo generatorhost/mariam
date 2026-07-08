@@ -28,6 +28,12 @@ class ArtifactDeliveryRequest(BaseModel):
     evidence: dict[str, str] = Field(default_factory=dict)
 
 
+class DeliveryConfirmationRequest(BaseModel):
+    delivered_by: str = Field(default="delivery-governance", min_length=2)
+    client_reference: str = Field(default="client-confirmed-receipt", min_length=3)
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
 class Artifact(BaseModel):
     artifact_id: str
     mission_id: str

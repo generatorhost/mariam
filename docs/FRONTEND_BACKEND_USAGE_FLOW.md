@@ -676,6 +676,21 @@ GET /api/artifacts/deliveries
 3. The backend reads delivery packages through the configured delivery package repository.
 4. The frontend displays recent package status, destination, plugin id, artifact id, and timestamp.
 
+### Confirm Client Delivery
+1. User presses `Confirm Client Delivery` on a package with `ready_for_client_delivery` status.
+2. The frontend sends:
+
+```http
+POST /api/artifacts/deliveries/{delivery_id}/confirm
+```
+
+3. The backend verifies that the delivery package is still ready for client delivery.
+4. The backend updates package status to `delivered_to_client`.
+5. The backend stores client delivery reference evidence in the package manifest.
+6. The backend records `artifact.confirm_delivery` in the audit log.
+7. The backend emits `artifact.delivery_confirmed`.
+8. The frontend refreshes delivery package history and shows the delivered status.
+
 ## Backend Layers Used
 - API layer: `backend/app/api/missions.py`
 - Audit API layer: `backend/app/api/audit.py`
@@ -759,6 +774,7 @@ pytest
 - Pressing each frontend action button has a real backend result.
 - Frontend exposes status, mission, AI routing, plugin registration, runtime object, and audit flows.
 - Delivery packages can be read back from persisted history.
+- Ready delivery packages can be confirmed as delivered to the client.
 - Audit records are available from `GET /api/audit`.
 - Frontend Audit History displays recent governance decisions.
 - Runtime objects are available from `GET /api/runtime-objects`.
