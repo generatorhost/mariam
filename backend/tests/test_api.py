@@ -2202,6 +2202,40 @@ def test_runtime_verification_report_summarizes_required_checks() -> None:
     assert "quality review" in body["smoke_flow"]
 
 
+def test_runtime_verification_snapshot_records_audit_evidence() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/runtime/verification-report/record",
+        json={
+            "actor_id": "project-verifier",
+            "evidence": {"source": "test-suite"},
+        },
+    )
+
+    assert response.status_code == 200
+    audit_record = response.json()["audit_record"]
+    assert audit_record["action"] == "runtime.verification_report.record"
+    assert audit_record["target_type"] == "runtime_verification_report"
+    assert audit_record["target_id"] == "command-center"
+    assert audit_record["decision"] == "approved"
+    assert audit_record["evidence"]["verification_status"] == "passed"
+    assert audit_record["evidence"]["source"] == "test-suite"
+    assert "/api/runtime/verification-report" in audit_record["evidence"]["required_endpoints"]
+
+    audit_response = client.get("/api/audit")
+    event_response = client.get("/api/runtime/events")
+
+    assert audit_record["audit_id"] in [
+        record["audit_id"] for record in audit_response.json()["audit_records"]
+    ]
+    assert audit_record["audit_id"] in [
+        event["payload"].get("audit_id")
+        for event in event_response.json()["events"]
+        if event["name"] == "audit.recorded"
+    ]
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

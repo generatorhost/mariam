@@ -107,6 +107,20 @@ def verify_api_smoke_flow() -> None:
         require_json(endpoint)
         print(f"[verify] ok: {endpoint}")
 
+    snapshot = request_json(
+        "/api/runtime/verification-report/record",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "evidence": {"source": "verify-project"},
+        },
+    )["audit_record"]
+    assert_condition(
+        snapshot["action"] == "runtime.verification_report.record",
+        "Verification snapshot did not record the expected audit action.",
+    )
+    print("[verify] ok: verification snapshot audit")
+
     print("[verify] checking mission to delivery flow")
     mission = request_json(
         "/api/missions",

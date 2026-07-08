@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.services.ai_resources import AIResourceManager
 from app.services.audit import AuditService
@@ -160,6 +161,7 @@ class CommandCenterSummaryService:
                 "/api/health",
                 "/api/runtime/summary",
                 "/api/runtime/readiness",
+                "/api/runtime/verification-report",
                 "/api/artifacts",
                 "/api/artifacts/quality-reviews",
                 "/api/artifacts/deliveries",
@@ -169,4 +171,29 @@ class CommandCenterSummaryService:
                 "/api/runtime-objects",
                 "/api/ai-resources/providers",
             ],
+        )
+
+    def record_verification_snapshot(
+        self,
+        actor_id: str,
+        evidence: dict[str, object],
+    ) -> AuditRecord:
+        report = self.verification_report()
+        return self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=actor_id,
+                action="runtime.verification_report.record",
+                target_type="runtime_verification_report",
+                target_id="command-center",
+                decision="approved" if report.status == "passed" else "rejected",
+                evidence={
+                    "verification_status": report.status,
+                    "readiness_status": report.readiness_status,
+                    "ready_checks": report.ready_checks,
+                    "total_checks": report.total_checks,
+                    "smoke_flow": report.smoke_flow,
+                    "required_endpoints": report.required_endpoints,
+                    **evidence,
+                },
+            )
         )

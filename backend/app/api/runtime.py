@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 
 from app.dependencies import get_command_center_summary_service, get_event_bus
 from app.core.events import InMemoryEventBus
 from app.services.command_center import CommandCenterSummaryService
 
 router = APIRouter(prefix="/api/runtime", tags=["runtime"])
+
+
+class VerificationSnapshotRequest(BaseModel):
+    actor_id: str = Field(default="command-center-verifier", min_length=2)
+    evidence: dict = Field(default_factory=dict)
 
 
 @router.get("/summary")
@@ -30,6 +36,15 @@ def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return service.verification_report().__dict__
+
+
+@router.post("/verification-report/record")
+def record_command_center_verification_report(
+    request: VerificationSnapshotRequest,
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    audit_record = service.record_verification_snapshot(request.actor_id, request.evidence)
+    return {"audit_record": audit_record.model_dump(mode="json")}
 
 
 @router.get("/events")

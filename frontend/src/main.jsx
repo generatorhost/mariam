@@ -62,6 +62,13 @@ async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
 
+async function recordVerificationSnapshot() {
+  return apiRequest('/api/runtime/verification-report/record', {
+    actor_id: 'command-center-verifier',
+    evidence: { source: 'command-center-verification-report' },
+  });
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1638,6 +1645,7 @@ function SystemReadinessPanel({ refreshVersion }) {
 
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
+  const [auditRecord, setAuditRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1657,6 +1665,20 @@ function VerificationReportPanel({ refreshVersion }) {
     refreshReport();
   }, [refreshReport, refreshVersion]);
 
+  async function handleRecordSnapshot() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await recordVerificationSnapshot();
+      setAuditRecord(body.audit_record);
+      await refreshReport();
+      setStatus('ready');
+    } catch (reportError) {
+      setStatus('error');
+      setError(reportError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1666,7 +1688,17 @@ function VerificationReportPanel({ refreshVersion }) {
       <button onClick={refreshReport} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh Verification Report'}
       </button>
+      <button onClick={handleRecordSnapshot} disabled={status === 'loading' || !report}>
+        Record Verification Snapshot
+      </button>
       {error && <p className="error">{error}</p>}
+      {auditRecord && (
+        <div className="mission-result">
+          <strong>Verification Snapshot Recorded</strong>
+          <span>{auditRecord.audit_id}</span>
+          <p>{auditRecord.decision} / {auditRecord.data_platform}</p>
+        </div>
+      )}
       {report && (
         <>
           <div className="mission-result">

@@ -75,6 +75,14 @@ GET /api/runtime/verification-report
 
 It summarizes readiness, command center counts, required endpoints, and the official smoke flow used by `npm run verify`.
 
+Verification snapshots can be recorded into the audit log through:
+
+```http
+POST /api/runtime/verification-report/record
+```
+
+The Command Center exposes this as **Record Verification Snapshot**.
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:
