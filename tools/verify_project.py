@@ -266,6 +266,8 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/runtime/delivery-evidence-report/export"),
         ("POST", "/api/runtime/data-platform/readiness/export"),
         ("POST", "/api/runtime/data-platform/migration-runner/export"),
+        ("POST", "/api/runtime/data-platform/logs-store/export"),
+        ("POST", "/api/runtime/data-platform/artifact-lineage/export"),
         ("POST", "/api/runtime/data-platform/live-write-smoke"),
         ("POST", "/api/runtime/data-platform/live-repository-write-smoke"),
         ("POST", "/api/runtime/events"),
@@ -679,6 +681,11 @@ def verify_api_smoke_flow() -> None:
     audit_event_archive_read = request_json("/api/runtime/data-platform/audit-event-archive")
     metrics_store_read = request_json("/api/runtime/data-platform/metrics-store")
     artifact_lineage_read = request_json("/api/runtime/data-platform/artifact-lineage")
+    logs_store_export = request_json(
+        "/api/runtime/data-platform/logs-store/export",
+        "POST",
+        {},
+    )["export_package"]
     audit_event_archive_export = request_json(
         "/api/runtime/data-platform/audit-event-archive/export",
         "POST",
@@ -689,6 +696,11 @@ def verify_api_smoke_flow() -> None:
         "POST",
         {},
     )["export_package"]
+    artifact_lineage_export = request_json(
+        "/api/runtime/data-platform/artifact-lineage/export",
+        "POST",
+        {},
+    )["export_package"]
     assert_condition(
         logs_store_read["status"] == "ready"
         and logs_store_read["data_platform"] == "DB MARIAM"
@@ -696,6 +708,14 @@ def verify_api_smoke_flow() -> None:
         and live_repository_write_smoke["logs_store_record_id"]
         in [record["log_id"] for record in logs_store_read["records"]],
         "DB MARIAM logs store read API did not return the latest repository smoke log record.",
+    )
+    assert_condition(
+        logs_store_export["status"] == "ready_for_review"
+        and logs_store_export["data_platform"] == "DB MARIAM"
+        and logs_store_export["package_manifest"]["record_count"] == logs_store_read["record_count"]
+        and live_repository_write_smoke["logs_store_record_id"]
+        in [record["log_id"] for record in logs_store_export["logs_store"]["records"]],
+        "Logs store export package did not preserve DB MARIAM log evidence.",
     )
     assert_condition(
         audit_event_archive_read["status"] == "ready"
@@ -737,6 +757,15 @@ def verify_api_smoke_flow() -> None:
         and live_repository_write_smoke["artifact_lineage_record_id"]
         in [record["lineage_id"] for record in artifact_lineage_read["records"]],
         "DB MARIAM artifact lineage read API did not return the latest repository smoke lineage record.",
+    )
+    assert_condition(
+        artifact_lineage_export["status"] == "ready_for_review"
+        and artifact_lineage_export["data_platform"] == "DB MARIAM"
+        and artifact_lineage_export["package_manifest"]["record_count"]
+        == artifact_lineage_read["record_count"]
+        and live_repository_write_smoke["artifact_lineage_record_id"]
+        in [record["lineage_id"] for record in artifact_lineage_export["artifact_lineage"]["records"]],
+        "Artifact lineage export package did not preserve DB MARIAM lineage evidence.",
     )
     print("[verify] ok: DB MARIAM audit archive, metrics store, logs store, artifact lineage, and evidence exports")
 
@@ -1018,7 +1047,11 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"]
         and "/api/runtime/data-platform/audit-event-archive/export"
         in verification_automation["required_endpoints"]
-        and "/api/runtime/data-platform/metrics-store/export" in verification_automation["required_endpoints"],
+        and "/api/runtime/data-platform/logs-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/metrics-store/export" in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/artifact-lineage/export"
+        in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     assert_condition(
@@ -1149,6 +1182,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/data-platform/logs-store"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/LogsStoreReadStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/logs-store/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LogsStoreExportResponse"
         and openapi["paths"]["/api/runtime/data-platform/audit-event-archive"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/AuditEventArchiveReadStatusResponse"
@@ -1164,6 +1200,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/data-platform/artifact-lineage"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/ArtifactLineageReadStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/artifact-lineage/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ArtifactLineageExportResponse"
         and openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/FrontendRegressionSnapshotResponse"
@@ -1419,7 +1458,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

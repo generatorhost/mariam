@@ -267,6 +267,17 @@ class AuditEventArchiveExportPackage:
 
 
 @dataclass
+class LogsStoreExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    logs_store: "LogsStoreReadStatus"
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
 class MetricsStoreExportPackage:
     export_id: str
     status: str
@@ -274,6 +285,17 @@ class MetricsStoreExportPackage:
     generated_at: str
     package_manifest: dict[str, object]
     metrics_store: "MetricsStoreReadStatus"
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
+class ArtifactLineageExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    artifact_lineage: "ArtifactLineageReadStatus"
     data_platform: str = "DB MARIAM"
 
 
@@ -1307,10 +1329,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=94,
+                completion_percent=95,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for audit event archive and metrics store evidence.",
-                next_step="Add export packages for logs store and artifact lineage evidence.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for audit event archive, metrics store, logs store, and artifact lineage evidence.",
+                next_step="Add export packages for communication, document, workflow, capability graph, vector index, and artifact store evidence.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -2894,6 +2916,25 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def export_logs_store(self) -> LogsStoreExportPackage:
+        logs_status = self.logs_store_read_status()
+        return LogsStoreExportPackage(
+            export_id=f"logs-store-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": logs_status.title,
+                "logs_status": logs_status.status,
+                "record_count": logs_status.record_count,
+                "check_count": len(logs_status.checks),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": logs_status.data_platform,
+            },
+            logs_store=logs_status,
+        )
+
     def audit_event_archive_read_status(self) -> AuditEventArchiveReadStatus:
         settings = get_settings()
         records: list[dict[str, object]] = []
@@ -3062,6 +3103,25 @@ class CommandCenterSummaryService:
             record_count=len(records),
             records=records,
             checks=checks,
+        )
+
+    def export_artifact_lineage(self) -> ArtifactLineageExportPackage:
+        lineage_status = self.artifact_lineage_read_status()
+        return ArtifactLineageExportPackage(
+            export_id=f"artifact-lineage-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": lineage_status.title,
+                "lineage_status": lineage_status.status,
+                "record_count": lineage_status.record_count,
+                "check_count": len(lineage_status.checks),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": lineage_status.data_platform,
+            },
+            artifact_lineage=lineage_status,
         )
 
     def _serialize_database_row(self, row: dict[str, object]) -> dict[str, object]:
@@ -3652,11 +3712,13 @@ class CommandCenterSummaryService:
             "/api/runtime/delivery-evidence-report",
             "/api/runtime/delivery-evidence-report/export",
             "/api/runtime/data-platform/logs-store",
+            "/api/runtime/data-platform/logs-store/export",
             "/api/runtime/data-platform/audit-event-archive",
             "/api/runtime/data-platform/audit-event-archive/export",
             "/api/runtime/data-platform/metrics-store",
             "/api/runtime/data-platform/metrics-store/export",
             "/api/runtime/data-platform/artifact-lineage",
+            "/api/runtime/data-platform/artifact-lineage/export",
             "/api/audit/governance-assignment-history",
             "/api/runtime/verification-report",
             "/api/runtime/completion-report",

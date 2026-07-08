@@ -224,6 +224,10 @@ class LogsStoreReadStatusResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class LogsStoreExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class ArtifactLineageReadStatusResponse(BaseModel):
     title: str
     status: str
@@ -232,6 +236,10 @@ class ArtifactLineageReadStatusResponse(BaseModel):
     record_count: int
     records: list[dict[str, Any]]
     checks: list[RuntimeCheckResponse]
+
+
+class ArtifactLineageExportResponse(BaseModel):
+    export_package: dict[str, Any]
 
 
 class AuditEventArchiveReadStatusResponse(BaseModel):
@@ -588,6 +596,14 @@ def command_center_data_platform_logs_store(
     return asdict(service.logs_store_read_status())
 
 
+@router.post("/data-platform/logs-store/export", response_model=LogsStoreExportResponse)
+def export_command_center_data_platform_logs_store(
+    authorization=Depends(require_permission("diagnostics.export", "logs_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> LogsStoreExportResponse:
+    return {"export_package": asdict(service.export_logs_store())}
+
+
 @router.get("/data-platform/audit-event-archive", response_model=AuditEventArchiveReadStatusResponse)
 def command_center_data_platform_audit_event_archive(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
@@ -623,6 +639,14 @@ def command_center_data_platform_artifact_lineage(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> ArtifactLineageReadStatusResponse:
     return asdict(service.artifact_lineage_read_status())
+
+
+@router.post("/data-platform/artifact-lineage/export", response_model=ArtifactLineageExportResponse)
+def export_command_center_data_platform_artifact_lineage(
+    authorization=Depends(require_permission("diagnostics.export", "artifact_lineage")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> ArtifactLineageExportResponse:
+    return {"export_package": asdict(service.export_artifact_lineage())}
 
 
 @router.get("/frontend/regression-snapshot", response_model=FrontendRegressionSnapshotResponse)
