@@ -205,6 +205,12 @@ Plugin workspaces expose dashboard, settings, Chief Agent, swarm, timeline, acti
 GET /api/plugins/{plugin_id}/workspace
 ```
 
+Backend permission enforcement blocks unauthorized side effects with HTTP 403 and returns a granted enforcement record for authorized actions:
+
+```http
+POST /api/auth/permissions/enforce
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

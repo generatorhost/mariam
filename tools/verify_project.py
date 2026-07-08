@@ -131,6 +131,46 @@ def verify_api_smoke_flow() -> None:
     assert_condition(permission_check["allowed"] is True, "Permission check did not allow governance assignment.")
     print("[verify] ok: permission check")
 
+    permission_enforcement = request_json(
+        "/api/auth/permissions/enforce",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "permission": "governance.assign_approval",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "reason": "Verify backend permission enforcement.",
+            "evidence": {"verification": "permission-enforced"},
+        },
+    )["permission_enforcement"]
+    assert_condition(
+        permission_enforcement["allowed"] is True
+        and permission_enforcement["enforcement"] == "granted"
+        and permission_enforcement["target_id"] == "verification-artifact-review",
+        "Permission enforcement did not grant the known permission.",
+    )
+    denied_permission = urllib.request.Request(
+        f"{API_BASE_URL}/api/auth/permissions/enforce",
+        data=json.dumps(
+            {
+                "actor_id": "project-verifier",
+                "permission": "system.destroy",
+                "target_type": "system",
+                "target_id": "core",
+                "reason": "Verify denied backend permission enforcement.",
+                "evidence": {"verification": "permission-denied"},
+            }
+        ).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        urllib.request.urlopen(denied_permission, timeout=10)
+        raise AssertionError("Permission enforcement allowed a denied permission.")
+    except urllib.error.HTTPError as error:
+        assert_condition(error.code == 403, "Denied permission should return HTTP 403.")
+    print("[verify] ok: permission enforcement")
+
     snapshot = request_json(
         "/api/runtime/verification-report/record",
         "POST",
@@ -319,7 +359,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

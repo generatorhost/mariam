@@ -108,6 +108,18 @@ async function checkGovernancePermission() {
   return body.permission_check;
 }
 
+async function enforceGovernancePermission() {
+  const body = await apiRequest('/api/auth/permissions/enforce', {
+    actor_id: 'command-center-operator',
+    permission: 'governance.assign_approval',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    reason: 'Enforce permission before assigning governance approval.',
+    evidence: { source: 'command-center-session-panel' },
+  });
+  return body.permission_enforcement;
+}
+
 async function loadSystemReadiness() {
   return apiGet('/api/runtime/readiness');
 }
@@ -1833,6 +1845,7 @@ function SystemReadinessPanel({ refreshVersion }) {
 function AuthSessionPanel({ refreshVersion }) {
   const [session, setSession] = useState(null);
   const [permissionCheck, setPermissionCheck] = useState(null);
+  const [permissionEnforcement, setPermissionEnforcement] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1857,6 +1870,18 @@ function AuthSessionPanel({ refreshVersion }) {
     refreshSession();
   }, [refreshSession, refreshVersion]);
 
+  async function handlePermissionEnforcement() {
+    setStatus('loading');
+    setError('');
+    try {
+      setPermissionEnforcement(await enforceGovernancePermission());
+      setStatus('ready');
+    } catch (sessionError) {
+      setStatus('error');
+      setError(sessionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1865,6 +1890,9 @@ function AuthSessionPanel({ refreshVersion }) {
       </div>
       <button onClick={refreshSession} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh Session'}
+      </button>
+      <button onClick={handlePermissionEnforcement} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Enforcing...' : 'Enforce Permission Gate'}
       </button>
       {error && <p className="error">{error}</p>}
       {session && permissionCheck && (
@@ -1883,6 +1911,18 @@ function AuthSessionPanel({ refreshVersion }) {
             ))}
           </div>
         </>
+      )}
+      {permissionEnforcement && (
+        <div className="mission-result">
+          <strong>Permission Gate Granted</strong>
+          <span>{permissionEnforcement.enforcement}</span>
+          <p>
+            <strong>{permissionEnforcement.permission}</strong> granted for{' '}
+            <strong>{permissionEnforcement.target_type}</strong>:{' '}
+            <strong>{permissionEnforcement.target_id}</strong>.
+          </p>
+          <p>{permissionEnforcement.data_platform}</p>
+        </div>
       )}
     </section>
   );

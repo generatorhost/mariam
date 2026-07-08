@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.auth import PermissionCheckRequest
+from app.core.auth import PermissionCheckRequest, PermissionEnforcementRequest
 from app.dependencies import get_auth_service
 from app.services.auth import AuthService
 
@@ -18,3 +18,14 @@ def check_permission(
     service: AuthService = Depends(get_auth_service),
 ) -> dict:
     return {"permission_check": service.check_permission(request).model_dump(mode="json")}
+
+
+@router.post("/permissions/enforce")
+def enforce_permission(
+    request: PermissionEnforcementRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> dict:
+    try:
+        return {"permission_enforcement": service.enforce_permission(request).model_dump(mode="json")}
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error

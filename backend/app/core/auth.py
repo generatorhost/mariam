@@ -23,6 +23,21 @@ class PermissionCheckResult(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class PermissionEnforcementRequest(PermissionCheckRequest):
+    target_type: str = Field(default="runtime-action", min_length=2)
+    target_id: str = Field(default="command-center", min_length=2)
+    reason: str = Field(default="Enforce governed backend permission.", min_length=3)
+    evidence: dict = Field(default_factory=dict)
+
+
+class PermissionEnforcementResult(PermissionCheckResult):
+    target_type: str
+    target_id: str
+    enforcement: str = "granted"
+    reason: str
+    evidence: dict = Field(default_factory=dict)
+
+
 def default_command_center_session() -> UserSession:
     return UserSession(
         session_id="command-center-session-local",
