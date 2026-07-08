@@ -1336,10 +1336,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=95,
+                completion_percent=96,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline, plugin settings, plugin dashboard, and plugin workspace endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
-                next_step="Add typed API response models for plugin chat and plugin lifecycle mutation endpoints.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline, plugin settings, plugin dashboard, plugin workspace, plugin chat, and plugin lifecycle mutation endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
+                next_step="Add typed API response models for runtime object lifecycle mutation endpoints.",
             ),
             CompletionArea(
                 name="Frontend Command Center",
@@ -3899,6 +3899,22 @@ class CommandCenterSummaryService:
             ],
             "POST /api/audit/escalations": ["/api/audit/escalations"],
             "POST /api/plugins": ['"/api/plugins"', '"POST", plugin_manifest'],
+            "PATCH /api/plugins/{plugin_id}": ['"/api/plugins/{plugin_id}"', '"PATCH"'],
+            "POST /api/plugins/{plugin_id}/chat": ['"/api/plugins/{plugin_id}/chat"'],
+            "POST /api/plugins/{plugin_id}/enable": ['"/api/plugins/{plugin_id}/enable"'],
+            "POST /api/plugins/{plugin_id}/validate": ['"/api/plugins/{plugin_id}/validate"'],
+            "POST /api/plugins/{plugin_id}/disable": ['"/api/plugins/{plugin_id}/disable"'],
+            "POST /api/plugins/{plugin_id}/delete": ['"/api/plugins/{plugin_id}/delete"'],
+            "POST /api/plugins/{plugin_id}/restore": ['"/api/plugins/{plugin_id}/restore"'],
+            "POST /api/plugins/{plugin_id}/impact-analysis": [
+                '"/api/plugins/{plugin_id}/impact-analysis"'
+            ],
+            "POST /api/plugins/{plugin_id}/approve-change": [
+                '"/api/plugins/{plugin_id}/approve-change"'
+            ],
+            "POST /api/plugins/{plugin_id}/rollback": ['"/api/plugins/{plugin_id}/rollback"'],
+            "POST /api/plugins/{plugin_id}/export-dna": ['"/api/plugins/{plugin_id}/export-dna"'],
+            "POST /api/plugins/import-dna": ['"/api/plugins/import-dna"'],
             "POST /api/missions": ['"/api/missions"', '"POST"'],
             "POST /api/artifacts/{artifact_id}/approve": ["/approve", "approved_by"],
             "POST /api/artifacts/{artifact_id}/reject": ["/reject", "rejected_by"],

@@ -305,6 +305,18 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/audit/governance-decision-evidence/export"),
         ("POST", "/api/audit/escalations"),
         ("POST", "/api/plugins"),
+        ("PATCH", "/api/plugins/{plugin_id}"),
+        ("POST", "/api/plugins/{plugin_id}/chat"),
+        ("POST", "/api/plugins/{plugin_id}/enable"),
+        ("POST", "/api/plugins/{plugin_id}/validate"),
+        ("POST", "/api/plugins/{plugin_id}/disable"),
+        ("POST", "/api/plugins/{plugin_id}/delete"),
+        ("POST", "/api/plugins/{plugin_id}/restore"),
+        ("POST", "/api/plugins/{plugin_id}/impact-analysis"),
+        ("POST", "/api/plugins/{plugin_id}/approve-change"),
+        ("POST", "/api/plugins/{plugin_id}/rollback"),
+        ("POST", "/api/plugins/{plugin_id}/export-dna"),
+        ("POST", "/api/plugins/import-dna"),
         ("POST", "/api/missions"),
         ("POST", "/api/artifacts/{artifact_id}/approve"),
         ("POST", "/api/artifacts/{artifact_id}/reject"),
@@ -1310,6 +1322,30 @@ def verify_api_smoke_flow() -> None:
         == "#/components/schemas/PluginWorkspaceResponse",
         "Governed runtime endpoints did not publish typed response models.",
     )
+    plugin_response_refs = {
+        ("post", "/api/plugins"): "PluginMutationResponse",
+        ("get", "/api/plugins"): "PluginListResponse",
+        ("post", "/api/plugins/{plugin_id}/chat"): "PluginChatResponse",
+        ("post", "/api/plugins/{plugin_id}/enable"): "PluginMutationResponse",
+        ("patch", "/api/plugins/{plugin_id}"): "PluginMutationResponse",
+        ("post", "/api/plugins/{plugin_id}/validate"): "PluginValidationResponse",
+        ("post", "/api/plugins/{plugin_id}/disable"): "PluginMutationResponse",
+        ("post", "/api/plugins/{plugin_id}/delete"): "PluginMutationResponse",
+        ("post", "/api/plugins/{plugin_id}/restore"): "PluginMutationResponse",
+        ("post", "/api/plugins/{plugin_id}/impact-analysis"): "PluginImpactResponse",
+        ("post", "/api/plugins/{plugin_id}/approve-change"): "PluginApprovalResponse",
+        ("post", "/api/plugins/{plugin_id}/rollback"): "PluginMutationResponse",
+        ("post", "/api/plugins/{plugin_id}/export-dna"): "PluginDNAExportResponse",
+        ("post", "/api/plugins/import-dna"): "PluginMutationResponse",
+    }
+    assert_condition(
+        all(
+            openapi["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+            == f"#/components/schemas/{schema_name}"
+            for (method, path), schema_name in plugin_response_refs.items()
+        ),
+        "Plugin chat and lifecycle endpoints did not publish typed response models.",
+    )
     print("[verify] ok: governed runtime typed response models")
     live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
         "properties"
@@ -1557,10 +1593,168 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: plugin workspace")
 
+    plugin_chat = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/chat",
+        "POST",
+        {
+            "user_request": "Prepare a governed CRM follow-up mission.",
+            "requested_by": "project-verifier",
+            "evidence": {"source": "verify-project-plugin-chat"},
+        },
+    )
+    plugin_validation = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/validate",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Validate plugin before lifecycle smoke.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["validation_report"]
+    plugin_patch = request_json(
+        f"/api/plugins/{plugin['plugin_id']}",
+        "PATCH",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Patch plugin version to create a rollback point.",
+            "version": "0.1.1",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    plugin_validation = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/validate",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Revalidate patched plugin before enable.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["validation_report"]
+    plugin_enable = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/enable",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Enable plugin after validation.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    plugin_impact = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/impact-analysis",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Analyze disable impact.",
+            "intended_action": "disable",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["impact_report"]
+    plugin_approval = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/approve-change",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Approve disable after impact analysis.",
+            "intended_action": "disable",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["approval_report"]
+    plugin_disable = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/disable",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Disable plugin after approval.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    plugin_rollback = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/rollback",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Rollback plugin lifecycle smoke.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    plugin_dna = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/export-dna",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Export plugin DNA after lifecycle smoke.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["dna_package"]
+    imported_plugin = request_json(
+        "/api/plugins/import-dna",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Import plugin DNA as disabled copy.",
+            "dna_package": plugin_dna,
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    request_json(
+        f"/api/plugins/{plugin['plugin_id']}/impact-analysis",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Analyze delete impact.",
+            "intended_action": "delete",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )
+    request_json(
+        f"/api/plugins/{plugin['plugin_id']}/approve-change",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Approve delete after impact analysis.",
+            "intended_action": "delete",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )
+    request_json(
+        f"/api/plugins/{plugin['plugin_id']}/delete",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Soft delete plugin after lifecycle smoke.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )
+    plugin_restore = request_json(
+        f"/api/plugins/{plugin['plugin_id']}/restore",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "reason": "Restore plugin after delete smoke.",
+            "evidence": {"source": "verify-project-plugin-lifecycle"},
+        },
+    )["plugin"]
+    assert_condition(
+        plugin_chat["chat"]["data_platform"] == "DB MARIAM"
+        and plugin_chat["mission"]["plugin_id"] == plugin["plugin_id"]
+        and plugin_validation["passed"] is True
+        and plugin_patch["version"] == "0.1.1"
+        and plugin_enable["status"] == "enabled"
+        and plugin_impact["intended_action"] == "disable"
+        and plugin_approval["intended_action"] == "disable"
+        and plugin_disable["status"] == "disabled"
+        and plugin_rollback["plugin_id"] == plugin["plugin_id"]
+        and plugin_dna["data_platform"] == "DB MARIAM"
+        and imported_plugin["status"] == "disabled"
+        and plugin_restore["status"] == "disabled",
+        "Plugin chat and lifecycle typed response smoke did not pass.",
+    )
+    print("[verify] ok: plugin chat and lifecycle typed responses")
+
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

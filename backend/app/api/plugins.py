@@ -6,15 +6,19 @@ from pydantic import BaseModel
 
 from app.core.plugin_manifest import (
     PluginApprovalRequest,
+    PluginApprovalReport,
     PluginChatRequest,
     PluginDNAImportRequest,
+    PluginDNAPackage,
     PluginImpactRequest,
+    PluginImpactReport,
     PluginManifest,
     PluginPatchRequest,
     PluginSettingsUpdateRequest,
     PluginStateChangeRequest,
+    PluginValidationReport,
 )
-from app.core.missions import MissionRequest
+from app.core.missions import Mission, MissionRequest
 from app.dependencies import get_mission_service, get_runtime_registry, require_permission
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -126,19 +130,57 @@ class PluginWorkspaceResponse(BaseModel):
     data_platform: str
 
 
-@router.get("")
-def list_plugins(registry: RuntimeRegistry = Depends(get_runtime_registry)) -> dict:
-    return {"plugins": [plugin.model_dump() for plugin in registry.list_plugins()]}
+class PluginListResponse(BaseModel):
+    plugins: list[PluginManifest]
 
 
-@router.post("")
+class PluginMutationResponse(BaseModel):
+    plugin: PluginManifest
+
+
+class PluginChatSummaryResponse(BaseModel):
+    plugin_id: str
+    chief_agent_role: str
+    mission_id: str
+    status: str
+    governance_gate: str
+    data_platform: str
+
+
+class PluginChatResponse(BaseModel):
+    chat: PluginChatSummaryResponse
+    mission: Mission
+
+
+class PluginValidationResponse(BaseModel):
+    validation_report: PluginValidationReport
+
+
+class PluginImpactResponse(BaseModel):
+    impact_report: PluginImpactReport
+
+
+class PluginApprovalResponse(BaseModel):
+    approval_report: PluginApprovalReport
+
+
+class PluginDNAExportResponse(BaseModel):
+    dna_package: PluginDNAPackage
+
+
+@router.get("", response_model=PluginListResponse)
+def list_plugins(registry: RuntimeRegistry = Depends(get_runtime_registry)) -> PluginListResponse:
+    return {"plugins": registry.list_plugins()}
+
+
+@router.post("", response_model=PluginMutationResponse)
 def register_plugin(
     manifest: PluginManifest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     plugin = registry.register_plugin(manifest)
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
 @router.get("/{plugin_id}/timeline", response_model=PluginTimelineResponse)
@@ -185,14 +227,14 @@ def get_plugin_workspace(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
-@router.post("/{plugin_id}/chat")
+@router.post("/{plugin_id}/chat", response_model=PluginChatResponse)
 def send_plugin_chat_request(
     plugin_id: str,
     request: PluginChatRequest,
     authorization=Depends(require_permission("mission.create", "plugin_chat")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
     mission_service: MissionService = Depends(get_mission_service),
-) -> dict:
+) -> PluginChatResponse:
     try:
         dashboard = registry.plugin_dashboard(plugin_id)
         if dashboard["status"] == "deleted":
@@ -222,7 +264,7 @@ def send_plugin_chat_request(
             "governance_gate": mission.governance_gate,
             "data_platform": mission.data_platform,
         },
-        "mission": mission.model_dump(mode="json"),
+        "mission": mission,
     }
 
 
@@ -239,154 +281,154 @@ def update_plugin_settings(
         raise HTTPException(status_code=400, detail=str(error)) from error
 
 
-@router.post("/{plugin_id}/enable")
+@router.post("/{plugin_id}/enable", response_model=PluginMutationResponse)
 def enable_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.enable_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.patch("/{plugin_id}")
+@router.patch("/{plugin_id}", response_model=PluginMutationResponse)
 def patch_plugin(
     plugin_id: str,
     request: PluginPatchRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.patch_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.post("/{plugin_id}/validate")
+@router.post("/{plugin_id}/validate", response_model=PluginValidationResponse)
 def validate_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginValidationResponse:
     try:
         report = registry.validate_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return {"validation_report": report.model_dump()}
+    return {"validation_report": report}
 
 
-@router.post("/{plugin_id}/disable")
+@router.post("/{plugin_id}/disable", response_model=PluginMutationResponse)
 def disable_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.disable_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.post("/{plugin_id}/delete")
+@router.post("/{plugin_id}/delete", response_model=PluginMutationResponse)
 def soft_delete_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.soft_delete_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.post("/{plugin_id}/restore")
+@router.post("/{plugin_id}/restore", response_model=PluginMutationResponse)
 def restore_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.restore_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.post("/{plugin_id}/impact-analysis")
+@router.post("/{plugin_id}/impact-analysis", response_model=PluginImpactResponse)
 def analyze_plugin_impact(
     plugin_id: str,
     request: PluginImpactRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginImpactResponse:
     try:
         report = registry.analyze_plugin_impact(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return {"impact_report": report.model_dump()}
+    return {"impact_report": report}
 
 
-@router.post("/{plugin_id}/approve-change")
+@router.post("/{plugin_id}/approve-change", response_model=PluginApprovalResponse)
 def approve_plugin_change(
     plugin_id: str,
     request: PluginApprovalRequest,
     authorization=Depends(require_permission("governance.assign_approval", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginApprovalResponse:
     try:
         report = registry.approve_plugin_change(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"approval_report": report.model_dump()}
+    return {"approval_report": report}
 
 
-@router.post("/{plugin_id}/rollback")
+@router.post("/{plugin_id}/rollback", response_model=PluginMutationResponse)
 def rollback_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.rollback_plugin(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
 
 
-@router.post("/{plugin_id}/export-dna")
+@router.post("/{plugin_id}/export-dna", response_model=PluginDNAExportResponse)
 def export_plugin_dna(
     plugin_id: str,
     request: PluginStateChangeRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginDNAExportResponse:
     try:
         dna_package = registry.export_plugin_dna(plugin_id, request)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return {"dna_package": dna_package.model_dump(mode="json")}
+    return {"dna_package": dna_package}
 
 
-@router.post("/import-dna")
+@router.post("/import-dna", response_model=PluginMutationResponse)
 def import_plugin_dna(
     request: PluginDNAImportRequest,
     authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginMutationResponse:
     try:
         plugin = registry.import_plugin_dna(request)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"plugin": plugin.model_dump()}
+    return {"plugin": plugin}
