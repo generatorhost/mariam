@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import json
 import subprocess
@@ -427,6 +428,7 @@ class FrontendBrowserScreenshotCaptureReport:
     artifact_path: str
     artifact_count: int
     artifacts: list[dict[str, object]]
+    thumbnail_previews: list[dict[str, object]]
     checks: list[DataPlatformCheck]
 
 
@@ -973,10 +975,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=80,
+                completion_percent=82,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, and a Command Center screenshot capture report.",
-                next_step="Add visual thumbnail previews for captured screenshot artifacts.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, and visual thumbnail previews for captured screenshot artifacts.",
+                next_step="Add accessible keyboard traversal checks for Command Center panels.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2638,17 +2640,36 @@ class CommandCenterSummaryService:
         if artifact_path.exists():
             capture_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         artifacts: list[dict[str, object]] = []
+        thumbnail_previews: list[dict[str, object]] = []
         for expected_artifact in expected_artifacts:
             exists = expected_artifact.exists()
-            png_signature = exists and expected_artifact.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+            artifact_bytes = expected_artifact.read_bytes() if exists else b""
+            png_signature = bool(artifact_bytes.startswith(b"\x89PNG\r\n\x1a\n"))
+            thumbnail_data_url = (
+                f"data:image/png;base64,{base64.b64encode(artifact_bytes).decode('ascii')}"
+                if png_signature
+                else ""
+            )
+            viewport = expected_artifact.stem.replace("-command-center", "")
             artifacts.append(
                 {
-                    "viewport": expected_artifact.stem.replace("-command-center", ""),
+                    "viewport": viewport,
                     "relative_path": str(expected_artifact.relative_to(root)).replace("\\", "/"),
                     "path": str(expected_artifact),
                     "bytes": expected_artifact.stat().st_size if exists else 0,
                     "exists": exists,
                     "png_signature": png_signature,
+                    "thumbnail_data_url": thumbnail_data_url,
+                }
+            )
+            thumbnail_previews.append(
+                {
+                    "viewport": viewport,
+                    "label": f"{viewport} Command Center thumbnail preview",
+                    "relative_path": str(expected_artifact.relative_to(root)).replace("\\", "/"),
+                    "mime_type": "image/png" if png_signature else "missing",
+                    "data_url": thumbnail_data_url,
+                    "available": png_signature,
                 }
             )
         artifact_count = int(capture_payload.get("artifact_count", 0)) if capture_payload else 0
@@ -2668,6 +2689,11 @@ class CommandCenterSummaryService:
                 status="ready" if all(artifact["png_signature"] for artifact in artifacts) else "blocked",
                 detail="Desktop, tablet, and mobile PNG artifacts exist with valid PNG signatures.",
             ),
+            DataPlatformCheck(
+                name="thumbnail_previews_available",
+                status="ready" if all(thumbnail["available"] for thumbnail in thumbnail_previews) else "blocked",
+                detail="Desktop, tablet, and mobile screenshot thumbnail previews are available for the Command Center.",
+            ),
         ]
         status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
         return FrontendBrowserScreenshotCaptureReport(
@@ -2678,6 +2704,7 @@ class CommandCenterSummaryService:
             artifact_path=str(artifact_path),
             artifact_count=artifact_count,
             artifacts=artifacts,
+            thumbnail_previews=thumbnail_previews,
             checks=checks,
         )
 

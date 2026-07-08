@@ -3006,7 +3006,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3093,7 +3093,11 @@ def test_runtime_frontend_browser_screenshot_capture_reports_generated_artifacts
     assert report["data_platform"] == "DB MARIAM"
     assert report["artifact_path"].endswith("command-center-browser-screenshot-capture.json")
     assert {artifact["viewport"] for artifact in report["artifacts"]} == {"desktop", "tablet", "mobile"}
+    assert {preview["viewport"] for preview in report["thumbnail_previews"]} == {"desktop", "tablet", "mobile"}
+    assert all(preview["data_url"].startswith("data:image/png;base64,") for preview in report["thumbnail_previews"])
+    assert all(artifact["thumbnail_data_url"].startswith("data:image/png;base64,") for artifact in report["artifacts"])
     assert "capture_report_written" in [check["name"] for check in report["checks"]]
+    assert "thumbnail_previews_available" in [check["name"] for check in report["checks"]]
 
 
 def test_runtime_verification_automation_contract_records_local_coverage() -> None:
@@ -3147,7 +3151,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

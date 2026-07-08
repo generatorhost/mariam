@@ -487,7 +487,13 @@ def verify_api_smoke_flow() -> None:
     assert_condition(
         frontend_screenshot_capture["status"] == "ready"
         and frontend_screenshot_capture["artifact_count"] == 3
-        and all(artifact["png_signature"] for artifact in frontend_screenshot_capture["artifacts"]),
+        and all(artifact["png_signature"] for artifact in frontend_screenshot_capture["artifacts"])
+        and len(frontend_screenshot_capture["thumbnail_previews"]) == 3
+        and all(
+            thumbnail["available"]
+            and thumbnail["data_url"].startswith("data:image/png;base64,")
+            for thumbnail in frontend_screenshot_capture["thumbnail_previews"]
+        ),
         "Frontend screenshot capture report did not verify generated PNG artifacts.",
     )
     print("[verify] ok: frontend screenshot capture report")
@@ -668,7 +674,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

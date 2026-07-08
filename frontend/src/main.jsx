@@ -2974,6 +2974,20 @@ function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
               </article>
             ))}
           </div>
+          {captureReport.thumbnail_previews?.length ? (
+            <div className="screenshot-thumbnails">
+              {captureReport.thumbnail_previews.map((preview) => (
+                <figure key={preview.relative_path}>
+                  {preview.available ? (
+                    <img src={preview.data_url} alt={preview.label} />
+                  ) : (
+                    <div className="thumbnail-missing">Missing preview</div>
+                  )}
+                  <figcaption>{preview.viewport} thumbnail</figcaption>
+                </figure>
+              ))}
+            </div>
+          ) : null}
         </>
       )}
     </section>

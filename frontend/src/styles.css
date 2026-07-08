@@ -353,6 +353,41 @@ p {
   margin: 0;
 }
 
+.screenshot-thumbnails {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.screenshot-thumbnails figure {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.screenshot-thumbnails img,
+.thumbnail-missing {
+  aspect-ratio: 16 / 9;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  display: grid;
+  object-fit: cover;
+  place-items: center;
+  width: 100%;
+}
+
+.screenshot-thumbnails figcaption {
+  color: var(--text);
+  font-size: 13px;
+}
+
 .error {
   color: #ff3d3d;
 }
