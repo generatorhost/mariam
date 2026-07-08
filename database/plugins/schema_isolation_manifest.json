@@ -1,0 +1,54 @@
+{
+  "manifest_id": "db-mariam-plugin-schema-isolation-v1",
+  "data_platform": "DB MARIAM",
+  "version": "0.1.0",
+  "status": "ready_for_review",
+  "shared_tables": [
+    "runtime_objects",
+    "plugin_manifests",
+    "runtime_events",
+    "audit_log",
+    "ai_resource_providers",
+    "ai_resource_routes"
+  ],
+  "plugin_schemas": [
+    {
+      "plugin_id": "crm-workspace",
+      "schema_name": "plugin_crm",
+      "business_unit": "CRM Workspace",
+      "private_tables": [
+        "plugin_crm_clients",
+        "plugin_crm_contacts",
+        "plugin_crm_deals",
+        "plugin_crm_interactions",
+        "plugin_crm_reports"
+      ],
+      "allowed_shared_tables": [
+        "plugin_manifests",
+        "runtime_events",
+        "audit_log"
+      ],
+      "governance_gates": [
+        "schema_review",
+        "migration_review",
+        "permission_review",
+        "rollback_review"
+      ],
+      "contains_secrets": false
+    }
+  ],
+  "rules": {
+    "folder_per_plugin_required": true,
+    "private_tables_must_use_plugin_prefix": true,
+    "shared_tables_require_explicit_allowlist": true,
+    "cross_plugin_writes_forbidden_by_default": true,
+    "schema_changes_require_migration": true,
+    "rollback_plan_required": true,
+    "audit_required": true
+  },
+  "security": {
+    "contains_secrets": false,
+    "allowed_in_repository": true,
+    "notes": "This manifest defines schema isolation readiness only. It must not contain runtime client data, passwords, API keys, tokens, or database dumps."
+  }
+}

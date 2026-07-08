@@ -92,6 +92,10 @@ async function loadBackupReadiness() {
   return apiGet('/api/runtime/data-platform/backup-readiness');
 }
 
+async function loadPluginSchemaIsolation() {
+  return apiGet('/api/runtime/data-platform/plugin-schema-isolation');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1987,6 +1991,67 @@ function BackupReadinessPanel({ refreshVersion }) {
   );
 }
 
+function PluginSchemaIsolationPanel({ refreshVersion }) {
+  const [schemaStatus, setSchemaStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshSchemaIsolation = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setSchemaStatus(await loadPluginSchemaIsolation());
+      setStatus('ready');
+    } catch (schemaError) {
+      setStatus('error');
+      setError(schemaError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSchemaIsolation();
+  }, [refreshSchemaIsolation, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Plugin Schema Isolation</h2>
+        <p>Verify shared DB MARIAM tables and private Plugin-managed Business Unit boundaries.</p>
+      </div>
+      <button onClick={refreshSchemaIsolation} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Schema Isolation'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {schemaStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{schemaStatus.status}</strong>
+            <span>{schemaStatus.manifest_id}</span>
+            <p>
+              {schemaStatus.plugin_schema_count} plugin schemas / {schemaStatus.private_table_count} private
+              tables / secrets: {String(schemaStatus.contains_secrets)}
+            </p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{schemaStatus.plugin_schema_count}</strong><span>Plugin Schemas</span></div>
+            <div><strong>{schemaStatus.shared_table_count}</strong><span>Shared Tables</span></div>
+            <div><strong>{schemaStatus.private_table_count}</strong><span>Private Tables</span></div>
+          </div>
+          <div className="mission-history">
+            {schemaStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -2763,6 +2828,7 @@ function App() {
           <MigrationRunnerPanel refreshVersion={refreshVersion} />
           <SeedDataPanel refreshVersion={refreshVersion} />
           <BackupReadinessPanel refreshVersion={refreshVersion} />
+          <PluginSchemaIsolationPanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
           <VerificationReportPanel refreshVersion={refreshVersion} />

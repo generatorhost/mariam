@@ -97,6 +97,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/migration-runner",
         "/api/runtime/data-platform/seed-data",
         "/api/runtime/data-platform/backup-readiness",
+        "/api/runtime/data-platform/plugin-schema-isolation",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -194,6 +195,14 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: backup readiness")
 
+    plugin_schema_isolation = request_json("/api/runtime/data-platform/plugin-schema-isolation")
+    assert_condition(
+        plugin_schema_isolation["status"] == "ready"
+        and plugin_schema_isolation["plugin_schema_count"] >= 1,
+        "DB MARIAM plugin schema isolation did not pass.",
+    )
+    print("[verify] ok: plugin schema isolation")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -228,7 +237,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -255,6 +255,21 @@ class BackupReadinessStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class PluginSchemaIsolationStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    manifest_id: str
+    manifest_file: str
+    plugin_schema_count: int
+    shared_table_count: int
+    private_table_count: int
+    contains_secrets: bool
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -588,10 +603,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=64,
+                completion_percent=66,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, and backup readiness policy checks are exposed by API.",
-                next_step="Add per-plugin schema isolation.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, and per-plugin schema isolation checks are exposed by API.",
+                next_step="Add persistent Postgres-backed repository execution for local Docker.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -975,6 +990,91 @@ class CommandCenterSummaryService:
             policy_file=str(policy_file),
             scope_count=len(scope),
             retention={str(key): str(value) for key, value in retention.items()},
+            contains_secrets=contains_secrets,
+            checks=checks,
+        )
+
+    def plugin_schema_isolation_status(self) -> PluginSchemaIsolationStatus:
+        manifest_file = (
+            Path(__file__).resolve().parents[3]
+            / "database"
+            / "plugins"
+            / "schema_isolation_manifest.json"
+        )
+        manifest_payload = json.loads(manifest_file.read_text(encoding="utf-8")) if manifest_file.exists() else {}
+        shared_tables = list(manifest_payload.get("shared_tables", []))
+        plugin_schemas = list(manifest_payload.get("plugin_schemas", []))
+        rules = dict(manifest_payload.get("rules", {}))
+        security = dict(manifest_payload.get("security", {}))
+        private_table_count = sum(len(schema.get("private_tables", [])) for schema in plugin_schemas)
+        contains_secrets = bool(security.get("contains_secrets", True))
+        all_private_tables = [
+            str(table)
+            for schema in plugin_schemas
+            for table in schema.get("private_tables", [])
+        ]
+        all_plugin_ids = [str(schema.get("plugin_id", "")) for schema in plugin_schemas]
+        checks = [
+            DataPlatformCheck(
+                name="schema_manifest_present",
+                status="ready" if manifest_file.exists() else "blocked",
+                detail=f"Plugin schema isolation manifest path: {manifest_file}.",
+            ),
+            DataPlatformCheck(
+                name="schema_data_platform",
+                status="ready" if manifest_payload.get("data_platform") == "DB MARIAM" else "blocked",
+                detail="Plugin schema isolation is scoped to DB MARIAM.",
+            ),
+            DataPlatformCheck(
+                name="plugin_schema_declared",
+                status="ready" if "crm-workspace" in all_plugin_ids else "blocked",
+                detail=f"{len(plugin_schemas)} plugin schema boundaries are declared.",
+            ),
+            DataPlatformCheck(
+                name="private_table_prefixes",
+                status="ready"
+                if all(table.startswith("plugin_") for table in all_private_tables)
+                and rules.get("private_tables_must_use_plugin_prefix") is True
+                else "blocked",
+                detail=f"{private_table_count} private plugin tables use plugin-prefixed names.",
+            ),
+            DataPlatformCheck(
+                name="shared_table_allowlist",
+                status="ready"
+                if len(shared_tables) >= 3 and rules.get("shared_tables_require_explicit_allowlist") is True
+                else "blocked",
+                detail=f"{len(shared_tables)} shared platform tables are explicitly allowlisted.",
+            ),
+            DataPlatformCheck(
+                name="cross_plugin_write_guard",
+                status="ready" if rules.get("cross_plugin_writes_forbidden_by_default") is True else "blocked",
+                detail="Cross-plugin writes are forbidden by default.",
+            ),
+            DataPlatformCheck(
+                name="schema_governance",
+                status="ready"
+                if rules.get("schema_changes_require_migration") is True
+                and rules.get("rollback_plan_required") is True
+                and rules.get("audit_required") is True
+                else "blocked",
+                detail="Schema changes require migrations, rollback plans, and audit evidence.",
+            ),
+            DataPlatformCheck(
+                name="schema_no_secrets",
+                status="ready" if contains_secrets is False else "blocked",
+                detail="Schema isolation manifest declares that it contains no secrets.",
+            ),
+        ]
+        return PluginSchemaIsolationStatus(
+            title="DB MARIAM Plugin Schema Isolation",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            manifest_id=str(manifest_payload.get("manifest_id", "")),
+            manifest_file=str(manifest_file),
+            plugin_schema_count=len(plugin_schemas),
+            shared_table_count=len(shared_tables),
+            private_table_count=private_table_count,
             contains_secrets=contains_secrets,
             checks=checks,
         )

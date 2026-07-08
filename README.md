@@ -103,6 +103,12 @@ Backup readiness verifies the DB MARIAM backup policy without exposing backup pa
 GET /api/runtime/data-platform/backup-readiness
 ```
 
+Plugin schema isolation verifies shared platform tables and private Plugin-managed Business Unit table boundaries:
+
+```http
+GET /api/runtime/data-platform/plugin-schema-isolation
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http
