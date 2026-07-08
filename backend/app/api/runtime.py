@@ -23,6 +23,22 @@ class RuntimeCheckResponse(BaseModel):
     detail: str
 
 
+class DataPlatformReadinessResponse(BaseModel):
+    title: str
+    status: str
+    database_name: str
+    database_url: str
+    generated_at: str
+    store_modes: dict[str, str]
+    migrations_found: list[str]
+    expected_tables: list[str]
+    checks: list[RuntimeCheckResponse]
+
+
+class DataPlatformReadinessExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class CompletionAreaResponse(BaseModel):
     name: str
     completion_percent: int
@@ -132,18 +148,18 @@ def command_center_api_error_contract() -> dict:
     return api_error_contract()
 
 
-@router.get("/data-platform/readiness")
+@router.get("/data-platform/readiness", response_model=DataPlatformReadinessResponse)
 def command_center_data_platform_readiness(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DataPlatformReadinessResponse:
     return asdict(service.data_platform_readiness())
 
 
-@router.post("/data-platform/readiness/export")
+@router.post("/data-platform/readiness/export", response_model=DataPlatformReadinessExportResponse)
 def export_command_center_data_platform_readiness(
     authorization=Depends(require_permission("diagnostics.export", "data_platform_readiness")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DataPlatformReadinessExportResponse:
     return {"export_package": asdict(service.export_data_platform_readiness())}
 
 
