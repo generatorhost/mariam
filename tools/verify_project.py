@@ -284,6 +284,7 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/auth/permissions/enforce"),
         ("POST", "/api/auth/human-identity/enforce"),
         ("POST", "/api/runtime/verification-report/record"),
+        ("POST", "/api/runtime/verification-automation/failure-summary/export"),
         ("POST", "/api/runtime/diagnostics/export"),
         ("POST", "/api/runtime/usage-guide/export"),
         ("POST", "/api/runtime/completion-report/export"),
@@ -815,6 +816,7 @@ def verify_api_smoke_flow() -> None:
         and "Export Metrics Store Evidence" in frontend_regression["controls_checked"]
         and "Refresh Visual Contract" in frontend_regression["controls_checked"]
         and "Refresh Screenshot Plan" in frontend_regression["controls_checked"]
+        and "Export Failure Summary" in frontend_regression["controls_checked"]
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Record Reviewer Decision" in frontend_regression["controls_checked"]
         and "Export Reviewer Decision Evidence" in frontend_regression["controls_checked"]
@@ -991,6 +993,8 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["ci_run_ingestion"]["ingestion_status"] == "ready"
         and verification_automation["ci_run_ingestion"]["latest_run"]["name"] == "Mariam Verify"
         and "conclusion" in verification_automation["ci_run_ingestion"]["parsed_fields"]
+        and "/api/runtime/verification-automation/failure-summary/export"
+        in verification_automation["required_endpoints"]
         and verification_automation["local_history_comparison"]["status"]
         in {"insufficient_history", "stable", "changed"}
         and "snapshot_count" in verification_automation["local_history_comparison"]
@@ -1038,6 +1042,11 @@ def verify_api_smoke_flow() -> None:
         )
         and any(
             check["name"] == "command_center_responsive_navigation_smoke_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "verification_failure_summary_export_ready"
             and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
@@ -1102,6 +1111,23 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: verification automation contract")
 
+    verification_failure_summary_export = request_json(
+        "/api/runtime/verification-automation/failure-summary/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        verification_failure_summary_export["status"] == "ready_for_review"
+        and verification_failure_summary_export["data_platform"] == "DB MARIAM"
+        and verification_failure_summary_export["package_manifest"]["contains_secrets"] is False
+        and verification_failure_summary_export["failure_summary"]["status"] == "ready"
+        and verification_failure_summary_export["failure_summary"]["contains_secrets"] is False
+        and "ci_source" in verification_failure_summary_export["failure_summary"]
+        and "latest_run" in verification_failure_summary_export["failure_summary"],
+        "Verification failure-summary export did not pass.",
+    )
+    print("[verify] ok: verification failure-summary export")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -1111,6 +1137,10 @@ def verify_api_smoke_flow() -> None:
         any(step["frontend_control"] == "Export Audit Event Archive Evidence" for step in usage_guide["steps"])
         and any(step["frontend_control"] == "Export Metrics Store Evidence" for step in usage_guide["steps"]),
         "Usage guide did not map the DB MARIAM evidence store export buttons.",
+    )
+    assert_condition(
+        any(step["frontend_control"] == "Export Failure Summary" for step in usage_guide["steps"]),
+        "Usage guide did not map the verification failure-summary export button.",
     )
     print("[verify] ok: usage guide")
 
@@ -1140,6 +1170,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/verification-automation"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/VerificationAutomationResponse"
+        and openapi["paths"]["/api/runtime/verification-automation/failure-summary/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationFailureSummaryExportResponse"
         and openapi["paths"]["/api/runtime/verification-report"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/VerificationReportResponse"
@@ -1527,7 +1560,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -334,6 +334,10 @@ class VerificationAutomationResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class VerificationFailureSummaryExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class DeliveryEvidenceReportResponse(BaseModel):
     title: str
     status: str
@@ -689,6 +693,17 @@ def command_center_verification_automation(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> VerificationAutomationResponse:
     return asdict(service.verification_automation_contract())
+
+
+@router.post(
+    "/verification-automation/failure-summary/export",
+    response_model=VerificationFailureSummaryExportResponse,
+)
+def export_command_center_verification_failure_summary(
+    authorization=Depends(require_permission("diagnostics.export", "verification_failure_summary")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> VerificationFailureSummaryExportResponse:
+    return {"export_package": asdict(service.export_verification_failure_summary())}
 
 
 @router.get("/delivery-evidence-report", response_model=DeliveryEvidenceReportResponse)

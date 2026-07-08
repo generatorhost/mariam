@@ -605,6 +605,17 @@ class VerificationAutomationContract:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class VerificationFailureSummaryExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    failure_summary: dict[str, object]
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -949,6 +960,16 @@ class CommandCenterSummaryService:
                     data_platform_effect="Reads metrics_store_records and preserves record count, checks, and no-secret metadata.",
                     result="The user sees a metrics store export id with ready_for_review status.",
                     verification_signal="Backend tests and verify_project.py assert the export manifest and metric record ids.",
+                ),
+                UsageGuideStep(
+                    action="Export verification failure summary",
+                    frontend_control="Export Failure Summary",
+                    api_endpoint="POST /api/runtime/verification-automation/failure-summary/export",
+                    backend_handler="export_command_center_verification_failure_summary",
+                    service_effect="Builds a review-ready summary of failed local verification runs, latest CI fallback status, blocked checks, and remediation order.",
+                    data_platform_effect="Reads DB MARIAM verification artifacts without copying secrets into the export.",
+                    result="The user sees a failure-summary export id, failed-run count, latest run status, and ready_for_review package status.",
+                    verification_signal="Backend tests and verify_project.py assert the export package and no-secret metadata.",
                 ),
                 UsageGuideStep(
                     action="Create governed mission",
@@ -1343,10 +1364,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=94,
+                completion_percent=95,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, CI frontend artifact replay, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add failure-summary export for CI and local verification runs.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, responsive navigation smoke, CI frontend artifact replay, local verification history comparison, persisted local verification run records, failure-summary export packages for CI and local verification runs, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add browser-level failure-state screenshots for CI and local verification summary panels.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3169,6 +3190,7 @@ class CommandCenterSummaryService:
             "Refresh Screenshot Plan",
             "Refresh Screenshot Capture",
             "Refresh Verification Automation",
+            "Export Failure Summary",
             "Latest CI run result ingestion",
             "Filter delivery SLA by state",
             "Filter delivery SLA by reviewer queue",
@@ -3726,6 +3748,7 @@ class CommandCenterSummaryService:
             "/api/audit/governance-sla/export",
             "/api/audit/governance-assignment-history",
             "/api/runtime/verification-report",
+            "/api/runtime/verification-automation/failure-summary/export",
             "/api/runtime/completion-report",
             "/api/runtime/implementation-roadmap",
         ]
@@ -3853,6 +3876,9 @@ class CommandCenterSummaryService:
             "POST /api/auth/permissions/enforce": ["/api/auth/permissions/enforce"],
             "POST /api/auth/human-identity/enforce": ["/api/auth/human-identity/enforce"],
             "POST /api/runtime/verification-report/record": ["/api/runtime/verification-report/record"],
+            "POST /api/runtime/verification-automation/failure-summary/export": [
+                "/api/runtime/verification-automation/failure-summary/export"
+            ],
             "POST /api/runtime/diagnostics/export": ["/api/runtime/diagnostics/export"],
             "POST /api/runtime/usage-guide/export": ["/api/runtime/usage-guide/export"],
             "POST /api/runtime/completion-report/export": ["/api/runtime/completion-report/export"],
@@ -4237,6 +4263,18 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="verification_failure_summary_export_ready",
+                status=(
+                    "ready"
+                    if "/api/runtime/verification-automation/failure-summary/export"
+                    not in missing_endpoints
+                    and "POST /api/runtime/verification-automation/failure-summary/export"
+                    not in missing_mutation_gates
+                    else "blocked"
+                ),
+                detail="Verification automation exposes a governed failure-summary export for CI and local verification runs.",
+            ),
+            DataPlatformCheck(
                 name="local_verification_history_comparison_ready",
                 status="ready" if local_history_comparison_ready else "blocked",
                 detail=str(local_history_comparison["message"]),
@@ -4319,7 +4357,7 @@ class CommandCenterSummaryService:
             "artifact_freshness": artifact_freshness,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add failure-summary export for CI and local verification runs.",
+            "next_ci_step": "Add browser-level failure-state screenshots for CI and local verification summary panels.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -4346,6 +4384,69 @@ class CommandCenterSummaryService:
             ci_status=ci_status,
             next_ci_step=str(payload["next_ci_step"]),
             checks=checks,
+        )
+
+    def export_verification_failure_summary(self) -> VerificationFailureSummaryExportPackage:
+        root = Path(__file__).resolve().parents[3]
+        persisted_run_log_path = root / "artifacts" / "verification" / "local-verification-runs.json"
+        contract = self.verification_automation_contract()
+        runs = self._read_persisted_verification_runs(persisted_run_log_path)
+        failed_runs = [run for run in runs if run.get("status") != "passed"]
+        latest_run = runs[-1] if runs else {}
+        latest_failed_run = failed_runs[-1] if failed_runs else {}
+        recurring_failed_checks = sorted(
+            {
+                str(check)
+                for run in failed_runs
+                for check in run.get("checks_completed", [])
+                if isinstance(check, str)
+            }
+        )
+        failure_summary = {
+            "title": "Mariam Verification Failure Summary",
+            "status": "ready",
+            "generated_at": datetime.now(UTC).isoformat(),
+            "data_platform": "DB MARIAM",
+            "source_log": str(persisted_run_log_path),
+            "ci_source": contract.ci_run_ingestion,
+            "run_count": len(runs),
+            "failed_run_count": len(failed_runs),
+            "latest_run": latest_run,
+            "latest_failed_run": latest_failed_run,
+            "recurring_failed_checks": recurring_failed_checks,
+            "blocked_checks": [
+                check.__dict__ for check in contract.checks if check.status != "ready"
+            ],
+            "remediation_order": [
+                "Read latest_failed_run.updated_at and run_id.",
+                "Open the local verification log or GitHub Actions run referenced by ci_source.",
+                "Fix the first failed gate before adding new features.",
+                "Run npm run verify and confirm the summary export returns zero blocked checks.",
+            ],
+            "acceptance_criteria": [
+                "The export includes local verification run history.",
+                "The export includes latest CI/local fallback status.",
+                "The export lists failed runs and blocked checks without secrets.",
+                "The export is available through a governed API endpoint and Command Center control.",
+            ],
+            "contains_secrets": False,
+        }
+        return VerificationFailureSummaryExportPackage(
+            export_id=f"verification-failure-summary-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": failure_summary["title"],
+                "run_count": len(runs),
+                "failed_run_count": len(failed_runs),
+                "blocked_check_count": len(failure_summary["blocked_checks"]),
+                "latest_run_status": latest_run.get("status", "none"),
+                "data_platform": "DB MARIAM",
+                "contains_secrets": False,
+                "requires_governance_review_before_external_delivery": True,
+            },
+            failure_summary=failure_summary,
         )
 
     def _read_persisted_verification_runs(self, path: Path) -> list[dict[str, object]]:

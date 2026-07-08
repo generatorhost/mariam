@@ -3230,6 +3230,11 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/VerificationAutomationResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/verification-automation/failure-summary/export"]["post"]
+        ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationFailureSummaryExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/verification-report"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/VerificationReportResponse"
@@ -3558,8 +3563,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Verification automation"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3593,6 +3598,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
+    assert "Export Failure Summary" in snapshot["controls_checked"]
     assert "Latest CI run result ingestion" in snapshot["controls_checked"]
     assert "Filter delivery SLA by state" in snapshot["controls_checked"]
     assert "Filter delivery SLA by reviewer queue" in snapshot["controls_checked"]
@@ -3710,6 +3716,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["ci_run_ingestion"]["latest_run"]["name"] == "Mariam Verify"
     assert "status" in contract["ci_run_ingestion"]["parsed_fields"]
     assert "conclusion" in contract["ci_run_ingestion"]["parsed_fields"]
+    assert "/api/runtime/verification-automation/failure-summary/export" in contract["required_endpoints"]
     assert contract["local_history_comparison"]["status"] in {"insufficient_history", "stable", "changed"}
     assert "snapshot_count" in contract["local_history_comparison"]
     assert contract["quality_gates"]["backend_test_gate"] == "ready"
@@ -3806,6 +3813,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "ci_badge_metadata_ready" in [check["name"] for check in contract["checks"]]
     assert "latest_ci_run_polling_configured" in [check["name"] for check in contract["checks"]]
     assert "latest_ci_run_result_ingestion_ready" in [check["name"] for check in contract["checks"]]
+    assert "verification_failure_summary_export_ready" in [check["name"] for check in contract["checks"]]
     assert "local_verification_history_comparison_ready" in [check["name"] for check in contract["checks"]]
     assert "persisted_local_verification_runs_ready" in [check["name"] for check in contract["checks"]]
     assert "minimum_backend_test_count_gate" in [check["name"] for check in contract["checks"]]
@@ -3833,9 +3841,33 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "governed_write_schema_diff_gate_included" in [
         check["name"] for check in contract["checks"]
     ]
-    assert contract["next_ci_step"] == "Add failure-summary export for CI and local verification runs."
+    assert (
+        contract["next_ci_step"]
+        == "Add browser-level failure-state screenshots for CI and local verification summary panels."
+    )
     assert Path(contract["artifact_path"]).exists()
     assert Path(contract["persisted_run_log_path"]).exists()
+
+
+def test_runtime_verification_failure_summary_export_packages_local_and_ci_failures() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/verification-automation/failure-summary/export", json={})
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["title"] == "Mariam Verification Failure Summary"
+    assert export_package["package_manifest"]["contains_secrets"] is False
+    assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert export_package["failure_summary"]["status"] == "ready"
+    assert export_package["failure_summary"]["data_platform"] == "DB MARIAM"
+    assert export_package["failure_summary"]["contains_secrets"] is False
+    assert "ci_source" in export_package["failure_summary"]
+    assert "latest_run" in export_package["failure_summary"]
+    assert isinstance(export_package["failure_summary"]["blocked_checks"], list)
+    assert "Run npm run verify" in " ".join(export_package["failure_summary"]["remediation_order"])
 
 
 def test_runtime_verification_automation_compares_latest_two_local_snapshots() -> None:
@@ -3874,7 +3906,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

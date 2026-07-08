@@ -319,6 +319,10 @@ async function loadVerificationAutomation() {
   return apiGet('/api/runtime/verification-automation');
 }
 
+async function exportVerificationFailureSummary() {
+  return apiRequest('/api/runtime/verification-automation/failure-summary/export', {});
+}
+
 async function recordVerificationSnapshot() {
   return apiRequest('/api/runtime/verification-report/record', {
     actor_id: 'command-center-verifier',
@@ -3486,6 +3490,7 @@ function VerificationReportPanel({ refreshVersion }) {
 
 function VerificationAutomationPanel({ refreshVersion }) {
   const [contract, setContract] = useState(null);
+  const [failureSummaryExport, setFailureSummaryExport] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -3505,6 +3510,20 @@ function VerificationAutomationPanel({ refreshVersion }) {
     refreshAutomation();
   }, [refreshAutomation, refreshVersion]);
 
+  const handleFailureSummaryExport = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportVerificationFailureSummary();
+      setFailureSummaryExport(body.export_package);
+      setContract(await loadVerificationAutomation());
+      setStatus('ready');
+    } catch (exportError) {
+      setStatus('error');
+      setError(exportError.message);
+    }
+  }, []);
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -3513,6 +3532,9 @@ function VerificationAutomationPanel({ refreshVersion }) {
       </div>
       <button onClick={refreshAutomation} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh Verification Automation'}
+      </button>
+      <button onClick={handleFailureSummaryExport} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Exporting...' : 'Export Failure Summary'}
       </button>
       {error && <p className="error">{error}</p>}
       {contract && (
@@ -3575,6 +3597,18 @@ function VerificationAutomationPanel({ refreshVersion }) {
               <p>
                 Snapshots {contract.local_history_comparison.snapshot_count} / ready checks delta{' '}
                 {contract.local_history_comparison.ready_checks_delta}
+              </p>
+            </div>
+          )}
+          {failureSummaryExport && (
+            <div className="mission-result">
+              <strong>Verification Failure Summary Export Ready</strong>
+              <span>
+                {failureSummaryExport.status} / {failureSummaryExport.package_manifest.failed_run_count} failed runs
+              </span>
+              <p>
+                {failureSummaryExport.export_id} / latest:{' '}
+                {failureSummaryExport.package_manifest.latest_run_status}
               </p>
             </div>
           )}
