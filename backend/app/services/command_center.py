@@ -1367,9 +1367,9 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=96,
+                completion_percent=97,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, browser-level click smoke coverage for Command Center export buttons, browser-level keyboard focus and tab-order smoke coverage for Command Center primary actions, browser-level responsive navigation smoke coverage for mobile and tablet states, browser-level responsive action-panel smoke coverage for mobile and tablet mission, governance, delivery, and plugin action controls, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, browser-level click smoke coverage for Command Center export buttons, browser-level keyboard focus and tab-order smoke coverage for Command Center primary actions, browser-level responsive navigation smoke coverage for mobile and tablet states, browser-level responsive action-panel smoke coverage for mobile and tablet mission, governance, delivery, and plugin action controls, browser-level all-buttons smoke coverage for every enabled Command Center button without console errors, failed API responses, or visible error banners, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
                 next_step="Add browser-level failure-state coverage for mobile and tablet Command Center panels.",
             ),
             CompletionArea(
@@ -1388,9 +1388,9 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=95,
+                completion_percent=96,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, responsive navigation smoke, CI frontend artifact replay, local verification history comparison, persisted local verification run records, failure-summary export packages for CI and local verification runs, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, responsive navigation smoke, responsive action-panel smoke, all-buttons browser smoke for every enabled Command Center button, CI frontend artifact replay, local verification history comparison, persisted local verification run records, failure-summary export packages for CI and local verification runs, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
                 next_step="Add browser-level failure-state screenshots for CI and local verification summary panels.",
             ),
         ]
@@ -3908,6 +3908,7 @@ class CommandCenterSummaryService:
             "node tools/verify_command_center_keyboard_focus_smoke.mjs",
             "node tools/verify_command_center_responsive_navigation_smoke.mjs",
             "node tools/verify_command_center_responsive_action_panels_smoke.mjs",
+            "node tools/verify_command_center_all_buttons_smoke.mjs",
             "py -3.11 tools/verify_ci_artifact_replay.py",
             "npm run verify:schema-diff",
         ]
@@ -3965,6 +3966,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json",
             "artifacts/frontend-regression/command-center-responsive-navigation-smoke.json",
             "artifacts/frontend-regression/command-center-responsive-action-panels-smoke.json",
+            "artifacts/frontend-regression/command-center-all-buttons-smoke.json",
             "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
             "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
             "artifacts/frontend-regression/desktop-command-center.png",
@@ -4002,6 +4004,8 @@ class CommandCenterSummaryService:
             missing_commands.append("node tools/verify_command_center_responsive_navigation_smoke.mjs")
         if "tools/verify_command_center_responsive_action_panels_smoke.mjs" not in verification_text:
             missing_commands.append("node tools/verify_command_center_responsive_action_panels_smoke.mjs")
+        if "tools/verify_command_center_all_buttons_smoke.mjs" not in verification_text:
+            missing_commands.append("node tools/verify_command_center_all_buttons_smoke.mjs")
         if "tools/verify_ci_artifact_replay.py" not in verification_text:
             missing_commands.append("py -3.11 tools/verify_ci_artifact_replay.py")
         if (
@@ -4044,6 +4048,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json",
             "artifacts/frontend-regression/command-center-responsive-navigation-smoke.json",
             "artifacts/frontend-regression/command-center-responsive-action-panels-smoke.json",
+            "artifacts/frontend-regression/command-center-all-buttons-smoke.json",
             "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
             "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
             "artifacts/ci-artifact-replay/ci-artifact-replay-report.json",
@@ -4417,6 +4422,16 @@ class CommandCenterSummaryService:
                     else "blocked"
                 ),
                 detail="Verification automation launches Chromium, verifies Command Center action panels on mobile and tablet viewports, and checks usable tap targets without horizontal overflow.",
+            ),
+            DataPlatformCheck(
+                name="command_center_all_buttons_smoke_included",
+                status=(
+                    "ready"
+                    if "node tools/verify_command_center_all_buttons_smoke.mjs"
+                    not in missing_commands
+                    else "blocked"
+                ),
+                detail="Verification automation launches Chromium, clicks every enabled Command Center button, and verifies no browser errors, failed API responses, or visible error banners.",
             ),
             DataPlatformCheck(
                 name="governed_write_schema_regression_snapshot_included",

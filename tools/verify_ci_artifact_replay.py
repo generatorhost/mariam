@@ -23,6 +23,7 @@ REQUIRED_JSON = [
     "command-center-keyboard-focus-smoke.json",
     "command-center-responsive-navigation-smoke.json",
     "command-center-responsive-action-panels-smoke.json",
+    "command-center-all-buttons-smoke.json",
 ]
 
 REQUIRED_PNG = [
@@ -88,6 +89,11 @@ def main() -> None:
         == "ready",
         "responsive_action_panels_smoke_replayed": json_reports.get(
             "command-center-responsive-action-panels-smoke.json",
+            {},
+        ).get("status")
+        == "ready",
+        "all_buttons_smoke_replayed": json_reports.get(
+            "command-center-all-buttons-smoke.json",
             {},
         ).get("status")
         == "ready",

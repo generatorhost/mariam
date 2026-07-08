@@ -162,6 +162,26 @@ function ErrorBanner({ error }) {
   );
 }
 
+function hasImpactFor(entity, intendedAction) {
+  return entity?.impact_analysis?.intended_action === intendedAction;
+}
+
+function hasApprovalFor(entity, intendedAction) {
+  return entity?.change_approval?.intended_action === intendedAction
+    && entity?.change_approval?.impact_id === entity?.impact_analysis?.impact_id;
+}
+
+function requiresHighRiskApproval(entity, intendedAction) {
+  return hasImpactFor(entity, intendedAction) && entity?.impact_analysis?.risk_level === 'high';
+}
+
+function canExecuteGovernedChange(entity, intendedAction) {
+  if (!hasImpactFor(entity, intendedAction)) {
+    return false;
+  }
+  return !requiresHighRiskApproval(entity, intendedAction) || hasApprovalFor(entity, intendedAction);
+}
+
 async function loadSystemStatus() {
   const summary = await apiGet('/api/runtime/summary');
   return {
@@ -1046,14 +1066,14 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                 ) : item.status === 'enabled' ? (
                   <button
                     onClick={() => handleStateChange(item.object_id, 'disabled')}
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || !canExecuteGovernedChange(item, 'disable')}
                   >
                     Disable
                   </button>
                 ) : (
                   <button
                     onClick={() => handleStateChange(item.object_id, 'enabled')}
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || !item.validation?.passed}
                   >
                     Enable
                   </button>
@@ -1076,7 +1096,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                     )}
                     <button
                       onClick={() => handleStateChange(item.object_id, 'deleted')}
-                      disabled={status === 'loading'}
+                      disabled={status === 'loading' || !canExecuteGovernedChange(item, 'delete')}
                     >
                       Delete
                     </button>
@@ -1099,10 +1119,22 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       Analyze Impact
                     </button>
                     <button
-                      onClick={() => handleChangeApproval(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}
+                      onClick={() => handleImpactAnalysis(item.object_id, 'delete')}
                       disabled={status === 'loading'}
                     >
+                      Analyze Delete Impact
+                    </button>
+                    <button
+                      onClick={() => handleChangeApproval(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}
+                      disabled={status === 'loading' || !hasImpactFor(item, item.status === 'enabled' ? 'disable' : 'enable')}
+                    >
                       Approve Change
+                    </button>
+                    <button
+                      onClick={() => handleChangeApproval(item.object_id, 'delete')}
+                      disabled={status === 'loading' || !hasImpactFor(item, 'delete')}
+                    >
+                      Approve Delete
                     </button>
                   </>
                 )}
@@ -1431,13 +1463,13 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                 </button>
                 <button
                   onClick={() => handlePluginApproval(plugin.plugin_id, 'disable')}
-                  disabled={status === 'loading'}
+                  disabled={status === 'loading' || !hasImpactFor(plugin, 'disable')}
                 >
                   Approve Disable
                 </button>
                 <button
                   onClick={() => handlePluginApproval(plugin.plugin_id, 'delete')}
-                  disabled={status === 'loading'}
+                  disabled={status === 'loading' || !hasImpactFor(plugin, 'delete')}
                 >
                   Approve Delete
                 </button>
@@ -1489,14 +1521,14 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                 ) : plugin.status === 'enabled' ? (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'disabled')}
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || !canExecuteGovernedChange(plugin, 'disable')}
                   >
                     Disable Plugin
                   </button>
                 ) : (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'enabled')}
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || !plugin.validation?.passed}
                   >
                     Enable Plugin
                   </button>
@@ -1504,7 +1536,7 @@ function PluginHistoryPanel({ refreshVersion, onActionComplete }) {
                 {plugin.status !== 'deleted' && (
                   <button
                     onClick={() => handlePluginStateChange(plugin.plugin_id, 'deleted')}
-                    disabled={status === 'loading'}
+                    disabled={status === 'loading' || !canExecuteGovernedChange(plugin, 'delete')}
                   >
                     Soft Delete Plugin
                   </button>
