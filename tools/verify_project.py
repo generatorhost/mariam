@@ -112,6 +112,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/command-center-visual-contract.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
+            "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
@@ -138,6 +139,26 @@ def verify_frontend_screenshot_capture() -> None:
         "Frontend screenshot capture did not produce valid PNG artifacts.",
     )
     print("[verify] ok: frontend screenshot capture artifacts")
+
+
+def verify_governance_export_interaction() -> None:
+    run_command([sys.executable, "tools/verify_governance_export_interaction.py"], ROOT)
+    report_path = (
+        ROOT
+        / "artifacts"
+        / "frontend-regression"
+        / "command-center-governance-export-interaction-smoke.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        report["status"] == "ready"
+        and report["data_platform"] == "DB MARIAM"
+        and report["checks"]["export_button_visible"] is True
+        and report["checks"]["export_ready_for_review"] is True
+        and "visual-smoke-reviewer" in report["reviewer_ids"],
+        "Governance reviewer decision evidence export interaction smoke did not pass.",
+    )
+    print("[verify] ok: governance export interaction smoke")
 
 
 def verify_api_smoke_flow() -> None:
@@ -549,6 +570,7 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: frontend browser screenshot plan")
     verify_frontend_screenshot_capture()
+    verify_governance_export_interaction()
     frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
     assert_condition(
         frontend_screenshot_capture["status"] == "ready"
@@ -594,6 +616,8 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["ci_status"] == "ready"
         and "npm run verify" in verification_automation["required_commands"]
         and "py -3.11 tools/capture_frontend_screenshots.py"
+        in verification_automation["required_commands"]
+        and "py -3.11 tools/verify_governance_export_interaction.py"
         in verification_automation["required_commands"]
         and any(
             check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
@@ -658,6 +682,8 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
         and isinstance(verification_automation["persisted_verification_runs"], list)
         and "artifacts/verification/local-verification-runs.json"
+        in verification_automation["required_artifacts"]
+        and "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json"
         in verification_automation["required_artifacts"]
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"

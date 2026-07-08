@@ -3492,6 +3492,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["artifact_freshness"]["stale_artifacts"] == []
     assert "npm run verify" in contract["required_commands"]
     assert "py -3.11 tools/capture_frontend_screenshots.py" in contract["required_commands"]
+    assert "py -3.11 tools/verify_governance_export_interaction.py" in contract["required_commands"]
     assert any(
         check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
         for check in contract["checks"]
@@ -3510,6 +3511,10 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-capture.json" in contract["required_artifacts"]
+    assert (
+        "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json"
+        in contract["required_artifacts"]
+    )
     assert "artifacts/frontend-regression/desktop-command-center.png" in contract["required_artifacts"]
     assert "artifacts/verification/verification-automation-contract.json" in contract["required_artifacts"]
     assert "artifacts/verification/local-verification-runs.json" in contract["required_artifacts"]
@@ -3526,6 +3531,9 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "endpoint_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "artifact_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "artifact_freshness_quality_gate" in [check["name"] for check in contract["checks"]]
+    assert "governance_export_interaction_smoke_included" in [
+        check["name"] for check in contract["checks"]
+    ]
     assert contract["next_ci_step"] == "Add mutation-level verification gates for each governed write endpoint."
     assert Path(contract["artifact_path"]).exists()
     assert Path(contract["persisted_run_log_path"]).exists()

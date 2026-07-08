@@ -3275,6 +3275,7 @@ class CommandCenterSummaryService:
             "py -3.11 -m pytest",
             "npm.cmd run build",
             "py -3.11 tools/capture_frontend_screenshots.py",
+            "py -3.11 tools/verify_governance_export_interaction.py",
         ]
         required_endpoints = [
             "/api/health",
@@ -3295,6 +3296,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-visual-contract.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
+            "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
@@ -3315,6 +3317,8 @@ class CommandCenterSummaryService:
             missing_commands.append("npm.cmd run build")
         if "tools/capture_frontend_screenshots.py" not in verification_text:
             missing_commands.append("py -3.11 tools/capture_frontend_screenshots.py")
+        if "tools/verify_governance_export_interaction.py" not in verification_text:
+            missing_commands.append("py -3.11 tools/verify_governance_export_interaction.py")
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
@@ -3340,9 +3344,13 @@ class CommandCenterSummaryService:
         now = datetime.now(UTC)
         artifact_freshness_items = []
         stale_artifacts = []
+        generated_during_verification = {
+            "artifacts/verification/verification-automation-contract.json",
+            "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
+        }
         for artifact in required_artifacts:
             artifact_file = root / artifact
-            if artifact == "artifacts/verification/verification-automation-contract.json":
+            if artifact in generated_during_verification:
                 exists = True
                 age_hours = 0.0
                 fresh = True
@@ -3533,6 +3541,15 @@ class CommandCenterSummaryService:
                     else "blocked"
                 ),
                 detail="Verification automation captures binary Command Center screenshot artifacts.",
+            ),
+            DataPlatformCheck(
+                name="governance_export_interaction_smoke_included",
+                status=(
+                    "ready"
+                    if "py -3.11 tools/verify_governance_export_interaction.py" not in missing_commands
+                    else "blocked"
+                ),
+                detail="Verification automation exercises the reviewer decision evidence export control and writes an interaction artifact.",
             ),
             DataPlatformCheck(
                 name="critical_endpoints_covered",
