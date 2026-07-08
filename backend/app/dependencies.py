@@ -42,6 +42,7 @@ from app.repositories.runtime_objects import (
 from app.services.ai_resources import AIResourceManager
 from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
+from app.services.auth import AuthService
 from app.services.command_center import CommandCenterSummaryService
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -164,6 +165,11 @@ def get_ai_resource_route_repository() -> AIResourceRouteRepository:
 @lru_cache
 def get_ai_resource_manager() -> AIResourceManager:
     return AIResourceManager(get_event_bus(), get_ai_resource_route_repository())
+
+
+@lru_cache
+def get_auth_service() -> AuthService:
+    return AuthService()
 
 
 @lru_cache

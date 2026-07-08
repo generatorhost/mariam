@@ -91,6 +91,7 @@ def verify_api_smoke_flow() -> None:
     print("[verify] checking read endpoints")
     read_endpoints = [
         "/api/health",
+        "/api/auth/session",
         "/api/runtime/summary",
         "/api/runtime/readiness",
         "/api/runtime/data-platform/readiness",
@@ -117,6 +118,17 @@ def verify_api_smoke_flow() -> None:
     for endpoint in read_endpoints:
         require_json(endpoint)
         print(f"[verify] ok: {endpoint}")
+
+    permission_check = request_json(
+        "/api/auth/permissions/check",
+        "POST",
+        {
+            "actor_id": "project-verifier",
+            "permission": "governance.assign_approval",
+        },
+    )["permission_check"]
+    assert_condition(permission_check["allowed"] is True, "Permission check did not allow governance assignment.")
+    print("[verify] ok: permission check")
 
     snapshot = request_json(
         "/api/runtime/verification-report/record",
@@ -265,7 +277,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

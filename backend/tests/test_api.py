@@ -68,6 +68,52 @@ def test_health_reports_runtime_services() -> None:
     assert {service["name"] for service in body["services"]} >= {"api", "event_bus", "plugin_registry"}
 
 
+def test_auth_session_exposes_roles_and_permissions() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/auth/session")
+
+    assert response.status_code == 200
+    session = response.json()["session"]
+    assert session["user_id"] == "command-center-operator"
+    assert "governance-reviewer" in session["roles"]
+    assert "artifact.approve" in session["permissions"]
+    assert session["data_platform"] == "DB MARIAM"
+
+
+def test_auth_permission_check_reports_allowed_permission() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/auth/permissions/check",
+        json={
+            "actor_id": "command-center-operator",
+            "permission": "governance.assign_approval",
+        },
+    )
+
+    assert response.status_code == 200
+    permission_check = response.json()["permission_check"]
+    assert permission_check["allowed"] is True
+    assert permission_check["permission"] == "governance.assign_approval"
+    assert "operator" in permission_check["roles"]
+
+
+def test_auth_permission_check_rejects_unknown_permission() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/auth/permissions/check",
+        json={
+            "actor_id": "command-center-operator",
+            "permission": "system.destroy",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["permission_check"]["allowed"] is False
+
+
 def test_plugin_manifest_contract_is_executable() -> None:
     client = TestClient(create_app())
     manifest = {
@@ -2486,7 +2532,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2504,7 +2550,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

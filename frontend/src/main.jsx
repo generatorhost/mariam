@@ -95,6 +95,19 @@ async function loadSystemStatus() {
   };
 }
 
+async function loadAuthSession() {
+  const body = await apiGet('/api/auth/session');
+  return body.session;
+}
+
+async function checkGovernancePermission() {
+  const body = await apiRequest('/api/auth/permissions/check', {
+    actor_id: 'command-center-operator',
+    permission: 'governance.assign_approval',
+  });
+  return body.permission_check;
+}
+
 async function loadSystemReadiness() {
   return apiGet('/api/runtime/readiness');
 }
@@ -1796,6 +1809,64 @@ function SystemReadinessPanel({ refreshVersion }) {
   );
 }
 
+function AuthSessionPanel({ refreshVersion }) {
+  const [session, setSession] = useState(null);
+  const [permissionCheck, setPermissionCheck] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshSession = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      const [loadedSession, loadedPermissionCheck] = await Promise.all([
+        loadAuthSession(),
+        checkGovernancePermission(),
+      ]);
+      setSession(loadedSession);
+      setPermissionCheck(loadedPermissionCheck);
+      setStatus('ready');
+    } catch (sessionError) {
+      setStatus('error');
+      setError(sessionError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Session & Permissions</h2>
+        <p>Verify the current operator role and permission contract before governed actions.</p>
+      </div>
+      <button onClick={refreshSession} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Session'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {session && permissionCheck && (
+        <>
+          <div className="mission-result">
+            <strong>{session.display_name}</strong>
+            <span>{session.data_platform}</span>
+            <p>
+              {session.roles.join(', ')} / governance.assign_approval:{' '}
+              {String(permissionCheck.allowed)}
+            </p>
+          </div>
+          <div className="terms">
+            {session.permissions.map((permission) => (
+              <span key={permission}>{permission}</span>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function DataPlatformReadinessPanel({ refreshVersion }) {
   const [readiness, setReadiness] = useState(null);
   const [exportPackage, setExportPackage] = useState(null);
@@ -3037,6 +3108,7 @@ function App() {
         </section>
         <section id="runtime-status" className="workspace-section">
           <SystemStatusPanel refreshVersion={refreshVersion} />
+          <AuthSessionPanel refreshVersion={refreshVersion} />
           <SystemReadinessPanel refreshVersion={refreshVersion} />
         </section>
         <section id="data-platform" className="workspace-section">
