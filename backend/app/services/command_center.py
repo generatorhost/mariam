@@ -11,16 +11,20 @@ from uuid import uuid4
 from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.data_records import (
+    ArtifactStoreRecord,
     CapabilityGraphRecord,
     CommunicationRecord,
     DocumentRecord,
+    VectorIndexRecord,
     WorkflowRecord,
 )
 from app.core.events import InMemoryEventBus
 from app.repositories.data_records import (
+    CursorArtifactStoreRecordRepository,
     CursorCapabilityGraphRecordRepository,
     CursorCommunicationRecordRepository,
     CursorDocumentRecordRepository,
+    CursorVectorIndexRecordRepository,
     CursorWorkflowRecordRepository,
 )
 from app.services.ai_resources import AIResourceManager
@@ -354,6 +358,8 @@ class LiveRepositoryWriteStatus:
     document_record_id: str
     workflow_record_id: str
     capability_graph_record_id: str
+    vector_index_record_id: str
+    artifact_store_record_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
@@ -365,6 +371,8 @@ class LiveRepositoryWriteStatus:
     document_record_written: bool
     workflow_record_written: bool
     capability_graph_record_written: bool
+    vector_index_record_written: bool
+    artifact_store_record_written: bool
     checks: list[DataPlatformCheck]
 
 
@@ -1128,10 +1136,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=86,
+                completion_percent=88,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication, document, workflow, and capability graph records.",
-                next_step="Add repository abstraction classes for vector index and artifact store records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication, document, workflow, capability graph, vector index, and artifact store records.",
+                next_step="Add repository abstraction classes for audit event archive and metrics store records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1260,6 +1268,8 @@ class CommandCenterSummaryService:
             "document_records",
             "workflow_records",
             "capability_graph_records",
+            "vector_index_records",
+            "artifact_store_records",
             "audit_log",
         ]
         migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
@@ -1895,6 +1905,8 @@ class CommandCenterSummaryService:
         document_record_id = str(uuid4())
         workflow_record_id = str(uuid4())
         capability_graph_record_id = str(uuid4())
+        vector_index_record_id = str(uuid4())
+        artifact_store_record_id = str(uuid4())
         generated_at = datetime.now(UTC).isoformat()
         mission_written = False
         artifact_written = False
@@ -1907,6 +1919,8 @@ class CommandCenterSummaryService:
         document_record_written = False
         workflow_record_written = False
         capability_graph_record_written = False
+        vector_index_record_written = False
+        artifact_store_record_written = False
         database_error = ""
         try:
             import psycopg
@@ -1919,10 +1933,14 @@ class CommandCenterSummaryService:
                     document_repository = CursorDocumentRecordRepository(cursor)
                     workflow_repository = CursorWorkflowRecordRepository(cursor)
                     capability_graph_repository = CursorCapabilityGraphRecordRepository(cursor)
+                    vector_index_repository = CursorVectorIndexRecordRepository(cursor)
+                    artifact_store_repository = CursorArtifactStoreRecordRepository(cursor)
                     communication_repository.ensure_schema()
                     document_repository.ensure_schema()
                     workflow_repository.ensure_schema()
                     capability_graph_repository.ensure_schema()
+                    vector_index_repository.ensure_schema()
+                    artifact_store_repository.ensure_schema()
                     cursor.execute(
                         """
                         INSERT INTO plugin_manifests (
@@ -2200,6 +2218,40 @@ class CommandCenterSummaryService:
                             },
                         )
                     )
+                    vector_index_repository.save(
+                        VectorIndexRecord(
+                            vector_id=vector_index_record_id,
+                            artifact_id=artifact_id,
+                            namespace="crm-delivery-evidence",
+                            embedding_model="text-embedding-db-mariam-smoke",
+                            dimensions=1536,
+                            vector_metadata={
+                                "mission_id": mission_id,
+                                "plugin_id": "crm",
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
+                    artifact_store_repository.save(
+                        ArtifactStoreRecord(
+                            store_id=artifact_store_record_id,
+                            artifact_id=artifact_id,
+                            storage_provider="minio",
+                            storage_uri=(
+                                f"db-mariam://artifact-store/{artifact_id}/"
+                                f"{artifact_store_record_id}"
+                            ),
+                            checksum=hashlib.sha256(
+                                f"{artifact_id}:{artifact_store_record_id}".encode("utf-8")
+                            ).hexdigest(),
+                            content_type="text/markdown",
+                            metadata={
+                                "mission_id": mission_id,
+                                "plugin_id": "crm",
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
                     cursor.execute(
                         "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
                         (mission_id, "DB MARIAM"),
@@ -2259,6 +2311,11 @@ class CommandCenterSummaryService:
                     document_record_written = document_repository.exists(document_record_id, artifact_id)
                     workflow_record_written = workflow_repository.exists(workflow_record_id)
                     capability_graph_record_written = capability_graph_repository.exists(capability_graph_record_id)
+                    vector_index_record_written = vector_index_repository.exists(vector_index_record_id, artifact_id)
+                    artifact_store_record_written = artifact_store_repository.exists(
+                        artifact_store_record_id,
+                        artifact_id,
+                    )
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
 
@@ -2363,6 +2420,24 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="live_vector_index_repository_write",
+                status="ready" if vector_index_record_written else "blocked",
+                detail=(
+                    f"Vector index smoke record {vector_index_record_id} was written and read from DB MARIAM."
+                    if vector_index_record_written
+                    else f"Vector index repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_artifact_store_repository_write",
+                status="ready" if artifact_store_record_written else "blocked",
+                detail=(
+                    f"Artifact store smoke record {artifact_store_record_id} was written and read from DB MARIAM."
+                    if artifact_store_record_written
+                    else f"Artifact store repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
                 name="repository_write_database_name",
                 status="ready" if "db_mariam" in settings.database_url else "blocked",
                 detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
@@ -2384,6 +2459,8 @@ class CommandCenterSummaryService:
             document_record_id=document_record_id,
             workflow_record_id=workflow_record_id,
             capability_graph_record_id=capability_graph_record_id,
+            vector_index_record_id=vector_index_record_id,
+            artifact_store_record_id=artifact_store_record_id,
             mission_written=mission_written,
             artifact_written=artifact_written,
             delivery_written=delivery_written,
@@ -2395,6 +2472,8 @@ class CommandCenterSummaryService:
             document_record_written=document_record_written,
             workflow_record_written=workflow_record_written,
             capability_graph_record_written=capability_graph_record_written,
+            vector_index_record_written=vector_index_record_written,
+            artifact_store_record_written=artifact_store_record_written,
             checks=checks,
         )
 

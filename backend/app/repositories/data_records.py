@@ -1,9 +1,11 @@
 from typing import Protocol
 
 from app.core.data_records import (
+    ArtifactStoreRecord,
     CapabilityGraphRecord,
     CommunicationRecord,
     DocumentRecord,
+    VectorIndexRecord,
     WorkflowRecord,
 )
 
@@ -49,6 +51,28 @@ class CapabilityGraphRecordRepository(Protocol):
         pass
 
     def exists(self, capability_id: str, status: str = "available") -> bool:
+        pass
+
+
+class VectorIndexRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: VectorIndexRecord) -> VectorIndexRecord:
+        pass
+
+    def exists(self, vector_id: str, artifact_id: str) -> bool:
+        pass
+
+
+class ArtifactStoreRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: ArtifactStoreRecord) -> ArtifactStoreRecord:
+        pass
+
+    def exists(self, store_id: str, artifact_id: str, status: str = "stored") -> bool:
         pass
 
 
@@ -308,5 +332,138 @@ class CursorCapabilityGraphRecordRepository:
             WHERE capability_id = %s AND data_platform = %s AND status = %s
             """,
             (capability_id, "DB MARIAM", status),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorVectorIndexRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS vector_index_records (
+                vector_id UUID PRIMARY KEY,
+                artifact_id UUID REFERENCES artifacts (artifact_id) ON DELETE SET NULL,
+                namespace TEXT NOT NULL,
+                embedding_model TEXT NOT NULL,
+                dimensions INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                vector_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: VectorIndexRecord) -> VectorIndexRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO vector_index_records (
+                vector_id,
+                artifact_id,
+                namespace,
+                embedding_model,
+                dimensions,
+                status,
+                vector_metadata,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.vector_id,
+                record.artifact_id,
+                record.namespace,
+                record.embedding_model,
+                record.dimensions,
+                record.status,
+                Jsonb(record.vector_metadata),
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, vector_id: str, artifact_id: str) -> bool:
+        self._cursor.execute(
+            """
+            SELECT vector_id
+            FROM vector_index_records
+            WHERE vector_id = %s AND artifact_id = %s AND data_platform = %s
+            """,
+            (vector_id, artifact_id, "DB MARIAM"),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorArtifactStoreRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS artifact_store_records (
+                store_id UUID PRIMARY KEY,
+                artifact_id UUID REFERENCES artifacts (artifact_id) ON DELETE SET NULL,
+                storage_provider TEXT NOT NULL,
+                storage_uri TEXT NOT NULL,
+                checksum TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                status TEXT NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: ArtifactStoreRecord) -> ArtifactStoreRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO artifact_store_records (
+                store_id,
+                artifact_id,
+                storage_provider,
+                storage_uri,
+                checksum,
+                content_type,
+                status,
+                metadata,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.store_id,
+                record.artifact_id,
+                record.storage_provider,
+                record.storage_uri,
+                record.checksum,
+                record.content_type,
+                record.status,
+                Jsonb(record.metadata),
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, store_id: str, artifact_id: str, status: str = "stored") -> bool:
+        self._cursor.execute(
+            """
+            SELECT store_id
+            FROM artifact_store_records
+            WHERE store_id = %s AND artifact_id = %s AND data_platform = %s AND status = %s
+            """,
+            (store_id, artifact_id, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None

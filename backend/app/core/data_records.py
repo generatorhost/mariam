@@ -49,3 +49,28 @@ class CapabilityGraphRecord(BaseModel):
     data_platform: str = "DB MARIAM"
     metadata: dict[str, object] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class VectorIndexRecord(BaseModel):
+    vector_id: str
+    artifact_id: str
+    namespace: str
+    embedding_model: str
+    dimensions: int
+    status: str = "indexed"
+    vector_metadata: dict[str, object] = Field(default_factory=dict)
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ArtifactStoreRecord(BaseModel):
+    store_id: str
+    artifact_id: str
+    storage_provider: str
+    storage_uri: str
+    checksum: str
+    content_type: str
+    status: str = "stored"
+    metadata: dict[str, object] = Field(default_factory=dict)
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
