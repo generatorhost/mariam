@@ -3139,6 +3139,20 @@ function VerificationAutomationPanel({ refreshVersion }) {
               <p>{contract.ci_artifact_retention.run_artifacts_url}</p>
             </div>
           )}
+          {contract.ci_badge && (
+            <div className="mission-result">
+              <strong>{contract.ci_badge.label} CI badge</strong>
+              <span>{contract.ci_badge.branch}</span>
+              <p>{contract.ci_badge.badge_url}</p>
+            </div>
+          )}
+          {contract.latest_run_status && (
+            <div className="mission-result">
+              <strong>Latest CI run polling</strong>
+              <span>{contract.latest_run_status.polling_status}</span>
+              <p>{contract.latest_run_status.api_url}</p>
+            </div>
+          )}
           <div className="terms">
             {contract.required_commands.map((command) => (
               <span key={command}>{command}</span>

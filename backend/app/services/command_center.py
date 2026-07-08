@@ -443,6 +443,8 @@ class VerificationAutomationContract:
     required_endpoints: list[str]
     required_artifacts: list[str]
     ci_artifact_retention: dict[str, object]
+    ci_badge: dict[str, object]
+    latest_run_status: dict[str, object]
     local_automation_status: str
     ci_status: str
     next_ci_step: str
@@ -996,10 +998,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=80,
+                completion_percent=82,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata and Command Center artifact links.",
-                next_step="Add CI badge and latest run status polling to the Command Center verification report.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
+                next_step="Add verification history comparison between the latest two local runs.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2795,9 +2797,41 @@ class CommandCenterSummaryService:
             ],
             "if_no_files_found": "error",
         }
+        ci_badge = {
+            "label": "Mariam Verify",
+            "workflow_file": ".github/workflows/verify.yml",
+            "badge_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml/badge.svg?branch=main",
+            "actions_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml",
+            "branch": "main",
+        }
+        latest_run_status = {
+            "provider": "GitHub Actions",
+            "workflow_name": "Mariam Verify",
+            "workflow_file": ".github/workflows/verify.yml",
+            "polling_status": "configured" if ci_workflow_file.exists() else "blocked",
+            "api_url": "https://api.github.com/repos/generatorhost/mariam/actions/workflows/verify.yml/runs?branch=main&per_page=1",
+            "actions_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml",
+            "local_contract": "Command Center exposes the polling URL; live GitHub status is read outside offline tests.",
+        }
+        ci_badge_ready = (
+            ci_workflow_file.exists()
+            and ci_badge["badge_url"].endswith("/actions/workflows/verify.yml/badge.svg?branch=main")
+            and ci_badge["actions_url"].endswith("/actions/workflows/verify.yml")
+        )
+        latest_run_polling_ready = (
+            ci_workflow_file.exists()
+            and "actions/workflows/verify.yml/runs" in latest_run_status["api_url"]
+            and latest_run_status["polling_status"] == "configured"
+        )
         ci_status = (
             "ready"
-            if ci_workflow_ready and ci_artifact_upload_ready and ci_artifact_retention_ready
+            if (
+                ci_workflow_ready
+                and ci_artifact_upload_ready
+                and ci_artifact_retention_ready
+                and ci_badge_ready
+                and latest_run_polling_ready
+            )
             else "planned"
         )
         checks = [
@@ -2870,6 +2904,24 @@ class CommandCenterSummaryService:
                     else "CI workflow does not declare frontend regression artifact retention."
                 ),
             ),
+            DataPlatformCheck(
+                name="ci_badge_metadata_ready",
+                status="ready" if ci_badge_ready else "blocked",
+                detail=(
+                    "Command Center exposes the GitHub Actions badge URL for the Mariam Verify workflow."
+                    if ci_badge_ready
+                    else "CI badge metadata is missing or not linked to verify.yml."
+                ),
+            ),
+            DataPlatformCheck(
+                name="latest_ci_run_polling_configured",
+                status="ready" if latest_run_polling_ready else "blocked",
+                detail=(
+                    "Command Center exposes the GitHub Actions latest-run polling URL for verify.yml."
+                    if latest_run_polling_ready
+                    else "Latest CI run polling metadata is not configured."
+                ),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -2885,9 +2937,11 @@ class CommandCenterSummaryService:
             "required_endpoints": required_endpoints,
             "required_artifacts": required_artifacts,
             "ci_artifact_retention": ci_artifact_retention,
+            "ci_badge": ci_badge,
+            "latest_run_status": latest_run_status,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add CI badge and latest run status polling to the Command Center verification report.",
+            "next_ci_step": "Add verification history comparison between the latest two local runs.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -2901,6 +2955,8 @@ class CommandCenterSummaryService:
             required_endpoints=required_endpoints,
             required_artifacts=required_artifacts,
             ci_artifact_retention=ci_artifact_retention,
+            ci_badge=ci_badge,
+            latest_run_status=latest_run_status,
             local_automation_status=local_automation_status,
             ci_status=ci_status,
             next_ci_step=str(payload["next_ci_step"]),
