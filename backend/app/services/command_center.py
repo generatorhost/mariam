@@ -802,10 +802,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=74,
+                completion_percent=76,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, and a reviewable verification automation contract artifact.",
-                next_step="Add browser regression screenshots and CI execution for pull requests.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, and a GitHub Actions verification workflow.",
+                next_step="Capture binary browser regression screenshots in CI artifacts.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2078,12 +2078,14 @@ class CommandCenterSummaryService:
         verification_script = root / "tools" / "verify_project.py"
         docker_compose_file = root / "docker-compose.yml"
         ci_workflow_dir = root / ".github" / "workflows"
+        ci_workflow_file = ci_workflow_dir / "verify.yml"
         artifact_path = root / "artifacts" / "verification" / "verification-automation-contract.json"
         package_text = package_file.read_text(encoding="utf-8") if package_file.exists() else ""
         frontend_package_text = (
             frontend_package_file.read_text(encoding="utf-8") if frontend_package_file.exists() else ""
         )
         verification_text = verification_script.read_text(encoding="utf-8") if verification_script.exists() else ""
+        ci_workflow_text = ci_workflow_file.read_text(encoding="utf-8") if ci_workflow_file.exists() else ""
         required_commands = [
             "npm run verify",
             "py -3.11 -m pytest",
@@ -2094,6 +2096,7 @@ class CommandCenterSummaryService:
             "/api/runtime/readiness",
             "/api/runtime/frontend/regression-snapshot",
             "/api/runtime/frontend/visual-contract",
+            "/api/runtime/frontend/browser-screenshot-plan",
             "/api/runtime/verification-report",
             "/api/runtime/completion-report",
             "/api/runtime/implementation-roadmap",
@@ -2101,6 +2104,7 @@ class CommandCenterSummaryService:
         required_artifacts = [
             "artifacts/frontend-regression/command-center-regression-snapshot.json",
             "artifacts/frontend-regression/command-center-visual-contract.json",
+            "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/verification/verification-automation-contract.json",
         ]
         missing_commands = []
@@ -2124,7 +2128,8 @@ class CommandCenterSummaryService:
             docker_compose_file,
         ]
         missing_files = [str(path.relative_to(root)) for path in expected_files if not path.exists()]
-        ci_status = "ready" if ci_workflow_dir.exists() and list(ci_workflow_dir.glob("*.yml")) else "planned"
+        ci_workflow_ready = ci_workflow_file.exists() and "npm run verify" in ci_workflow_text
+        ci_status = "ready" if ci_workflow_ready else "planned"
         checks = [
             DataPlatformCheck(
                 name="verification_entrypoint_present",
@@ -2161,18 +2166,16 @@ class CommandCenterSummaryService:
             ),
             DataPlatformCheck(
                 name="ci_execution_plan",
-                status="ready",
+                status="ready" if ci_workflow_ready else "blocked",
                 detail=(
-                    "CI workflow is present."
+                    "GitHub Actions workflow runs npm run verify on push and pull requests."
                     if ci_status == "ready"
-                    else "CI workflow is not present yet; local verification is authoritative until CI is added."
+                    else "CI workflow is not present yet or does not run npm run verify."
                 ),
             ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        local_automation_status = "ready" if all(
-            check.status == "ready" for check in checks if check.name != "ci_execution_plan"
-        ) else "blocked"
+        local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
         status = "ready" if local_automation_status == "ready" else "blocked"
         generated_at = datetime.now(UTC).isoformat()
         payload = {
@@ -2186,7 +2189,7 @@ class CommandCenterSummaryService:
             "required_artifacts": required_artifacts,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add GitHub Actions workflow that runs npm run verify on pull requests.",
+            "next_ci_step": "Capture binary browser regression screenshots in CI artifacts.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

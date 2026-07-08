@@ -185,6 +185,8 @@ Verification automation contracts verify the local `npm run verify` entrypoint, 
 GET /api/runtime/verification-automation
 ```
 
+The repository also includes a GitHub Actions workflow at `.github/workflows/verify.yml` that runs `npm run verify` on pushes to `main` and pull requests.
+
 Runtime diagnostics can be reviewed through:
 
 ```http
