@@ -36,6 +36,9 @@ jobs:
       - name: Run Mariam verification
         run: npm run verify
 
+      - name: Check governed write API schema diff
+        run: npm run verify:schema-diff
+
       - name: Upload frontend regression artifacts
         uses: actions/upload-artifact@v4
         with:

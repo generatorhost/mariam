@@ -124,6 +124,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
             "artifacts/verification/governed-write-api-schema-snapshots.json",
+            "artifacts/verification/governed-write-api-schema-snapshots.sha256",
             "artifacts/verification/verification-automation-contract.json",
             "artifacts/verification/local-verification-runs.json",
         ],
@@ -779,6 +780,8 @@ def verify_api_smoke_flow() -> None:
         "Governed write API schema regression snapshot did not cover request and response models.",
     )
     print("[verify] ok: governed write API schema regression snapshots")
+    run_command([sys.executable, "tools/check_governed_write_schema_diff.py"], ROOT)
+    print("[verify] ok: governed write API schema diff gate")
     api_error_operation = openapi["paths"]["/api/runtime/api-error-contract"]["get"]
     assert_condition(
         all(
@@ -806,6 +809,7 @@ def verify_api_smoke_flow() -> None:
         in verification_automation["required_commands"]
         and "node tools/verify_command_center_export_click_smoke.mjs"
         in verification_automation["required_commands"]
+        and "npm run verify:schema-diff" in verification_automation["required_commands"]
         and any(
             check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
             for check in verification_automation["checks"]
@@ -895,8 +899,15 @@ def verify_api_smoke_flow() -> None:
         in verification_automation["required_artifacts"]
         and "artifacts/verification/governed-write-api-schema-snapshots.json"
         in verification_automation["required_artifacts"]
+        and "artifacts/verification/governed-write-api-schema-snapshots.sha256"
+        in verification_automation["required_artifacts"]
         and any(
             check["name"] == "governed_write_schema_regression_snapshot_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "governed_write_schema_diff_gate_included"
             and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
@@ -1263,7 +1274,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

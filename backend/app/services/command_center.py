@@ -1277,10 +1277,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=92,
+                completion_percent=93,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add CI schema-diff failure gates for governed write API snapshot changes.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add CI artifact download and replay verification for frontend regression artifacts.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3553,6 +3553,7 @@ class CommandCenterSummaryService:
             "py -3.11 tools/verify_governance_export_interaction.py",
             "py -3.11 tools/verify_delivery_governance_export_visual.py",
             "node tools/verify_command_center_export_click_smoke.mjs",
+            "npm run verify:schema-diff",
         ]
         required_endpoints = [
             "/api/health",
@@ -3587,6 +3588,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
             "artifacts/verification/governed-write-api-schema-snapshots.json",
+            "artifacts/verification/governed-write-api-schema-snapshots.sha256",
             "artifacts/verification/verification-automation-contract.json",
             "artifacts/verification/local-verification-runs.json",
         ]
@@ -3610,6 +3612,12 @@ class CommandCenterSummaryService:
             missing_commands.append("py -3.11 tools/verify_delivery_governance_export_visual.py")
         if "tools/verify_command_center_export_click_smoke.mjs" not in verification_text:
             missing_commands.append("node tools/verify_command_center_export_click_smoke.mjs")
+        if (
+            "verify:schema-diff" not in package_text
+            or "tools/check_governed_write_schema_diff.py" not in verification_text
+            or "npm run verify:schema-diff" not in ci_workflow_text
+        ):
+            missing_commands.append("npm run verify:schema-diff")
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
@@ -3929,6 +3937,15 @@ class CommandCenterSummaryService:
                 detail="Verification automation writes OpenAPI request and response schema snapshots for governed write endpoints.",
             ),
             DataPlatformCheck(
+                name="governed_write_schema_diff_gate_included",
+                status=(
+                    "ready"
+                    if "npm run verify:schema-diff" not in missing_commands
+                    else "blocked"
+                ),
+                detail="CI and local verification fail when the governed write API schema snapshot hash differs from the committed baseline.",
+            ),
+            DataPlatformCheck(
                 name="critical_endpoints_covered",
                 status="ready" if not missing_endpoints else "blocked",
                 detail=(
@@ -4083,7 +4100,7 @@ class CommandCenterSummaryService:
             "artifact_freshness": artifact_freshness,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add CI schema-diff failure gates for governed write API snapshot changes.",
+            "next_ci_step": "Add CI artifact download and replay verification for frontend regression artifacts.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
