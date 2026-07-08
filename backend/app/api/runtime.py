@@ -39,6 +39,35 @@ class DataPlatformReadinessExportResponse(BaseModel):
     export_package: dict[str, Any]
 
 
+class MigrationRunnerStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    migration_count: int
+    ordered_migrations: list[str]
+    table_definitions: int
+    index_definitions: int
+    checks: list[RuntimeCheckResponse]
+
+
+class MigrationRunnerExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
+class SeedDataStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    seed_id: str
+    seed_file: str
+    item_count: int
+    target_tables: list[str]
+    contains_secrets: bool
+    checks: list[RuntimeCheckResponse]
+
+
 class CompletionAreaResponse(BaseModel):
     name: str
     completion_percent: int
@@ -168,25 +197,25 @@ def export_command_center_data_platform_readiness(
     return {"export_package": asdict(service.export_data_platform_readiness())}
 
 
-@router.get("/data-platform/migration-runner")
+@router.get("/data-platform/migration-runner", response_model=MigrationRunnerStatusResponse)
 def command_center_data_platform_migration_runner(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> MigrationRunnerStatusResponse:
     return asdict(service.migration_runner_status())
 
 
-@router.post("/data-platform/migration-runner/export")
+@router.post("/data-platform/migration-runner/export", response_model=MigrationRunnerExportResponse)
 def export_command_center_data_platform_migration_runner(
     authorization=Depends(require_permission("diagnostics.export", "migration_runner")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> MigrationRunnerExportResponse:
     return {"export_package": asdict(service.export_migration_runner_status())}
 
 
-@router.get("/data-platform/seed-data")
+@router.get("/data-platform/seed-data", response_model=SeedDataStatusResponse)
 def command_center_data_platform_seed_data(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> SeedDataStatusResponse:
     return asdict(service.seed_data_status())
 
 
