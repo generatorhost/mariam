@@ -2708,7 +2708,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2727,6 +2727,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Actor Context" in snapshot["controls_checked"]
     assert "Enforce Human Identity" in snapshot["controls_checked"]
     assert "Refresh Docker Execution" in snapshot["controls_checked"]
+    assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
     assert snapshot["artifact_path"].endswith("command-center-regression-snapshot.json")
@@ -2745,7 +2746,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -2921,6 +2922,23 @@ def test_data_platform_docker_container_execution_reports_running_postgres() -> 
     assert "postgres" in status["services"]
     assert "docker compose up -d postgres" in status["execution_commands"]
     assert any(check["name"] == "postgres_pg_isready" for check in status["checks"])
+
+
+def test_data_platform_live_write_smoke_writes_audit_and_event_records() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/data-platform/live-write-smoke")
+
+    assert response.status_code == 200
+    status = response.json()
+    assert status["title"] == "DB MARIAM Live Database Write Verification"
+    assert status["status"] == "ready"
+    assert status["data_platform"] == "DB MARIAM"
+    assert status["audit_written"] is True
+    assert status["event_written"] is True
+    assert status["audit_id"]
+    assert status["event_id"]
+    assert all(check["status"] == "ready" for check in status["checks"])
 
 
 def test_mission_list_reads_saved_mission_history() -> None:

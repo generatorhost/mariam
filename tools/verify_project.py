@@ -332,6 +332,16 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: docker container execution")
 
+    live_write_smoke = request_json("/api/runtime/data-platform/live-write-smoke", "POST", {})
+    assert_condition(
+        live_write_smoke["status"] == "ready"
+        and live_write_smoke["audit_written"] is True
+        and live_write_smoke["event_written"] is True
+        and live_write_smoke["data_platform"] == "DB MARIAM",
+        "DB MARIAM live write smoke did not write and read audit/event records.",
+    )
+    print("[verify] ok: live DB write smoke")
+
     frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
     assert_condition(
         frontend_regression["status"] == "ready"
@@ -432,7 +442,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -127,6 +127,12 @@ Docker container execution verifies the DB MARIAM Postgres container is running 
 GET /api/runtime/data-platform/docker-container-execution
 ```
 
+Live write smoke verifies DB MARIAM can write and read audit and runtime event records against the live Postgres database:
+
+```http
+POST /api/runtime/data-platform/live-write-smoke
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

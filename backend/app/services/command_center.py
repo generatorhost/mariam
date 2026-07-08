@@ -310,6 +310,19 @@ class DockerContainerExecutionStatus:
 
 
 @dataclass
+class LiveDatabaseWriteStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    audit_id: str
+    event_id: str
+    audit_written: bool
+    event_written: bool
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class FrontendRegressionSnapshot:
     title: str
     status: str
@@ -448,6 +461,7 @@ class CommandCenterSummaryService:
                 "/api/audit",
                 "/api/runtime/events",
                 "/api/runtime/data-platform/docker-container-execution",
+                "/api/runtime/data-platform/live-write-smoke",
                 "/api/plugins",
                 "/api/runtime-objects",
                 "/api/ai-resources/providers",
@@ -590,6 +604,16 @@ class CommandCenterSummaryService:
                     verification_signal="Automated verification requires every readiness check to be ready.",
                 ),
                 UsageGuideStep(
+                    action="Run DB MARIAM live write smoke",
+                    frontend_control="Run DB MARIAM Write Smoke",
+                    api_endpoint="POST /api/runtime/data-platform/live-write-smoke",
+                    backend_handler="command_center_data_platform_live_write_smoke",
+                    service_effect="Writes and reads a smoke audit record and runtime event against the live DB MARIAM Postgres database.",
+                    data_platform_effect="Confirms live persistence for audit_log and runtime_events without exposing secrets.",
+                    result="The user sees generated audit and event ids with ready status.",
+                    verification_signal="verify_project.py runs the live write smoke after Docker container verification.",
+                ),
+                UsageGuideStep(
                     action="Create governed mission",
                     frontend_control="Run Mission",
                     api_endpoint="POST /api/missions",
@@ -689,10 +713,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=72,
+                completion_percent=74,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, and Docker postgres container execution verification.",
-                next_step="Add persistent repository smoke writes against the live Docker database.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, and live audit/event write smoke.",
+                next_step="Add persistent repository smoke writes for missions and artifact delivery packages.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1336,6 +1360,109 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def live_database_write_status(self) -> LiveDatabaseWriteStatus:
+        settings = get_settings()
+        audit_id = str(uuid4())
+        event_id = str(uuid4())
+        generated_at = datetime.now(UTC).isoformat()
+        audit_written = False
+        event_written = False
+        database_error = ""
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+            from psycopg.types.json import Jsonb
+
+            with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO audit_log (
+                            audit_id,
+                            actor_id,
+                            action,
+                            target_type,
+                            target_id,
+                            decision,
+                            evidence,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            audit_id,
+                            "db-mariam-smoke-verifier",
+                            "db_mariam.live_write_smoke",
+                            "data_platform",
+                            "db_mariam",
+                            "verified",
+                            Jsonb({"data_platform": "DB MARIAM", "event_id": event_id}),
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO runtime_events (
+                            event_id,
+                            name,
+                            source,
+                            payload,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            event_id,
+                            "db_mariam.live_write_smoke",
+                            "command_center",
+                            Jsonb({"data_platform": "DB MARIAM", "audit_id": audit_id}),
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute("SELECT audit_id FROM audit_log WHERE audit_id = %s", (audit_id,))
+                    audit_written = cursor.fetchone() is not None
+                    cursor.execute("SELECT event_id FROM runtime_events WHERE event_id = %s", (event_id,))
+                    event_written = cursor.fetchone() is not None
+        except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
+            database_error = str(error)
+
+        checks = [
+            DataPlatformCheck(
+                name="live_audit_write",
+                status="ready" if audit_written else "blocked",
+                detail=(
+                    f"Audit smoke record {audit_id} was written and read from DB MARIAM."
+                    if audit_written
+                    else f"Audit smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_event_write",
+                status="ready" if event_written else "blocked",
+                detail=(
+                    f"Runtime event smoke record {event_id} was written and read from DB MARIAM."
+                    if event_written
+                    else f"Runtime event smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_write_database_name",
+                status="ready" if "db_mariam" in settings.database_url else "blocked",
+                detail="Live write smoke targets the db_mariam database configured for DB MARIAM.",
+            ),
+        ]
+        return LiveDatabaseWriteStatus(
+            title="DB MARIAM Live Database Write Verification",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            audit_id=audit_id,
+            event_id=event_id,
+            audit_written=audit_written,
+            event_written=event_written,
+            checks=checks,
+        )
+
     def frontend_regression_snapshot(self) -> FrontendRegressionSnapshot:
         root = Path(__file__).resolve().parents[3]
         source_file = root / "frontend" / "src" / "main.jsx"
@@ -1347,6 +1474,7 @@ class CommandCenterSummaryService:
             "Enforce Permission Gate",
             "Enforce Human Identity",
             "Refresh Docker Execution",
+            "Run DB MARIAM Write Smoke",
             "Open Live Plugin Workspace",
             "Start CRM Mission",
             "Route Notification",

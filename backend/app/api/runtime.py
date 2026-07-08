@@ -103,6 +103,13 @@ def command_center_data_platform_docker_container_execution(
     return asdict(service.docker_container_execution_status())
 
 
+@router.post("/data-platform/live-write-smoke")
+def command_center_data_platform_live_write_smoke(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.live_database_write_status())
+
+
 @router.get("/frontend/regression-snapshot")
 def command_center_frontend_regression_snapshot(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
