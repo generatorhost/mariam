@@ -2325,6 +2325,23 @@ def test_runtime_usage_guide_maps_buttons_to_backend_results() -> None:
     assert diagnostics_step["result"] == "The user receives a diagnostics export id with ready_for_review status."
 
 
+def test_runtime_usage_guide_can_be_exported_as_review_package() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/usage-guide/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("usage-guide-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["title"] == "Mariam Command Center End-to-End Usage Guide"
+    assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert export_package["package_manifest"]["step_count"] == len(export_package["usage_guide"]["steps"])
+    assert export_package["usage_guide"]["steps"][0]["frontend_control"] == "Refresh System Status"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

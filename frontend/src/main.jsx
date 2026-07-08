@@ -82,6 +82,10 @@ async function loadUsageGuide() {
   return apiGet('/api/runtime/usage-guide');
 }
 
+async function exportUsageGuide() {
+  return apiRequest('/api/runtime/usage-guide/export', {});
+}
+
 async function exportRuntimeDiagnostics() {
   return apiRequest('/api/runtime/diagnostics/export', {});
 }
@@ -1853,6 +1857,7 @@ function RuntimeDiagnosticsPanel({ refreshVersion }) {
 
 function UsageGuidePanel({ refreshVersion }) {
   const [guide, setGuide] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1872,6 +1877,19 @@ function UsageGuidePanel({ refreshVersion }) {
     refreshGuide();
   }, [refreshGuide, refreshVersion]);
 
+  async function handleUsageGuideExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportUsageGuide();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (guideError) {
+      setStatus('error');
+      setError(guideError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1881,7 +1899,17 @@ function UsageGuidePanel({ refreshVersion }) {
       <button onClick={refreshGuide} disabled={status === 'loading'}>
         {status === 'loading' ? 'Loading...' : 'Refresh Usage Guide'}
       </button>
+      <button onClick={handleUsageGuideExport} disabled={status === 'loading' || !guide}>
+        Export Usage Guide
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>Usage Guide Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>{exportPackage.status} / {exportPackage.package_manifest.step_count} steps</p>
+        </div>
+      )}
       {guide && (
         <>
           <div className="mission-result">

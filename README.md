@@ -109,6 +109,12 @@ The executable usage guide maps visible Command Center controls to API calls, ba
 GET /api/runtime/usage-guide
 ```
 
+It can also be exported as a JSON review package:
+
+```http
+POST /api/runtime/usage-guide/export
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

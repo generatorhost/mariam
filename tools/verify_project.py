@@ -143,6 +143,13 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: usage guide")
 
+    usage_guide_export = request_json("/api/runtime/usage-guide/export", "POST", {})["export_package"]
+    assert_condition(
+        usage_guide_export["package_manifest"]["step_count"] == len(usage_guide["steps"]),
+        "Usage guide export package did not preserve the usage guide step count.",
+    )
+    print("[verify] ok: usage guide export")
+
     print("[verify] checking mission to delivery flow")
     mission = request_json(
         "/api/missions",

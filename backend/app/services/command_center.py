@@ -92,6 +92,17 @@ class CommandCenterUsageGuide:
     steps: list[UsageGuideStep]
 
 
+@dataclass
+class UsageGuideExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    usage_guide: CommandCenterUsageGuide
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -386,4 +397,21 @@ class CommandCenterSummaryService:
                     verification_signal="verify_project.py checks diagnostics export readiness and UI smoke confirms the button result.",
                 ),
             ],
+        )
+
+    def export_usage_guide(self) -> UsageGuideExportPackage:
+        usage_guide = self.usage_guide()
+        return UsageGuideExportPackage(
+            export_id=f"usage-guide-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": usage_guide.title,
+                "version": usage_guide.version,
+                "step_count": len(usage_guide.steps),
+                "data_platform": usage_guide.data_platform,
+                "requires_governance_review_before_external_delivery": True,
+            },
+            usage_guide=usage_guide,
         )

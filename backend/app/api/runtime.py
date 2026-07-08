@@ -75,6 +75,13 @@ def command_center_usage_guide(
     return asdict(service.usage_guide())
 
 
+@router.post("/usage-guide/export")
+def export_command_center_usage_guide(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return {"export_package": asdict(service.export_usage_guide())}
+
+
 @router.post("/diagnostics/export")
 def export_command_center_diagnostics(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
