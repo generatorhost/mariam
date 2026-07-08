@@ -2186,6 +2186,22 @@ def test_runtime_readiness_reports_executable_layers() -> None:
     assert checks["artifact_delivery_pipeline"]["status"] == "ready"
 
 
+def test_runtime_verification_report_summarizes_required_checks() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/verification-report")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "passed"
+    assert body["readiness_status"] == "ready"
+    assert body["ready_checks"] == body["total_checks"]
+    assert body["summary"]["health"] == "healthy"
+    assert "/api/runtime/readiness" in body["required_endpoints"]
+    assert "/api/artifacts/quality-reviews" in body["required_endpoints"]
+    assert "quality review" in body["smoke_flow"]
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

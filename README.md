@@ -67,6 +67,14 @@ GET /api/runtime/readiness
 
 It reports readiness for runtime core, event bus, audit layer, mission layer, plugin registry, runtime objects, AI resource manager, and artifact delivery pipeline.
 
+The Command Center also exposes **Verification Report**, backed by:
+
+```http
+GET /api/runtime/verification-report
+```
+
+It summarizes readiness, command center counts, required endpoints, and the official smoke flow used by `npm run verify`.
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

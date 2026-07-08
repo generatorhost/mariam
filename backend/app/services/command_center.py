@@ -33,6 +33,17 @@ class CommandCenterReadiness:
     checks: list[ReadinessCheck]
 
 
+@dataclass
+class CommandCenterVerificationReport:
+    status: str
+    readiness_status: str
+    ready_checks: int
+    total_checks: int
+    summary: dict[str, int | str]
+    smoke_flow: str
+    required_endpoints: list[str]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -125,3 +136,37 @@ class CommandCenterSummaryService:
         ]
         overall = "ready" if all(check.status == "ready" for check in checks) else "blocked"
         return CommandCenterReadiness(status=overall, checks=checks)
+
+    def verification_report(self) -> CommandCenterVerificationReport:
+        summary = self.summarize()
+        readiness = self.readiness()
+        ready_checks = sum(1 for check in readiness.checks if check.status == "ready")
+        return CommandCenterVerificationReport(
+            status="passed" if readiness.status == "ready" else "failed",
+            readiness_status=readiness.status,
+            ready_checks=ready_checks,
+            total_checks=len(readiness.checks),
+            summary={
+                "health": summary.health,
+                "runtime_objects": summary.runtime_objects,
+                "plugins": summary.plugins,
+                "missions": summary.missions,
+                "ai_routes": summary.ai_routes,
+                "audit_records": summary.audit_records,
+                "runtime_events": summary.runtime_events,
+            },
+            smoke_flow="mission -> artifact -> quality review -> delivery package -> client delivery confirmation",
+            required_endpoints=[
+                "/api/health",
+                "/api/runtime/summary",
+                "/api/runtime/readiness",
+                "/api/artifacts",
+                "/api/artifacts/quality-reviews",
+                "/api/artifacts/deliveries",
+                "/api/audit",
+                "/api/runtime/events",
+                "/api/plugins",
+                "/api/runtime-objects",
+                "/api/ai-resources/providers",
+            ],
+        )

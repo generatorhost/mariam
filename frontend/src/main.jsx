@@ -58,6 +58,10 @@ async function loadSystemReadiness() {
   return apiGet('/api/runtime/readiness');
 }
 
+async function loadVerificationReport() {
+  return apiGet('/api/runtime/verification-report');
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1632,6 +1636,59 @@ function SystemReadinessPanel({ refreshVersion }) {
   );
 }
 
+function VerificationReportPanel({ refreshVersion }) {
+  const [report, setReport] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshReport = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setReport(await loadVerificationReport());
+      setStatus('ready');
+    } catch (reportError) {
+      setStatus('error');
+      setError(reportError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshReport();
+  }, [refreshReport, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Verification Report</h2>
+        <p>Review the executable smoke contract used by project verification.</p>
+      </div>
+      <button onClick={refreshReport} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Verification Report'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {report && (
+        <>
+          <div className="mission-result">
+            <strong>{report.status}</strong>
+            <span>{report.ready_checks} / {report.total_checks} readiness checks</span>
+            <p>{report.smoke_flow}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{report.summary.health}</strong><span>Health</span></div>
+            <div><strong>{report.summary.runtime_objects}</strong><span>Runtime Objects</span></div>
+            <div><strong>{report.summary.plugins}</strong><span>Plugins</span></div>
+            <div><strong>{report.summary.missions}</strong><span>Missions</span></div>
+            <div><strong>{report.summary.ai_routes}</strong><span>AI Routes</span></div>
+            <div><strong>{report.summary.audit_records}</strong><span>Audit Records</span></div>
+            <div><strong>{report.summary.runtime_events}</strong><span>Runtime Events</span></div>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -1959,6 +2016,7 @@ function App() {
         </section>
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <SystemReadinessPanel refreshVersion={refreshVersion} />
+        <VerificationReportPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}

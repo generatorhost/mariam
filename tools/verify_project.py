@@ -93,6 +93,7 @@ def verify_api_smoke_flow() -> None:
         "/api/health",
         "/api/runtime/summary",
         "/api/runtime/readiness",
+        "/api/runtime/verification-report",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",

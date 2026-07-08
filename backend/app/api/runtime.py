@@ -25,6 +25,13 @@ def command_center_readiness(
     }
 
 
+@router.get("/verification-report")
+def command_center_verification_report(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return service.verification_report().__dict__
+
+
 @router.get("/events")
 def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
     return {"events": [event.__dict__ for event in event_bus.list_events()]}
