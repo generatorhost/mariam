@@ -1,4 +1,6 @@
 from app.core.auth import (
+    HumanIdentityEnforcementRequest,
+    HumanIdentityEnforcementResult,
     PermissionCheckRequest,
     PermissionCheckResult,
     PermissionEnforcementRequest,
@@ -34,6 +36,27 @@ class AuthService:
             roles=checked.roles,
             target_type=request.target_type,
             target_id=request.target_id,
+            reason=request.reason,
+            evidence={"data_platform": "DB MARIAM", **request.evidence},
+        )
+
+    def enforce_human_identity(
+        self,
+        request: HumanIdentityEnforcementRequest,
+    ) -> HumanIdentityEnforcementResult:
+        session = self.current_session()
+        if request.actor_id != session.user_id or request.claimed_user_id != session.user_id:
+            raise PermissionError(
+                f"Human identity {request.claimed_user_id} denied for actor {request.actor_id} on {request.target_type}:{request.target_id}."
+            )
+        return HumanIdentityEnforcementResult(
+            actor_id=request.actor_id,
+            claimed_user_id=request.claimed_user_id,
+            display_name=session.display_name,
+            roles=session.roles,
+            target_type=request.target_type,
+            target_id=request.target_id,
+            verified=True,
             reason=request.reason,
             evidence={"data_platform": "DB MARIAM", **request.evidence},
         )

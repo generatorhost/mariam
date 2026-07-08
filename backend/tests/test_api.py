@@ -157,6 +157,49 @@ def test_auth_permission_enforcement_blocks_unknown_permission() -> None:
     assert "Permission system.destroy denied" in response.json()["detail"]
 
 
+def test_auth_human_identity_enforcement_allows_current_session_user() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/auth/human-identity/enforce",
+        json={
+            "actor_id": "command-center-operator",
+            "claimed_user_id": "command-center-operator",
+            "target_type": "artifact",
+            "target_id": "artifact-review-target",
+            "reason": "Verify human operator before governance approval.",
+            "evidence": {"source": "test"},
+        },
+    )
+
+    assert response.status_code == 200
+    identity = response.json()["human_identity"]
+    assert identity["verified"] is True
+    assert identity["enforcement"] == "verified"
+    assert identity["display_name"] == "Command Center Operator"
+    assert "governance-reviewer" in identity["roles"]
+    assert identity["data_platform"] == "DB MARIAM"
+
+
+def test_auth_human_identity_enforcement_blocks_mismatched_user() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/auth/human-identity/enforce",
+        json={
+            "actor_id": "command-center-operator",
+            "claimed_user_id": "unknown-human",
+            "target_type": "artifact",
+            "target_id": "artifact-review-target",
+            "reason": "Reject mismatched human identity.",
+            "evidence": {"source": "test"},
+        },
+    )
+
+    assert response.status_code == 403
+    assert "Human identity unknown-human denied" in response.json()["detail"]
+
+
 def test_plugin_manifest_contract_is_executable() -> None:
     client = TestClient(create_app())
     manifest = {
@@ -2630,8 +2673,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2648,7 +2691,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

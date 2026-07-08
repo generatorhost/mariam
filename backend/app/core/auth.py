@@ -38,6 +38,29 @@ class PermissionEnforcementResult(PermissionCheckResult):
     evidence: dict = Field(default_factory=dict)
 
 
+class HumanIdentityEnforcementRequest(BaseModel):
+    actor_id: str = Field(default="command-center-operator", min_length=2)
+    claimed_user_id: str = Field(default="command-center-operator", min_length=2)
+    target_type: str = Field(default="governance-action", min_length=2)
+    target_id: str = Field(default="command-center", min_length=2)
+    reason: str = Field(default="Enforce human identity before governed action.", min_length=3)
+    evidence: dict = Field(default_factory=dict)
+
+
+class HumanIdentityEnforcementResult(BaseModel):
+    actor_id: str
+    claimed_user_id: str
+    display_name: str
+    roles: list[str]
+    target_type: str
+    target_id: str
+    verified: bool
+    enforcement: str = "verified"
+    reason: str
+    data_platform: str = "DB MARIAM"
+    evidence: dict = Field(default_factory=dict)
+
+
 def default_command_center_session() -> UserSession:
     return UserSession(
         session_id="command-center-session-local",

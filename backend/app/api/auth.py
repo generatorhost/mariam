@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.auth import PermissionCheckRequest, PermissionEnforcementRequest
+from app.core.auth import (
+    HumanIdentityEnforcementRequest,
+    PermissionCheckRequest,
+    PermissionEnforcementRequest,
+)
 from app.dependencies import get_auth_service
 from app.services.auth import AuthService
 
@@ -27,5 +31,16 @@ def enforce_permission(
 ) -> dict:
     try:
         return {"permission_enforcement": service.enforce_permission(request).model_dump(mode="json")}
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)) from error
+
+
+@router.post("/human-identity/enforce")
+def enforce_human_identity(
+    request: HumanIdentityEnforcementRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> dict:
+    try:
+        return {"human_identity": service.enforce_human_identity(request).model_dump(mode="json")}
     except PermissionError as error:
         raise HTTPException(status_code=403, detail=str(error)) from error

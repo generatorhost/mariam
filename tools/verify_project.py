@@ -172,6 +172,26 @@ def verify_api_smoke_flow() -> None:
         assert_condition(error.code == 403, "Denied permission should return HTTP 403.")
     print("[verify] ok: permission enforcement")
 
+    human_identity = request_json(
+        "/api/auth/human-identity/enforce",
+        "POST",
+        {
+            "actor_id": "command-center-operator",
+            "claimed_user_id": "command-center-operator",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "reason": "Verify human identity enforcement before governance approval.",
+            "evidence": {"verification": "human-identity-enforced"},
+        },
+    )["human_identity"]
+    assert_condition(
+        human_identity["verified"] is True
+        and human_identity["display_name"] == "Command Center Operator"
+        and human_identity["data_platform"] == "DB MARIAM",
+        "Human identity enforcement did not verify the current operator.",
+    )
+    print("[verify] ok: human identity enforcement")
+
     snapshot = request_json(
         "/api/runtime/verification-report/record",
         "POST",
@@ -369,7 +389,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -670,10 +670,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=70,
+                completion_percent=72,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add human identity enforcement.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, human identity enforcement, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add reviewer workload and escalation queues.",
             ),
             CompletionArea(
                 name="Verification automation",

@@ -217,6 +217,12 @@ Backend permission enforcement blocks unauthorized side effects with HTTP 403 an
 POST /api/auth/permissions/enforce
 ```
 
+Human identity enforcement verifies the current command center operator before governed approval actions:
+
+```http
+POST /api/auth/human-identity/enforce
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

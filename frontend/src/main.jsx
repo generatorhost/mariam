@@ -120,6 +120,18 @@ async function enforceGovernancePermission() {
   return body.permission_enforcement;
 }
 
+async function enforceHumanIdentity() {
+  const body = await apiRequest('/api/auth/human-identity/enforce', {
+    actor_id: 'command-center-operator',
+    claimed_user_id: 'command-center-operator',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    reason: 'Verify human operator identity before governance approval.',
+    evidence: { source: 'command-center-session-panel' },
+  });
+  return body.human_identity;
+}
+
 async function loadSystemReadiness() {
   return apiGet('/api/runtime/readiness');
 }
@@ -1850,6 +1862,7 @@ function AuthSessionPanel({ refreshVersion }) {
   const [session, setSession] = useState(null);
   const [permissionCheck, setPermissionCheck] = useState(null);
   const [permissionEnforcement, setPermissionEnforcement] = useState(null);
+  const [humanIdentity, setHumanIdentity] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1886,6 +1899,18 @@ function AuthSessionPanel({ refreshVersion }) {
     }
   }
 
+  async function handleHumanIdentityEnforcement() {
+    setStatus('loading');
+    setError('');
+    try {
+      setHumanIdentity(await enforceHumanIdentity());
+      setStatus('ready');
+    } catch (sessionError) {
+      setStatus('error');
+      setError(sessionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1897,6 +1922,9 @@ function AuthSessionPanel({ refreshVersion }) {
       </button>
       <button onClick={handlePermissionEnforcement} disabled={status === 'loading'}>
         {status === 'loading' ? 'Enforcing...' : 'Enforce Permission Gate'}
+      </button>
+      <button onClick={handleHumanIdentityEnforcement} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Verifying...' : 'Enforce Human Identity'}
       </button>
       {error && <p className="error">{error}</p>}
       {session && permissionCheck && (
@@ -1926,6 +1954,18 @@ function AuthSessionPanel({ refreshVersion }) {
             <strong>{permissionEnforcement.target_id}</strong>.
           </p>
           <p>{permissionEnforcement.data_platform}</p>
+        </div>
+      )}
+      {humanIdentity && (
+        <div className="mission-result">
+          <strong>Human Identity Verified</strong>
+          <span>{humanIdentity.enforcement}</span>
+          <p>
+            <strong>{humanIdentity.display_name}</strong> verified for{' '}
+            <strong>{humanIdentity.target_type}</strong>:{' '}
+            <strong>{humanIdentity.target_id}</strong>.
+          </p>
+          <p>{humanIdentity.data_platform}</p>
         </div>
       )}
     </section>
