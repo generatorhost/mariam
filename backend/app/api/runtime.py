@@ -75,6 +75,13 @@ def command_center_usage_guide(
     return asdict(service.usage_guide())
 
 
+@router.get("/completion-report")
+def command_center_completion_report(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.completion_report())
+
+
 @router.post("/usage-guide/export")
 def export_command_center_usage_guide(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

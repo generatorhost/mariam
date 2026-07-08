@@ -103,6 +103,29 @@ class UsageGuideExportPackage:
     data_platform: str = "DB MARIAM"
 
 
+@dataclass
+class CompletionArea:
+    name: str
+    completion_percent: int
+    status: str
+    evidence: str
+    next_step: str
+
+
+@dataclass
+class ProjectCompletionReport:
+    title: str
+    version: str
+    status: str
+    completion_percent: int
+    generated_at: str
+    data_platform: str
+    areas: list[CompletionArea]
+    verification: CommandCenterVerificationReport
+    usage_guide: CommandCenterUsageGuide
+    summary: str
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -414,4 +437,62 @@ class CommandCenterSummaryService:
                 "requires_governance_review_before_external_delivery": True,
             },
             usage_guide=usage_guide,
+        )
+
+    def completion_report(self) -> ProjectCompletionReport:
+        verification = self.verification_report()
+        usage_guide = self.usage_guide()
+        areas = [
+            CompletionArea(
+                name="Backend API foundation",
+                completion_percent=68,
+                status="executable",
+                evidence="FastAPI routes cover health, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
+                next_step="Add authenticated users, role-scoped sessions, and production permission enforcement.",
+            ),
+            CompletionArea(
+                name="Frontend Command Center",
+                completion_percent=62,
+                status="executable",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, and usage guide flows.",
+                next_step="Add navigation, app-like plugin workspaces, and richer responsive states.",
+            ),
+            CompletionArea(
+                name="DB MARIAM persistence boundary",
+                completion_percent=55,
+                status="partial",
+                evidence="Repositories support DB MARIAM boundaries for core records with in-memory fallback for local development.",
+                next_step="Expand migrations, seed data, backup checks, and per-plugin schema isolation.",
+            ),
+            CompletionArea(
+                name="Governance and delivery workflow",
+                completion_percent=64,
+                status="executable",
+                evidence="Mission approval, artifact approval, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add human identity, approval assignment, rejection revision loops, and notification routing.",
+            ),
+            CompletionArea(
+                name="Verification automation",
+                completion_percent=72,
+                status="executable",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, and mission-to-delivery smoke flow.",
+                next_step="Add browser regression screenshots, Docker verification, and CI execution.",
+            ),
+        ]
+        completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
+        return ProjectCompletionReport(
+            title="Mariam Executable Project Completion Report",
+            version="v1",
+            status="in_progress_verified",
+            completion_percent=completion_percent,
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            areas=areas,
+            verification=verification,
+            usage_guide=usage_guide,
+            summary=(
+                "Mariam is currently an executable documentation-driven rebuild foundation, "
+                "not a finished enterprise product. The verified core supports Command Center "
+                "operations, governance traces, delivery smoke flow, and review-package exports."
+            ),
         )

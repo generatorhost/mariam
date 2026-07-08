@@ -82,6 +82,10 @@ async function loadUsageGuide() {
   return apiGet('/api/runtime/usage-guide');
 }
 
+async function loadCompletionReport() {
+  return apiGet('/api/runtime/completion-report');
+}
+
 async function exportUsageGuide() {
   return apiRequest('/api/runtime/usage-guide/export', {});
 }
@@ -1933,6 +1937,60 @@ function UsageGuidePanel({ refreshVersion }) {
   );
 }
 
+function CompletionReportPanel({ refreshVersion }) {
+  const [report, setReport] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshReport = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setReport(await loadCompletionReport());
+      setStatus('ready');
+    } catch (completionError) {
+      setStatus('error');
+      setError(completionError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshReport();
+  }, [refreshReport, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Completion Report</h2>
+        <p>Review verified project readiness across frontend, backend, data, governance, and tests.</p>
+      </div>
+      <button onClick={refreshReport} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Completion Report'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {report && (
+        <>
+          <div className="mission-result">
+            <strong>{report.completion_percent}% complete</strong>
+            <span>{report.status}</span>
+            <p>{report.summary}</p>
+          </div>
+          <div className="mission-history">
+            {report.areas.map((area) => (
+              <article key={area.name}>
+                <strong>{area.name}</strong>
+                <span>{area.completion_percent}% / {area.status}</span>
+                <p>{area.evidence}</p>
+                <p>{area.next_step}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -2263,6 +2321,7 @@ function App() {
         <VerificationReportPanel refreshVersion={refreshVersion} />
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <UsageGuidePanel refreshVersion={refreshVersion} />
+        <CompletionReportPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}

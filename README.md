@@ -115,6 +115,12 @@ It can also be exported as a JSON review package:
 POST /api/runtime/usage-guide/export
 ```
 
+The executable completion report summarizes current project readiness and the next implementation gaps:
+
+```http
+GET /api/runtime/completion-report
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

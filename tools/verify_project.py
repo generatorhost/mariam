@@ -97,6 +97,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
         "/api/runtime/usage-guide",
+        "/api/runtime/completion-report",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
@@ -149,6 +150,14 @@ def verify_api_smoke_flow() -> None:
         "Usage guide export package did not preserve the usage guide step count.",
     )
     print("[verify] ok: usage guide export")
+
+    completion_report = request_json("/api/runtime/completion-report")
+    assert_condition(
+        completion_report["status"] == "in_progress_verified"
+        and completion_report["verification"]["status"] == "passed",
+        "Completion report did not confirm verified in-progress status.",
+    )
+    print("[verify] ok: completion report")
 
     print("[verify] checking mission to delivery flow")
     mission = request_json(

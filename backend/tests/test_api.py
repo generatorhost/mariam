@@ -2342,6 +2342,27 @@ def test_runtime_usage_guide_can_be_exported_as_review_package() -> None:
     assert export_package["usage_guide"]["steps"][0]["frontend_control"] == "Refresh System Status"
 
 
+def test_runtime_completion_report_summarizes_project_readiness() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/completion-report")
+
+    assert response.status_code == 200
+    report = response.json()
+    assert report["title"] == "Mariam Executable Project Completion Report"
+    assert report["status"] == "in_progress_verified"
+    assert report["data_platform"] == "DB MARIAM"
+    assert 1 <= report["completion_percent"] <= 100
+    assert report["verification"]["status"] == "passed"
+    assert report["usage_guide"]["status"] == "executable"
+    assert {area["name"] for area in report["areas"]} >= {
+        "Backend API foundation",
+        "Frontend Command Center",
+        "DB MARIAM persistence boundary",
+        "Verification automation",
+    }
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(
