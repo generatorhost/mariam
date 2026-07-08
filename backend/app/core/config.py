@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     plugin_store: str = "memory"
     mission_store: str = "memory"
     ai_resource_route_store: str = "memory"
+    seed_import_store: str = "memory"
 
     model_config = SettingsConfigDict(env_prefix="MARIAM_", env_file=".env", extra="ignore")
 

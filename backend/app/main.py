@@ -3,7 +3,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import artifacts, audit, auth, ai_resources, health, missions, plugins, runtime, runtime_objects, terminology
+from app.api import (
+    artifacts,
+    audit,
+    auth,
+    ai_resources,
+    health,
+    missions,
+    plugins,
+    runtime,
+    runtime_objects,
+    seed_imports,
+    terminology,
+)
 from app.core.config import get_settings
 from app.core.errors import http_exception_handler, validation_exception_handler
 
@@ -30,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(plugins.router)
     app.include_router(runtime.router)
     app.include_router(runtime_objects.router)
+    app.include_router(seed_imports.router)
     app.include_router(terminology.router)
 
     @app.get("/")

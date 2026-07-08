@@ -43,6 +43,11 @@ from app.repositories.runtime_objects import (
     PostgresRuntimeObjectRepository,
     RuntimeObjectRepository,
 )
+from app.repositories.seed_imports import (
+    InMemorySeedImportRepository,
+    PostgresSeedImportRepository,
+    SeedImportRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
@@ -51,6 +56,7 @@ from app.services.command_center import CommandCenterSummaryService
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
 from app.services.runtime_objects import RuntimeObjectService
+from app.services.seed_imports import SeedImportService
 
 
 @lru_cache
@@ -107,6 +113,24 @@ def get_plugin_repository() -> PluginRepository:
     if settings.plugin_store == "postgres":
         return PostgresPluginRepository(settings.database_url)
     return InMemoryPluginRepository()
+
+
+@lru_cache
+def get_seed_import_repository() -> SeedImportRepository:
+    settings = get_settings()
+    if settings.seed_import_store == "postgres":
+        return PostgresSeedImportRepository(settings.database_url)
+    return InMemorySeedImportRepository()
+
+
+@lru_cache
+def get_seed_import_service() -> SeedImportService:
+    return SeedImportService(
+        get_event_bus(),
+        get_seed_import_repository(),
+        get_runtime_registry(),
+        get_audit_service(),
+    )
 
 
 @lru_cache

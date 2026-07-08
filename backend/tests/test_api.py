@@ -55,6 +55,107 @@ def validate_and_enable_plugin(client: TestClient, plugin_id: str) -> None:
     assert enable_response.status_code == 200
 
 
+def test_mayou_seed_import_extracts_living_plugin_candidates() -> None:
+    source_path = Path(r"C:\1\mayou-1001")
+    assert source_path.exists()
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/seed-imports/inspect",
+        json={
+            "source_path": str(source_path),
+            "actor_id": "seed-import-chief",
+            "reason": "Extract mayou-1001 as living DNA plugin candidates.",
+            "evidence": {"mode": "living_seed_to_plugin_runtime"},
+        },
+    )
+
+    assert response.status_code == 200
+    seed_import = response.json()["seed_import"]
+    assert seed_import["data_platform"] == "DB MARIAM"
+    assert seed_import["coverage"]["files_scanned"] == 3054052
+    assert seed_import["plugin_candidates"]
+
+    candidates = {candidate["plugin_id"]: candidate for candidate in seed_import["plugin_candidates"]}
+    assert "plugin_mcp_runtime_manager" in candidates
+    assert "mcp" in candidates["plugin_mcp_runtime_manager"]["source_domains"]
+    assert candidates["plugin_mcp_runtime_manager"]["governance_gate"] == "seed_review_before_activation"
+
+    source_id = seed_import["source_id"]
+    promote_response = client.post(
+        f"/api/seed-imports/{source_id}/plugin-candidates/plugin_mcp_runtime_manager/promote",
+        json={
+            "actor_id": "seed-import-chief",
+            "reason": "Promote MCP candidate as disabled plugin for governance review.",
+            "evidence": {"dedupe_rule": "merge_repeated_mcp_features"},
+        },
+    )
+
+    assert promote_response.status_code == 200
+    promoted = promote_response.json()
+    assert promoted["plugin_id"] == "plugin_mcp_runtime_manager"
+    assert promoted["status"] == "disabled"
+
+    plugin_response = client.get("/api/plugins/plugin_mcp_runtime_manager/workspace")
+    assert plugin_response.status_code == 200
+    workspace = plugin_response.json()
+    assert workspace["data_boundary"]["private_tables"] == [
+        "plugin_mcp_runtime_manager_settings",
+        "plugin_mcp_runtime_manager_workflows",
+        "plugin_mcp_runtime_manager_artifacts",
+    ]
+
+
+def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() -> None:
+    client = TestClient(create_app())
+
+    source_response = client.get("/api/seed-imports/external-sources")
+    assert source_response.status_code == 200
+    source_keys = {
+        source["source_key"]
+        for source in source_response.json()["external_sources"]
+    }
+    assert {"moneyprinterturbo", "huggingface-gguf"}.issubset(source_keys)
+
+    moneyprinter_response = client.post(
+        "/api/seed-imports/external-sources/moneyprinterturbo/prepare",
+        json={
+            "source_path": "https://github.com/harry0703/MoneyPrinterTurbo",
+            "actor_id": "seed-import-chief",
+            "reason": "Prepare MoneyPrinterTurbo as video generation DNA.",
+            "evidence": {"mode": "external_repository_dna"},
+        },
+    )
+    assert moneyprinter_response.status_code == 200
+    moneyprinter_import = moneyprinter_response.json()["seed_import"]
+    moneyprinter_candidates = {
+        candidate["plugin_id"]: candidate
+        for candidate in moneyprinter_import["plugin_candidates"]
+    }
+    assert "plugin_video_generation_manager" in moneyprinter_candidates
+    assert "video_generation" in moneyprinter_candidates["plugin_video_generation_manager"]["source_domains"]
+
+    gguf_response = client.post(
+        "/api/seed-imports/external-sources/huggingface-gguf/prepare",
+        json={
+            "source_path": "https://huggingface.co/models?library=gguf",
+            "actor_id": "seed-import-chief",
+            "reason": "Prepare HuggingFace GGUF catalog as model provider DNA.",
+            "evidence": {"mode": "external_model_catalog_dna"},
+        },
+    )
+    assert gguf_response.status_code == 200
+    gguf_import = gguf_response.json()["seed_import"]
+    gguf_candidates = {
+        candidate["plugin_id"]: candidate
+        for candidate in gguf_import["plugin_candidates"]
+    }
+    assert "plugin_gguf_model_catalog_manager" in gguf_candidates
+    assert gguf_candidates["plugin_gguf_model_catalog_manager"]["governance_gate"] == (
+        "external_seed_review_before_activation"
+    )
+
+
 def test_root_points_to_architecture_library() -> None:
     client = TestClient(create_app())
     response = client.get("/")

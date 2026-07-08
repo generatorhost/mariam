@@ -24,6 +24,7 @@ const commandCenterNav = [
   { label: 'Verification', href: '#verification' },
   { label: 'Roadmap', href: '#roadmap' },
   { label: 'Missions', href: '#missions' },
+  { label: 'Seed DNA', href: '#seed-dna' },
   { label: 'Plugins', href: '#plugins' },
   { label: 'Governance', href: '#governance' },
 ];
@@ -433,6 +434,45 @@ async function loadAIRoutes() {
 async function loadPlugins() {
   const body = await apiGet('/api/plugins');
   return body.plugins || [];
+}
+
+async function loadSeedImports() {
+  const body = await apiGet('/api/seed-imports');
+  return body.imports || [];
+}
+
+async function loadExternalSeedSources() {
+  const body = await apiGet('/api/seed-imports/external-sources');
+  return body.external_sources || [];
+}
+
+async function inspectMayouSeed() {
+  return apiRequest('/api/seed-imports/inspect', {
+    source_path: 'C:\\1\\mayou-1001',
+    actor_id: 'seed-import-chief',
+    reason: 'Extract mayou-1001 into living DNA plugin candidates.',
+    evidence: { source: 'command-center-seed-dna-panel' },
+  });
+}
+
+async function prepareExternalSeedSource(sourceKey, sourceUrl) {
+  return apiRequest(`/api/seed-imports/external-sources/${sourceKey}/prepare`, {
+    source_path: sourceUrl,
+    actor_id: 'seed-import-chief',
+    reason: `Prepare ${sourceKey} as external living DNA source.`,
+    evidence: { source: 'command-center-seed-dna-panel' },
+  });
+}
+
+async function promoteSeedPluginCandidate(sourceId, pluginId) {
+  return apiRequest(`/api/seed-imports/${sourceId}/plugin-candidates/${pluginId}/promote`, {
+    actor_id: 'seed-import-chief',
+    reason: `Promote ${pluginId} as disabled plugin for governance review.`,
+    evidence: {
+      source: 'command-center-seed-dna-panel',
+      dedupe_rule: 'merge_repeated_domain_features_into_one_canonical_plugin',
+    },
+  });
 }
 
 async function loadPluginTimeline(pluginId) {
@@ -4787,6 +4827,153 @@ function AuditPanel({ onActionComplete }) {
   );
 }
 
+function SeedDNAPanel({ onActionComplete }) {
+  const [imports, setImports] = useState([]);
+  const [externalSources, setExternalSources] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
+
+  const refreshImports = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      setImports(await loadSeedImports());
+      setExternalSources(await loadExternalSeedSources());
+      setStatus('ready');
+    } catch (loadError) {
+      setError(createPanelError(loadError, 'Retry Seed DNA refresh', refreshImports));
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshImports();
+  }, [refreshImports]);
+
+  async function handleInspectMayouSeed() {
+    setStatus('loading');
+    setError(null);
+    try {
+      const body = await inspectMayouSeed();
+      setLastResult(body.seed_import);
+      setImports(await loadSeedImports());
+      setStatus('ready');
+      onActionComplete?.();
+    } catch (inspectError) {
+      setError(createPanelError(inspectError, 'Retry mayou-1001 inspection', handleInspectMayouSeed));
+      setStatus('error');
+    }
+  }
+
+  async function handlePrepareExternalSource(source) {
+    setStatus('loading');
+    setError(null);
+    try {
+      const body = await prepareExternalSeedSource(source.source_key, source.url);
+      setLastResult(body.seed_import);
+      setImports(await loadSeedImports());
+      setExternalSources(await loadExternalSeedSources());
+      setStatus('ready');
+      onActionComplete?.();
+    } catch (prepareError) {
+      setError(createPanelError(
+        prepareError,
+        `Retry ${source.name} preparation`,
+        () => handlePrepareExternalSource(source),
+      ));
+      setStatus('error');
+    }
+  }
+
+  async function handlePromoteCandidate(sourceId, pluginId) {
+    setStatus('loading');
+    setError(null);
+    try {
+      await promoteSeedPluginCandidate(sourceId, pluginId);
+      setImports(await loadSeedImports());
+      setStatus('ready');
+      onActionComplete?.();
+    } catch (promoteError) {
+      setError(createPanelError(promoteError, `Retry promoting ${pluginId}`, () => handlePromoteCandidate(sourceId, pluginId)));
+      setStatus('error');
+    }
+  }
+
+  const activeImport = lastResult || imports.at(-1);
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <div>
+          <h2>Living Seed DNA Import</h2>
+          <p>Convert mayou-1001 from seed registry into governed plugin candidates inside DB MARIAM.</p>
+        </div>
+        <button type="button" onClick={handleInspectMayouSeed} disabled={status === 'loading'}>
+          {status === 'loading' ? 'Inspecting...' : 'Inspect mayou-1001'}
+        </button>
+      </div>
+      <ErrorBanner error={error} />
+      <div className="mission-history compact-history">
+        {externalSources.map((source) => (
+          <article key={source.source_key}>
+            <strong>{source.name}</strong>
+            <span>{source.source_type}</span>
+            <p>{source.extracted_dna_domains.slice(0, 6).join(', ')}</p>
+            <button
+              type="button"
+              onClick={() => handlePrepareExternalSource(source)}
+              disabled={status === 'loading'}
+            >
+              Prepare {source.name} DNA
+            </button>
+          </article>
+        ))}
+      </div>
+      {activeImport ? (
+        <>
+          <div className="mission-result">
+            <h3>{activeImport.source_name}</h3>
+            <p>
+              Files scanned: <strong>{activeImport.coverage?.files_scanned || 0}</strong> / coverage:{' '}
+              <strong>{activeImport.coverage?.source_coverage_pct || 0}%</strong> / candidates:{' '}
+              <strong>{activeImport.plugin_candidates?.length || 0}</strong>
+            </p>
+            <p>
+              Status: <strong>{activeImport.status}</strong> / platform:{' '}
+              <strong>{activeImport.data_platform}</strong>
+            </p>
+          </div>
+          <div className="plugin-history">
+            {(activeImport.plugin_candidates || []).map((candidate) => (
+              <article key={candidate.plugin_id}>
+                <strong>{candidate.name}</strong>
+                <span>{candidate.runtime_readiness}</span>
+                <p>
+                  {candidate.source_domains.join(', ')} / assets {candidate.evidence_assets} / terms{' '}
+                  {candidate.evidence_terms}
+                </p>
+                <p>
+                  Private table prefix: <strong>{candidate.private_table_prefix}</strong>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handlePromoteCandidate(activeImport.source_id, candidate.plugin_id)}
+                  disabled={status === 'loading'}
+                >
+                  Promote as disabled Plugin
+                </button>
+              </article>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p>No seed imports have been inspected yet.</p>
+      )}
+    </section>
+  );
+}
+
 function CommandCenterNavigation({ activeSection, onNavigate }) {
   return (
     <nav className="sidebar-nav" aria-label="Command Center sections">
@@ -4934,6 +5121,9 @@ function App() {
         </section>
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
+        <section id="seed-dna" className="workspace-section" tabIndex="-1">
+          <SeedDNAPanel onActionComplete={refreshCommandCenterSummary} />
+        </section>
         <section id="plugins" className="workspace-section" tabIndex="-1">
           <PluginWorkspacePanel onActionComplete={refreshCommandCenterSummary} />
           <ResponsiveStatePanel />
