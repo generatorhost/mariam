@@ -587,6 +587,24 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: completion report")
 
+    openapi = request_json("/openapi.json")
+    assert_condition(
+        openapi["paths"]["/api/runtime/completion-report"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ProjectCompletionReportResponse"
+        and openapi["paths"]["/api/runtime/implementation-roadmap"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ImplementationRoadmapResponse"
+        and openapi["paths"]["/api/runtime/verification-automation"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationAutomationResponse"
+        and openapi["paths"]["/api/runtime/delivery-evidence-report"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DeliveryEvidenceReportResponse",
+        "Governed runtime endpoints did not publish typed response models.",
+    )
+    print("[verify] ok: governed runtime typed response models")
+
     completion_report_export = request_json("/api/runtime/completion-report/export", "POST", {})[
         "export_package"
     ]
@@ -688,7 +706,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

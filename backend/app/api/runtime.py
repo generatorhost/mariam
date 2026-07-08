@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -14,6 +15,95 @@ router = APIRouter(prefix="/api/runtime", tags=["runtime"])
 class VerificationSnapshotRequest(BaseModel):
     actor_id: str = Field(default="command-center-verifier", min_length=2)
     evidence: dict = Field(default_factory=dict)
+
+
+class RuntimeCheckResponse(BaseModel):
+    name: str
+    status: str
+    detail: str
+
+
+class CompletionAreaResponse(BaseModel):
+    name: str
+    completion_percent: int
+    status: str
+    evidence: str
+    next_step: str
+
+
+class ProjectCompletionReportResponse(BaseModel):
+    title: str
+    version: str
+    status: str
+    completion_percent: int
+    generated_at: str
+    data_platform: str
+    areas: list[CompletionAreaResponse]
+    verification: dict[str, Any]
+    usage_guide: dict[str, Any]
+    summary: str
+
+
+class CompletionReportExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
+class ImplementationRoadmapItemResponse(BaseModel):
+    area: str
+    priority: str
+    current_completion_percent: int
+    next_step: str
+    acceptance_signal: str
+
+
+class ImplementationRoadmapResponse(BaseModel):
+    title: str
+    version: str
+    status: str
+    generated_at: str
+    data_platform: str
+    items: list[ImplementationRoadmapItemResponse]
+    operating_rule: str
+
+
+class ImplementationRoadmapExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
+class VerificationAutomationResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    artifact_path: str
+    required_commands: list[str]
+    required_endpoints: list[str]
+    required_artifacts: list[str]
+    ci_artifact_retention: dict[str, Any]
+    ci_badge: dict[str, Any]
+    latest_run_status: dict[str, Any]
+    local_automation_status: str
+    ci_status: str
+    next_ci_step: str
+    checks: list[RuntimeCheckResponse]
+
+
+class DeliveryEvidenceReportResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    sla_minutes: int
+    escalation_after_minutes: int
+    sla_status: str
+    escalation_required_count: int
+    delivery_count: int
+    signed_bundle_count: int
+    confirmed_delivery_count: int
+    invalid_signature_count: int
+    evidence_items: list[dict[str, Any]]
+    sla_items: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
 
 
 @router.get("/summary")
@@ -162,17 +252,17 @@ def command_center_verification_report(
     return service.verification_report().__dict__
 
 
-@router.get("/verification-automation")
+@router.get("/verification-automation", response_model=VerificationAutomationResponse)
 def command_center_verification_automation(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> VerificationAutomationResponse:
     return asdict(service.verification_automation_contract())
 
 
-@router.get("/delivery-evidence-report")
+@router.get("/delivery-evidence-report", response_model=DeliveryEvidenceReportResponse)
 def command_center_delivery_evidence_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DeliveryEvidenceReportResponse:
     return asdict(service.delivery_evidence_report())
 
 
@@ -212,33 +302,33 @@ def command_center_usage_guide(
     return asdict(service.usage_guide())
 
 
-@router.get("/completion-report")
+@router.get("/completion-report", response_model=ProjectCompletionReportResponse)
 def command_center_completion_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> ProjectCompletionReportResponse:
     return asdict(service.completion_report())
 
 
-@router.get("/implementation-roadmap")
+@router.get("/implementation-roadmap", response_model=ImplementationRoadmapResponse)
 def command_center_implementation_roadmap(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> ImplementationRoadmapResponse:
     return asdict(service.implementation_roadmap())
 
 
-@router.post("/implementation-roadmap/export")
+@router.post("/implementation-roadmap/export", response_model=ImplementationRoadmapExportResponse)
 def export_command_center_implementation_roadmap(
     authorization=Depends(require_permission("diagnostics.export", "implementation_roadmap")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> ImplementationRoadmapExportResponse:
     return {"export_package": asdict(service.export_implementation_roadmap())}
 
 
-@router.post("/completion-report/export")
+@router.post("/completion-report/export", response_model=CompletionReportExportResponse)
 def export_command_center_completion_report(
     authorization=Depends(require_permission("diagnostics.export", "completion_report")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> CompletionReportExportResponse:
     return {"export_package": asdict(service.export_completion_report())}
 
 
