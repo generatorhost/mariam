@@ -198,6 +198,10 @@ async function loadFrontendRegressionSnapshot() {
   return apiGet('/api/runtime/frontend/regression-snapshot');
 }
 
+async function loadFrontendVisualContract() {
+  return apiGet('/api/runtime/frontend/visual-contract');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2675,6 +2679,70 @@ function FrontendRegressionSnapshotPanel({ refreshVersion }) {
   );
 }
 
+function FrontendVisualContractPanel({ refreshVersion }) {
+  const [contract, setContract] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshVisualContract = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setContract(await loadFrontendVisualContract());
+      setStatus('ready');
+    } catch (contractError) {
+      setStatus('error');
+      setError(contractError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshVisualContract();
+  }, [refreshVisualContract, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Frontend Visual Contract</h2>
+        <p>Verify design tokens, layout contracts, breakpoints, and screenshot targets for the Command Center.</p>
+      </div>
+      <button onClick={refreshVisualContract} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Visual Contract'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {contract && (
+        <>
+          <div className="mission-result">
+            <strong>{contract.status}</strong>
+            <span>{contract.data_platform}</span>
+            <p>{contract.artifact_path}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{contract.design_tokens_checked.length}</strong><span>Design Tokens</span></div>
+            <div><strong>{contract.layout_contracts_checked.length}</strong><span>Layout Contracts</span></div>
+            <div><strong>{contract.breakpoint_contracts_checked.length}</strong><span>Breakpoints</span></div>
+            <div><strong>{contract.screenshot_targets.length}</strong><span>Screenshot Targets</span></div>
+          </div>
+          <div className="terms">
+            {contract.screenshot_targets.map((target) => (
+              <span key={target}>{target}</span>
+            ))}
+          </div>
+          <div className="mission-history">
+            {contract.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -3713,6 +3781,7 @@ function App() {
         </section>
         <section id="verification" className="workspace-section">
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
+          <FrontendVisualContractPanel refreshVersion={refreshVersion} />
           <VerificationReportPanel refreshVersion={refreshVersion} />
           <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
           <UsageGuidePanel refreshVersion={refreshVersion} />

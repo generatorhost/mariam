@@ -161,6 +161,12 @@ Frontend regression snapshots verify critical Command Center controls, responsiv
 GET /api/runtime/frontend/regression-snapshot
 ```
 
+Frontend visual contracts verify official design tokens, layout contracts, breakpoints, and screenshot targets for the Command Center:
+
+```http
+GET /api/runtime/frontend/visual-contract
+```
+
 Runtime diagnostics can be reviewed through:
 
 ```http

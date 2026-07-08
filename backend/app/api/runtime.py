@@ -117,6 +117,13 @@ def command_center_frontend_regression_snapshot(
     return asdict(service.frontend_regression_snapshot())
 
 
+@router.get("/frontend/visual-contract")
+def command_center_frontend_visual_contract(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.frontend_visual_contract())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

@@ -337,6 +337,24 @@ class FrontendRegressionSnapshot:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class FrontendVisualContract:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_files: list[str]
+    artifact_path: str
+    design_tokens_checked: list[str]
+    missing_design_tokens: list[str]
+    layout_contracts_checked: list[str]
+    missing_layout_contracts: list[str]
+    breakpoint_contracts_checked: list[str]
+    missing_breakpoint_contracts: list[str]
+    screenshot_targets: list[str]
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -717,10 +735,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=72,
+                completion_percent=74,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, and frontend regression snapshot artifact generation.",
-                next_step="Add visual screenshot comparison artifacts for critical Command Center flows.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, and visual contract artifact checks.",
+                next_step="Add real browser screenshot artifacts for critical Command Center flows.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -1491,6 +1509,8 @@ class CommandCenterSummaryService:
             "Route Notification",
             "Refresh Reviewer Workload",
             "Escalate Reviewer Workload",
+            "Refresh Frontend Regression",
+            "Refresh Visual Contract",
             "Export Diagnostics",
             "Export Completion Report",
             "Export Roadmap",
@@ -1567,6 +1587,151 @@ class CommandCenterSummaryService:
             missing_controls=missing_controls,
             viewport_contracts=viewport_contracts,
             missing_viewports=missing_viewports,
+            checks=checks,
+        )
+
+    def frontend_visual_contract(self) -> FrontendVisualContract:
+        root = Path(__file__).resolve().parents[3]
+        source_file = root / "frontend" / "src" / "main.jsx"
+        style_file = root / "frontend" / "src" / "styles.css"
+        artifact_path = root / "artifacts" / "frontend-regression" / "command-center-visual-contract.json"
+        source_text = source_file.read_text(encoding="utf-8") if source_file.exists() else ""
+        style_text = style_file.read_text(encoding="utf-8") if style_file.exists() else ""
+        design_tokens_checked = [
+            "--bg: #0a0b12",
+            "--card: #11131f",
+            "--card2: #151829",
+            "--border: #1a1d2e",
+            "--text: #c8c8d8",
+            "--green: #00e676",
+            "--yellow: #ffab00",
+            "--red: #ff3d3d",
+            "--blue: #448aff",
+        ]
+        layout_contracts_checked = [
+            ".shell",
+            ".sidebar",
+            ".workspace",
+            ".topbar",
+            ".workspace-section",
+            ".status-grid",
+            ".mission-history",
+            "CommandCenterNavigation",
+            "ResponsiveStatePanel",
+            "FrontendRegressionSnapshotPanel",
+        ]
+        breakpoint_contracts_checked = [
+            "@media (max-width: 1120px)",
+            "@media (max-width: 860px)",
+            "grid-template-columns: repeat(2, minmax(0, 1fr))",
+            "grid-template-columns: 1fr",
+            "Mobile",
+            "Tablet",
+            "Desktop",
+        ]
+        screenshot_targets = [
+            "#status",
+            "#data-platform",
+            "#verification",
+            "#roadmap",
+            "#missions",
+            "#plugins",
+            "#governance",
+        ]
+        combined_text = f"{source_text}\n{style_text}"
+        missing_design_tokens = [token for token in design_tokens_checked if token not in style_text]
+        missing_layout_contracts = [
+            contract for contract in layout_contracts_checked if contract not in combined_text
+        ]
+        missing_breakpoint_contracts = [
+            contract for contract in breakpoint_contracts_checked if contract not in combined_text
+        ]
+        missing_screenshot_targets = []
+        for target in screenshot_targets:
+            target_id = target.removeprefix("#")
+            if (
+                target not in source_text
+                and f'id="{target_id}"' not in source_text
+                and f"id='{target_id}'" not in source_text
+            ):
+                missing_screenshot_targets.append(target)
+        checks = [
+            DataPlatformCheck(
+                name="frontend_visual_sources_present",
+                status="ready" if source_file.exists() and style_file.exists() else "blocked",
+                detail=f"Visual source files: {source_file}; {style_file}.",
+            ),
+            DataPlatformCheck(
+                name="design_tokens_present",
+                status="ready" if not missing_design_tokens else "blocked",
+                detail=(
+                    "Official Command Center design tokens are present."
+                    if not missing_design_tokens
+                    else f"Missing design tokens: {', '.join(missing_design_tokens)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="layout_contracts_present",
+                status="ready" if not missing_layout_contracts else "blocked",
+                detail=(
+                    "Shell, sidebar, workspace, panels, and navigation contracts are present."
+                    if not missing_layout_contracts
+                    else f"Missing layout contracts: {', '.join(missing_layout_contracts)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="breakpoint_contracts_present",
+                status="ready" if not missing_breakpoint_contracts else "blocked",
+                detail=(
+                    "Desktop, tablet, and mobile breakpoint contracts are present."
+                    if not missing_breakpoint_contracts
+                    else f"Missing breakpoint contracts: {', '.join(missing_breakpoint_contracts)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="screenshot_targets_declared",
+                status="ready" if not missing_screenshot_targets else "blocked",
+                detail=(
+                    "Critical Command Center sections are declared as screenshot targets."
+                    if not missing_screenshot_targets
+                    else f"Missing screenshot targets: {', '.join(missing_screenshot_targets)}."
+                ),
+            ),
+        ]
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        generated_at = datetime.now(UTC).isoformat()
+        payload = {
+            "title": "Mariam Command Center Frontend Visual Contract",
+            "status": status,
+            "generated_at": generated_at,
+            "data_platform": "DB MARIAM",
+            "source_files": [str(source_file), str(style_file)],
+            "artifact_path": str(artifact_path),
+            "design_tokens_checked": design_tokens_checked,
+            "missing_design_tokens": missing_design_tokens,
+            "layout_contracts_checked": layout_contracts_checked,
+            "missing_layout_contracts": missing_layout_contracts,
+            "breakpoint_contracts_checked": breakpoint_contracts_checked,
+            "missing_breakpoint_contracts": missing_breakpoint_contracts,
+            "screenshot_targets": screenshot_targets,
+            "checks": [check.__dict__ for check in checks],
+        }
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return FrontendVisualContract(
+            title=str(payload["title"]),
+            status=status,
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            source_files=[str(source_file), str(style_file)],
+            artifact_path=str(artifact_path),
+            design_tokens_checked=design_tokens_checked,
+            missing_design_tokens=missing_design_tokens,
+            layout_contracts_checked=layout_contracts_checked,
+            missing_layout_contracts=missing_layout_contracts,
+            breakpoint_contracts_checked=breakpoint_contracts_checked,
+            missing_breakpoint_contracts=missing_breakpoint_contracts,
+            screenshot_targets=screenshot_targets,
             checks=checks,
         )
 

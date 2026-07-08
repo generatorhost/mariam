@@ -2764,7 +2764,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2786,10 +2786,32 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
     assert "Refresh Reviewer Workload" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
+    assert "Refresh Visual Contract" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
     assert snapshot["artifact_path"].endswith("command-center-regression-snapshot.json")
     assert Path(snapshot["artifact_path"]).exists()
+
+
+def test_runtime_frontend_visual_contract_records_layout_and_breakpoints() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/frontend/visual-contract")
+
+    assert response.status_code == 200
+    contract = response.json()
+    assert contract["title"] == "Mariam Command Center Frontend Visual Contract"
+    assert contract["status"] == "ready"
+    assert contract["data_platform"] == "DB MARIAM"
+    assert "--bg: #0a0b12" in contract["design_tokens_checked"]
+    assert ".shell" in contract["layout_contracts_checked"]
+    assert "@media (max-width: 860px)" in contract["breakpoint_contracts_checked"]
+    assert "#governance" in contract["screenshot_targets"]
+    assert contract["missing_design_tokens"] == []
+    assert contract["missing_layout_contracts"] == []
+    assert contract["missing_breakpoint_contracts"] == []
+    assert contract["artifact_path"].endswith("command-center-visual-contract.json")
+    assert Path(contract["artifact_path"]).exists()
 
 
 def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> None:
@@ -2804,7 +2826,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
