@@ -355,3 +355,33 @@ CREATE INDEX IF NOT EXISTS idx_seed_import_records_status_imported
 
 CREATE INDEX IF NOT EXISTS idx_seed_import_records_source_name
     ON seed_import_records (source_name);
+
+CREATE TABLE IF NOT EXISTS agent_societies (
+    society_id UUID PRIMARY KEY,
+    plugin_id TEXT NOT NULL UNIQUE,
+    business_unit_name TEXT NOT NULL,
+    chief_node_id TEXT NOT NULL,
+    nodes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agent_execution_plans (
+    execution_id UUID PRIMARY KEY,
+    plugin_id TEXT NOT NULL,
+    user_request TEXT NOT NULL,
+    requested_by TEXT NOT NULL,
+    chief_node_id TEXT NOT NULL,
+    tasks JSONB NOT NULL DEFAULT '[]'::jsonb,
+    communication_channels TEXT[] NOT NULL DEFAULT '{}',
+    review_gates TEXT[] NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_societies_plugin_created
+    ON agent_societies (plugin_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_agent_execution_plans_plugin_created
+    ON agent_execution_plans (plugin_id, created_at DESC);

@@ -477,6 +477,8 @@ def verify_api_smoke_flow() -> None:
         "/api/audit/notification-routing-evidence",
         "/api/runtime/events",
         "/api/plugins",
+        "/api/agents/societies",
+        "/api/agents/executions",
         "/api/runtime-objects",
         "/api/ai-resources/providers",
     ]

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
+    agents,
     artifacts,
     audit,
     auth,
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(audit.router)
     app.include_router(artifacts.router)
     app.include_router(ai_resources.router)
+    app.include_router(agents.router)
     app.include_router(missions.router)
     app.include_router(plugins.router)
     app.include_router(runtime.router)

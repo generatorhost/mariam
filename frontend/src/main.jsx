@@ -25,6 +25,7 @@ const commandCenterNav = [
   { label: 'Roadmap', href: '#roadmap' },
   { label: 'Missions', href: '#missions' },
   { label: 'Seed DNA', href: '#seed-dna' },
+  { label: 'Agent Society', href: '#agent-society' },
   { label: 'Plugins', href: '#plugins' },
   { label: 'Governance', href: '#governance' },
 ];
@@ -472,6 +473,36 @@ async function promoteSeedPluginCandidate(sourceId, pluginId) {
       source: 'command-center-seed-dna-panel',
       dedupe_rule: 'merge_repeated_domain_features_into_one_canonical_plugin',
     },
+  });
+}
+
+async function loadAgentSocieties() {
+  const body = await apiGet('/api/agents/societies');
+  return body.agent_societies || [];
+}
+
+async function loadAgentExecutions() {
+  const body = await apiGet('/api/agents/executions');
+  return body.agent_executions || [];
+}
+
+async function createVideoAgentSociety() {
+  return apiRequest('/api/agents/societies', {
+    plugin_id: 'plugin_video_generation_manager',
+    business_unit_name: 'Video Generation Business Unit',
+    requested_by: 'enterprise-chief',
+    team_domains: ['requirements', 'generation', 'review'],
+    skills: ['script_planning', 'media_selection'],
+    capabilities: ['client_video_delivery'],
+  });
+}
+
+async function planVideoAgentMission() {
+  return apiRequest('/api/agents/executions/plan', {
+    plugin_id: 'plugin_video_generation_manager',
+    user_request: 'Create a governed short video delivery plan for client approval.',
+    requested_by: 'command-center-user',
+    priority: 'normal',
   });
 }
 
@@ -4974,6 +5005,134 @@ function SeedDNAPanel({ onActionComplete }) {
   );
 }
 
+function AgentSocietyPanel({ onActionComplete }) {
+  const [societies, setSocieties] = useState([]);
+  const [executions, setExecutions] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+
+  const refreshAgents = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const [nextSocieties, nextExecutions] = await Promise.all([
+        loadAgentSocieties(),
+        loadAgentExecutions(),
+      ]);
+      setSocieties(nextSocieties);
+      setExecutions(nextExecutions);
+      setStatus('ready');
+    } catch (loadError) {
+      setError(createPanelError(loadError, 'Retry Agent Society refresh', refreshAgents));
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAgents();
+  }, [refreshAgents]);
+
+  async function handleCreateSociety() {
+    setStatus('loading');
+    setError(null);
+    try {
+      await createVideoAgentSociety();
+      await refreshAgents();
+      onActionComplete?.();
+    } catch (createError) {
+      setError(createPanelError(createError, 'Retry creating Agent Society', handleCreateSociety));
+      setStatus('error');
+    }
+  }
+
+  async function handlePlanMission() {
+    setStatus('loading');
+    setError(null);
+    try {
+      await planVideoAgentMission();
+      await refreshAgents();
+      onActionComplete?.();
+    } catch (planError) {
+      setError(createPanelError(planError, 'Retry Chief mission planning', handlePlanMission));
+      setStatus('error');
+    }
+  }
+
+  const activeSociety = societies[0];
+  const latestExecution = executions[0];
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <div>
+          <h2>Agent Society Runtime</h2>
+          <p>Chief, team leaders, agents, reviewers, and governed task plans for Plugin-managed Business Units.</p>
+        </div>
+        <div className="mission-actions">
+          <button type="button" onClick={handleCreateSociety} disabled={status === 'loading'}>
+            Create Video Agent Society
+          </button>
+          <button type="button" onClick={handlePlanMission} disabled={status === 'loading'}>
+            Chief Plans Mission
+          </button>
+        </div>
+      </div>
+      <ErrorBanner error={error} />
+      {activeSociety ? (
+        <div className="mission-result">
+          <h3>{activeSociety.business_unit_name}</h3>
+          <p>
+            Chief: <strong>{activeSociety.chief_node_id}</strong> / nodes:{' '}
+            <strong>{activeSociety.nodes.length}</strong> / platform:{' '}
+            <strong>{activeSociety.data_platform}</strong>
+          </p>
+        </div>
+      ) : (
+        <p>No Agent Society has been created yet.</p>
+      )}
+      <div className="plugin-history">
+        {(activeSociety?.nodes || []).map((node) => (
+          <article key={node.node_id}>
+            <strong>{node.title}</strong>
+            <span>{node.role}</span>
+            <p>
+              Reports to: <strong>{node.reports_to || 'root'}</strong> / status:{' '}
+              <strong>{node.status}</strong>
+            </p>
+            <p>
+              Skills: {node.skills.join(', ')} / capabilities: {node.capabilities.join(', ')}
+            </p>
+            <p>Data boundary: {node.data_boundary}</p>
+          </article>
+        ))}
+      </div>
+      {latestExecution && (
+        <>
+          <div className="mission-result">
+            <h3>Latest Chief Execution Plan</h3>
+            <p>
+              {latestExecution.user_request} / status: <strong>{latestExecution.status}</strong>
+            </p>
+            <p>Review gates: {latestExecution.review_gates.join(', ')}</p>
+          </div>
+          <div className="mission-history">
+            {latestExecution.tasks.map((task) => (
+              <article key={task.task_id}>
+                <strong>{task.title}</strong>
+                <span>{task.status}</span>
+                <p>
+                  Assigned to: {task.assigned_to} / gate: {task.governance_gate}
+                </p>
+                <p>{task.expected_output}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function CommandCenterNavigation({ activeSection, onNavigate }) {
   return (
     <nav className="sidebar-nav" aria-label="Command Center sections">
@@ -5123,6 +5282,9 @@ function App() {
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <section id="seed-dna" className="workspace-section" tabIndex="-1">
           <SeedDNAPanel onActionComplete={refreshCommandCenterSummary} />
+        </section>
+        <section id="agent-society" className="workspace-section" tabIndex="-1">
+          <AgentSocietyPanel onActionComplete={refreshCommandCenterSummary} />
         </section>
         <section id="plugins" className="workspace-section" tabIndex="-1">
           <PluginWorkspacePanel onActionComplete={refreshCommandCenterSummary} />

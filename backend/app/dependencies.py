@@ -23,6 +23,11 @@ from app.repositories.ai_resource_routes import (
     InMemoryAIResourceRouteRepository,
     PostgresAIResourceRouteRepository,
 )
+from app.repositories.agents import (
+    AgentRuntimeRepository,
+    InMemoryAgentRuntimeRepository,
+    PostgresAgentRuntimeRepository,
+)
 from app.repositories.events import (
     EventRepository,
     InMemoryEventRepository,
@@ -49,6 +54,7 @@ from app.repositories.seed_imports import (
     SeedImportRepository,
 )
 from app.services.ai_resources import AIResourceManager
+from app.services.agents import AgentRuntimeService
 from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
 from app.services.auth import AuthService
@@ -129,6 +135,23 @@ def get_seed_import_service() -> SeedImportService:
         get_event_bus(),
         get_seed_import_repository(),
         get_runtime_registry(),
+        get_audit_service(),
+    )
+
+
+@lru_cache
+def get_agent_runtime_repository() -> AgentRuntimeRepository:
+    settings = get_settings()
+    if settings.agent_runtime_store == "postgres":
+        return PostgresAgentRuntimeRepository(settings.database_url)
+    return InMemoryAgentRuntimeRepository()
+
+
+@lru_cache
+def get_agent_runtime_service() -> AgentRuntimeService:
+    return AgentRuntimeService(
+        get_event_bus(),
+        get_agent_runtime_repository(),
         get_audit_service(),
     )
 

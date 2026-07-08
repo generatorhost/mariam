@@ -1,0 +1,37 @@
+from fastapi import APIRouter, Depends
+
+from app.core.agents import AgentMissionPlanRequest, AgentSocietyRequest
+from app.dependencies import get_agent_runtime_service, require_permission
+from app.services.agents import AgentRuntimeService
+
+router = APIRouter(prefix="/api/agents", tags=["agents"])
+
+
+@router.get("/societies")
+def list_agent_societies(service: AgentRuntimeService = Depends(get_agent_runtime_service)) -> dict:
+    return {"agent_societies": [society.model_dump(mode="json") for society in service.list_societies()]}
+
+
+@router.post("/societies")
+def create_agent_society(
+    request: AgentSocietyRequest,
+    authorization=Depends(require_permission("agent_runtime.configure", "agent_society")),
+    service: AgentRuntimeService = Depends(get_agent_runtime_service),
+) -> dict:
+    society = service.create_society(request)
+    return {"agent_society": society.model_dump(mode="json")}
+
+
+@router.get("/executions")
+def list_agent_executions(service: AgentRuntimeService = Depends(get_agent_runtime_service)) -> dict:
+    return {"agent_executions": [execution.model_dump(mode="json") for execution in service.list_executions()]}
+
+
+@router.post("/executions/plan")
+def plan_agent_execution(
+    request: AgentMissionPlanRequest,
+    authorization=Depends(require_permission("mission.create", "agent_execution")),
+    service: AgentRuntimeService = Depends(get_agent_runtime_service),
+) -> dict:
+    execution = service.plan_mission(request)
+    return {"agent_execution": execution.model_dump(mode="json")}

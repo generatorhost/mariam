@@ -156,6 +156,49 @@ def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() ->
     )
 
 
+def test_agent_runtime_builds_plugin_society_and_execution_plan() -> None:
+    client = TestClient(create_app())
+
+    society_response = client.post(
+        "/api/agents/societies",
+        json={
+            "plugin_id": "plugin_video_generation_manager",
+            "business_unit_name": "Video Generation Business Unit",
+            "requested_by": "enterprise-chief",
+            "team_domains": ["requirements", "generation", "review"],
+            "skills": ["script_planning", "media_selection"],
+            "capabilities": ["client_video_delivery"],
+        },
+    )
+
+    assert society_response.status_code == 200
+    society = society_response.json()["agent_society"]
+    assert society["data_platform"] == "DB MARIAM"
+    assert society["chief_node_id"] == "plugin_video_generation_manager_chief"
+    roles = {node["role"] for node in society["nodes"]}
+    assert {"chief", "team_leader", "agent", "reviewer"}.issubset(roles)
+    assert all(node["data_boundary"] == "plugin_video_generation_manager_agent_runtime" for node in society["nodes"])
+
+    plan_response = client.post(
+        "/api/agents/executions/plan",
+        json={
+            "plugin_id": "plugin_video_generation_manager",
+            "user_request": "Create a short product video for client review.",
+            "requested_by": "local-user",
+            "priority": "normal",
+        },
+    )
+
+    assert plan_response.status_code == 200
+    execution = plan_response.json()["agent_execution"]
+    assert execution["data_platform"] == "DB MARIAM"
+    assert execution["chief_node_id"] == society["chief_node_id"]
+    assert execution["status"] == "planned"
+    assert len(execution["tasks"]) == 4
+    assert "human_approval" in execution["review_gates"]
+    assert execution["tasks"][-1]["governance_gate"] == "human_approval_before_delivery"
+
+
 def test_root_points_to_architecture_library() -> None:
     client = TestClient(create_app())
     response = client.get("/")
