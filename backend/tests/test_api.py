@@ -1598,6 +1598,15 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert sla_item["governance_action"] == "confirm_traceability_complete"
     assert evidence_report["sla_drilldown_summary"]["title"] == "Signed Delivery SLA Drill-down"
     assert evidence_report["sla_drilldown_summary"]["signed_item_count"] >= 1
+    assert evidence_report["sla_drilldown_summary"]["reviewer_queue_counts"]["delivery-evidence"] >= 1
+    assert "confirmed" in evidence_report["sla_filters"]["sla_state_options"]
+    assert "delivery-evidence" in evidence_report["sla_filters"]["reviewer_queue_options"]
+    assert evidence_report["sla_filters"]["default_sla_state"] == "all"
+    assert evidence_report["sla_filters"]["default_reviewer_queue"] == "all"
+    assert evidence_report["filtered_sla_drilldown_items"]
+    assert "signed_delivery_sla_filters_ready" in [
+        check["name"] for check in evidence_report["checks"]
+    ]
     drilldown_item = next(
         item for item in evidence_report["sla_drilldown_items"]
         if item["delivery_id"] == confirmed["delivery_id"]
@@ -3056,8 +3065,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3084,6 +3093,8 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
+    assert "Filter delivery SLA by state" in snapshot["controls_checked"]
+    assert "Filter delivery SLA by reviewer queue" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
     assert snapshot["missing_keyboard_traversal_targets"] == []
@@ -3238,7 +3249,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

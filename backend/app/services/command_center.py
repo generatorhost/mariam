@@ -386,6 +386,8 @@ class DeliveryEvidenceReport:
     sla_items: list[dict[str, object]]
     sla_drilldown_summary: dict[str, object]
     sla_drilldown_items: list[dict[str, object]]
+    sla_filters: dict[str, object]
+    filtered_sla_drilldown_items: list[dict[str, object]]
     checks: list[DataPlatformCheck]
 
 
@@ -988,10 +990,29 @@ class CommandCenterSummaryService:
             state: sum(1 for item in sla_drilldown_items if item["sla_state"] == state)
             for state in ["confirmed", "on_track", "review_due", "escalation_required"]
         }
+        reviewer_queue_counts = {
+            queue: sum(1 for item in sla_drilldown_items if item["reviewer_queue"] == queue)
+            for queue in sorted({str(item["reviewer_queue"]) for item in sla_drilldown_items})
+        }
+        default_sla_state_filter = "all"
+        default_reviewer_queue_filter = "all"
+        filtered_sla_drilldown_items = [
+            item
+            for item in sla_drilldown_items
+            if (
+                default_sla_state_filter == "all"
+                or item["sla_state"] == default_sla_state_filter
+            )
+            and (
+                default_reviewer_queue_filter == "all"
+                or item["reviewer_queue"] == default_reviewer_queue_filter
+            )
+        ]
         sla_drilldown_summary: dict[str, object] = {
             "title": "Signed Delivery SLA Drill-down",
             "signed_item_count": len(sla_drilldown_items),
             "state_counts": sla_state_counts,
+            "reviewer_queue_counts": reviewer_queue_counts,
             "columns": [
                 "delivery_id",
                 "plugin_id",
@@ -1001,6 +1022,14 @@ class CommandCenterSummaryService:
                 "reviewer_queue",
             ],
             "empty_state": "No signed delivery packages are available for SLA drill-down.",
+        }
+        sla_filters: dict[str, object] = {
+            "default_sla_state": default_sla_state_filter,
+            "default_reviewer_queue": default_reviewer_queue_filter,
+            "sla_state_options": ["all", *sla_state_counts.keys()],
+            "reviewer_queue_options": ["all", *reviewer_queue_counts.keys()],
+            "filtered_count": len(filtered_sla_drilldown_items),
+            "filter_rule": "Filter signed delivery SLA drill-down rows by sla_state and reviewer_queue before governance action.",
         }
         checks = [
             DataPlatformCheck(
@@ -1045,6 +1074,14 @@ class CommandCenterSummaryService:
                 status="ready",
                 detail=f"{len(sla_drilldown_items)} signed delivery SLA drill-down rows are available for governance review.",
             ),
+            DataPlatformCheck(
+                name="signed_delivery_sla_filters_ready",
+                status="ready"
+                if "all" in sla_filters["sla_state_options"]
+                and "all" in sla_filters["reviewer_queue_options"]
+                else "blocked",
+                detail="Delivery SLA drill-down exposes state and reviewer queue filters for the governance dashboard.",
+            ),
         ]
         return DeliveryEvidenceReport(
             title="Mariam Delivery Evidence Bundle Verification Report",
@@ -1063,6 +1100,8 @@ class CommandCenterSummaryService:
             sla_items=sla_items,
             sla_drilldown_summary=sla_drilldown_summary,
             sla_drilldown_items=sla_drilldown_items,
+            sla_filters=sla_filters,
+            filtered_sla_drilldown_items=filtered_sla_drilldown_items,
             checks=checks,
         )
 
@@ -1093,10 +1132,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=84,
+                completion_percent=86,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down for signed delivery SLA items, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add governance dashboard filters for delivery SLA state and reviewer queue.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down and dashboard filters for signed delivery SLA state and reviewer queue, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Persist reviewer queue assignments for delivery SLA escalation history.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -2381,6 +2420,8 @@ class CommandCenterSummaryService:
             "Refresh Screenshot Plan",
             "Refresh Screenshot Capture",
             "Refresh Verification Automation",
+            "Filter delivery SLA by state",
+            "Filter delivery SLA by reviewer queue",
             "Export Diagnostics",
             "Export Completion Report",
             "Export Roadmap",

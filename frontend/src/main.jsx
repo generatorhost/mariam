@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Activity, Boxes, CheckCircle2, Database, ShieldCheck } from 'lucide-react';
 import './styles.css';
@@ -1503,6 +1503,16 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [qualityReview, setQualityReview] = useState(null);
   const [deliveryPackage, setDeliveryPackage] = useState(null);
   const [deliveryEvidenceReport, setDeliveryEvidenceReport] = useState(null);
+  const [slaStateFilter, setSlaStateFilter] = useState('all');
+  const [reviewerQueueFilter, setReviewerQueueFilter] = useState('all');
+
+  const filteredSlaDrilldownItems = useMemo(() => {
+    const items = deliveryEvidenceReport?.sla_drilldown_items || [];
+    return items.filter((item) => (
+      (slaStateFilter === 'all' || item.sla_state === slaStateFilter)
+      && (reviewerQueueFilter === 'all' || item.reviewer_queue === reviewerQueueFilter)
+    ));
+  }, [deliveryEvidenceReport, reviewerQueueFilter, slaStateFilter]);
 
   const refreshMissions = useCallback(async () => {
     setStatus('loading');
@@ -1776,9 +1786,39 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                 <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.state_counts?.review_due ?? 0}</strong><span>Review Due</span></div>
                 <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.state_counts?.escalation_required ?? 0}</strong><span>Escalations</span></div>
               </div>
+              <div className="filter-grid" aria-label="Delivery SLA dashboard filters">
+                <label>
+                  SLA State
+                  <select
+                    value={slaStateFilter}
+                    onChange={(event) => setSlaStateFilter(event.target.value)}
+                    aria-label="Filter delivery SLA by state"
+                  >
+                    {(deliveryEvidenceReport.sla_filters?.sla_state_options || ['all']).map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Reviewer Queue
+                  <select
+                    value={reviewerQueueFilter}
+                    onChange={(event) => setReviewerQueueFilter(event.target.value)}
+                    aria-label="Filter delivery SLA by reviewer queue"
+                  >
+                    {(deliveryEvidenceReport.sla_filters?.reviewer_queue_options || ['all']).map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <div>
+                  <strong>{filteredSlaDrilldownItems.length}</strong>
+                  <span>Filtered Rows</span>
+                </div>
+              </div>
               <div className="mission-history compact-history">
-                {deliveryEvidenceReport.sla_drilldown_items?.length ? (
-                  deliveryEvidenceReport.sla_drilldown_items.slice(0, 5).map((item) => (
+                {filteredSlaDrilldownItems.length ? (
+                  filteredSlaDrilldownItems.slice(0, 5).map((item) => (
                     <article key={`drilldown-${item.delivery_id}`}>
                       <strong>{item.sla_state}</strong>
                       <span>{item.reviewer_queue}</span>

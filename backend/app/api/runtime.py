@@ -122,6 +122,8 @@ class DeliveryEvidenceReportResponse(BaseModel):
     sla_items: list[dict[str, Any]]
     sla_drilldown_summary: dict[str, Any]
     sla_drilldown_items: list[dict[str, Any]]
+    sla_filters: dict[str, Any]
+    filtered_sla_drilldown_items: list[dict[str, Any]]
     checks: list[RuntimeCheckResponse]
 
 

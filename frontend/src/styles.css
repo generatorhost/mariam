@@ -275,6 +275,41 @@ p {
   font-size: 13px;
 }
 
+.filter-grid {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.filter-grid label,
+.filter-grid div {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 8px;
+  min-height: 72px;
+  padding: 12px;
+}
+
+.filter-grid select {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.filter-grid strong {
+  color: var(--green);
+  font-size: 20px;
+}
+
 .activity-feed {
   border-top: 1px solid var(--border);
   padding-top: 14px;
@@ -428,6 +463,7 @@ p {
 
   .grid,
   .status-grid,
+  .filter-grid,
   .responsive-state-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -459,7 +495,8 @@ p {
     grid-template-columns: 1fr;
   }
 
-  .status-grid {
+  .status-grid,
+  .filter-grid {
     grid-template-columns: 1fr;
   }
 }
