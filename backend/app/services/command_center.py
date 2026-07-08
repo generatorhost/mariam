@@ -1173,10 +1173,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=90,
+                completion_percent=91,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add visual interaction smoke coverage for the reviewer decision evidence export control.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, visual interaction smoke coverage for reviewer evidence export, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add visual interaction smoke coverage for delivery governance export controls.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
