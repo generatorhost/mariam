@@ -226,6 +226,10 @@ p {
   font-size: 13px;
 }
 
+.responsive-state-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .status-grid {
   border-top: 1px solid var(--border);
   display: grid;
@@ -368,6 +372,18 @@ p {
   font-size: 13px;
 }
 
+@media (max-width: 1120px) {
+  .shell {
+    grid-template-columns: 200px 1fr;
+  }
+
+  .grid,
+  .status-grid,
+  .responsive-state-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 860px) {
   .shell {
     grid-template-columns: 1fr;
@@ -389,7 +405,8 @@ p {
     border-color: var(--border);
   }
 
-  .grid {
+  .grid,
+  .responsive-state-grid {
     grid-template-columns: 1fr;
   }
 

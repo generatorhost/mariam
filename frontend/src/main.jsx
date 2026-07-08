@@ -41,6 +41,24 @@ const pluginWorkspaceApps = [
   },
 ];
 
+const responsiveStates = [
+  {
+    mode: 'Mobile',
+    layout: 'Single column',
+    focus: 'Chat, apps, tasks, approvals',
+  },
+  {
+    mode: 'Tablet',
+    layout: 'Stacked panels',
+    focus: 'Command Center, plugin workspaces, governance queues',
+  },
+  {
+    mode: 'Desktop',
+    layout: 'Sidebar navigation + wide workspace',
+    focus: 'Operational dashboards, DB MARIAM readiness, delivery evidence',
+  },
+];
+
 const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
 
 async function apiRequest(path, body, options = {}) {
@@ -2823,6 +2841,28 @@ function PluginWorkspacePanel() {
   );
 }
 
+function ResponsiveStatePanel() {
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Responsive States</h2>
+        <p>Keep the Command Center simple across mobile, tablet, and desktop without exposing internal complexity.</p>
+      </div>
+      <div className="app-grid responsive-state-grid">
+        {responsiveStates.map((state) => (
+          <article className="app-card" key={state.mode}>
+            <div>
+              <strong>{state.mode}</strong>
+              <span>{state.layout}</span>
+            </div>
+            <p>{state.focus}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RuntimeObjectPanel({ onActionComplete }) {
   const [runtimeObject, setRuntimeObject] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -3027,6 +3067,7 @@ function App() {
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <section id="plugins" className="workspace-section">
           <PluginWorkspacePanel />
+          <ResponsiveStatePanel />
           <PluginPanel onActionComplete={refreshCommandCenterSummary} />
           <PluginHistoryPanel
             refreshVersion={refreshVersion}
