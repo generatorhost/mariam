@@ -1253,10 +1253,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=91,
+                completion_percent=92,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add API schema regression snapshots for governed write request and response models.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add CI schema-diff failure gates for governed write API snapshot changes.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3466,6 +3466,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
+            "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/verification/verification-automation-contract.json",
             "artifacts/verification/local-verification-runs.json",
         ]
@@ -3514,6 +3515,7 @@ class CommandCenterSummaryService:
         stale_artifacts = []
         generated_during_verification = {
             "artifacts/verification/verification-automation-contract.json",
+            "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
         }
@@ -3781,6 +3783,16 @@ class CommandCenterSummaryService:
                 detail="Verification automation exercises the delivery governance evidence export control and writes a visual interaction artifact.",
             ),
             DataPlatformCheck(
+                name="governed_write_schema_regression_snapshot_included",
+                status=(
+                    "ready"
+                    if "artifacts/verification/governed-write-api-schema-snapshots.json"
+                    not in missing_required_artifact_checks
+                    else "blocked"
+                ),
+                detail="Verification automation writes OpenAPI request and response schema snapshots for governed write endpoints.",
+            ),
+            DataPlatformCheck(
                 name="critical_endpoints_covered",
                 status="ready" if not missing_endpoints else "blocked",
                 detail=(
@@ -3935,7 +3947,7 @@ class CommandCenterSummaryService:
             "artifact_freshness": artifact_freshness,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add mutation-level verification gates for each governed write endpoint.",
+            "next_ci_step": "Add CI schema-diff failure gates for governed write API snapshot changes.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

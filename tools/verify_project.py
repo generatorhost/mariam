@@ -18,6 +18,9 @@ FRONTEND = ROOT / "frontend"
 API_BASE_URL = os.environ.get("MARIAM_VERIFY_API_BASE_URL", "http://127.0.0.1:8000")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 VERIFICATION_RUN_LOG = ROOT / "artifacts" / "verification" / "local-verification-runs.json"
+GOVERNED_WRITE_SCHEMA_SNAPSHOT = (
+    ROOT / "artifacts" / "verification" / "governed-write-api-schema-snapshots.json"
+)
 
 
 def run_command(command: list[str], cwd: Path) -> None:
@@ -117,6 +120,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
+            "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/verification/verification-automation-contract.json",
             "artifacts/verification/local-verification-runs.json",
         ],
@@ -181,6 +185,77 @@ def verify_delivery_governance_export_visual() -> None:
         "Delivery governance export visual interaction smoke did not pass.",
     )
     print("[verify] ok: delivery governance export visual smoke")
+
+
+def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, Any]:
+    governed_write_paths = [
+        ("POST", "/api/auth/permissions/enforce"),
+        ("POST", "/api/auth/human-identity/enforce"),
+        ("POST", "/api/runtime/verification-report/record"),
+        ("POST", "/api/runtime/diagnostics/export"),
+        ("POST", "/api/runtime/usage-guide/export"),
+        ("POST", "/api/runtime/completion-report/export"),
+        ("POST", "/api/runtime/implementation-roadmap/export"),
+        ("POST", "/api/runtime/delivery-evidence-report/export"),
+        ("POST", "/api/runtime/data-platform/readiness/export"),
+        ("POST", "/api/runtime/data-platform/migration-runner/export"),
+        ("POST", "/api/runtime/data-platform/live-write-smoke"),
+        ("POST", "/api/runtime/data-platform/live-repository-write-smoke"),
+        ("POST", "/api/audit/approval-assignments"),
+        ("POST", "/api/audit/notifications/route"),
+        ("POST", "/api/audit/reviewer-decisions"),
+        ("POST", "/api/audit/governance-decision-evidence/export"),
+        ("POST", "/api/audit/escalations"),
+        ("POST", "/api/plugins"),
+        ("POST", "/api/missions"),
+        ("POST", "/api/artifacts/{artifact_id}/approve"),
+        ("POST", "/api/artifacts/{artifact_id}/reject"),
+        ("POST", "/api/artifacts/{artifact_id}/request-revision"),
+        ("POST", "/api/artifacts/{artifact_id}/quality-review"),
+        ("POST", "/api/artifacts/{artifact_id}/package-delivery"),
+        ("POST", "/api/artifacts/deliveries/{delivery_id}/confirm"),
+    ]
+    snapshots = []
+    missing = []
+    for method, path in governed_write_paths:
+        operation = openapi.get("paths", {}).get(path, {}).get(method.lower())
+        if not operation:
+            missing.append(f"{method} {path}")
+            continue
+        request_schema = (
+            operation.get("requestBody", {})
+            .get("content", {})
+            .get("application/json", {})
+            .get("schema")
+        )
+        response_schema = (
+            operation.get("responses", {})
+            .get("200", {})
+            .get("content", {})
+            .get("application/json", {})
+            .get("schema")
+        )
+        snapshots.append(
+            {
+                "method": method,
+                "path": path,
+                "operation_id": operation.get("operationId"),
+                "request_schema": request_schema or {"type": "none"},
+                "response_schema": response_schema or {"type": "none"},
+                "governance_gate": "request_schema_and_response_schema_snapshot",
+            }
+        )
+    report = {
+        "title": "Mariam Governed Write API Schema Regression Snapshots",
+        "status": "ready" if not missing else "blocked",
+        "data_platform": "DB MARIAM",
+        "snapshot_count": len(snapshots),
+        "missing_operations": missing,
+        "snapshots": snapshots,
+    }
+    GOVERNED_WRITE_SCHEMA_SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    GOVERNED_WRITE_SCHEMA_SNAPSHOT.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
 
 
 def verify_api_smoke_flow() -> None:
@@ -642,6 +717,18 @@ def verify_api_smoke_flow() -> None:
         "API error contract did not expose required governed error fields.",
     )
     openapi = request_json("/openapi.json")
+    governed_write_schema_snapshot = write_governed_write_schema_snapshot(openapi)
+    assert_condition(
+        governed_write_schema_snapshot["status"] == "ready"
+        and governed_write_schema_snapshot["snapshot_count"] >= 25
+        and governed_write_schema_snapshot["missing_operations"] == []
+        and all(
+            snapshot["response_schema"] != {"type": "none"}
+            for snapshot in governed_write_schema_snapshot["snapshots"]
+        ),
+        "Governed write API schema regression snapshot did not cover request and response models.",
+    )
+    print("[verify] ok: governed write API schema regression snapshots")
     api_error_operation = openapi["paths"]["/api/runtime/api-error-contract"]["get"]
     assert_condition(
         all(
@@ -743,6 +830,13 @@ def verify_api_smoke_flow() -> None:
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json"
         in verification_automation["required_artifacts"]
+        and "artifacts/verification/governed-write-api-schema-snapshots.json"
+        in verification_automation["required_artifacts"]
+        and any(
+            check["name"] == "governed_write_schema_regression_snapshot_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"]
@@ -1078,7 +1172,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
