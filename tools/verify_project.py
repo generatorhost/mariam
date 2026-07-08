@@ -123,6 +123,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/frontend/browser-screenshot-plan",
+        "/api/runtime/frontend/browser-screenshot-capture",
         "/api/runtime/api-error-contract",
         "/api/runtime/delivery-evidence-report",
         "/api/runtime/verification-report",
@@ -480,6 +481,14 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: frontend browser screenshot plan")
     verify_frontend_screenshot_capture()
+    frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
+    assert_condition(
+        frontend_screenshot_capture["status"] == "ready"
+        and frontend_screenshot_capture["artifact_count"] == 3
+        and all(artifact["png_signature"] for artifact in frontend_screenshot_capture["artifacts"]),
+        "Frontend screenshot capture report did not verify generated PNG artifacts.",
+    )
+    print("[verify] ok: frontend screenshot capture report")
 
     api_error_contract = request_json("/api/runtime/api-error-contract")
     assert_condition(
@@ -505,6 +514,8 @@ def verify_api_smoke_flow() -> None:
         )
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/frontend/browser-screenshot-capture"
         in verification_automation["required_endpoints"]
         and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"],
@@ -635,7 +646,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

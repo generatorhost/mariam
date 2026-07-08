@@ -210,6 +210,10 @@ async function loadFrontendBrowserScreenshotPlan() {
   return apiGet('/api/runtime/frontend/browser-screenshot-plan');
 }
 
+async function loadFrontendBrowserScreenshotCapture() {
+  return apiGet('/api/runtime/frontend/browser-screenshot-capture');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2854,6 +2858,7 @@ function FrontendVisualContractPanel({ refreshVersion }) {
 
 function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
   const [plan, setPlan] = useState(null);
+  const [captureReport, setCaptureReport] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -2869,9 +2874,22 @@ function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
     }
   }, []);
 
+  const refreshScreenshotCapture = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setCaptureReport(await loadFrontendBrowserScreenshotCapture());
+      setStatus('ready');
+    } catch (captureError) {
+      setStatus('error');
+      setError(captureError.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshScreenshotPlan();
-  }, [refreshScreenshotPlan, refreshVersion]);
+    refreshScreenshotCapture();
+  }, [refreshScreenshotPlan, refreshScreenshotCapture, refreshVersion]);
 
   return (
     <section className="panel mission-panel">
@@ -2881,6 +2899,9 @@ function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
       </div>
       <button onClick={refreshScreenshotPlan} disabled={status === 'loading'}>
         {status === 'loading' ? 'Planning...' : 'Refresh Screenshot Plan'}
+      </button>
+      <button onClick={refreshScreenshotCapture} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Screenshot Capture'}
       </button>
       {error && <p className="error">{error}</p>}
       {plan && (
@@ -2912,6 +2933,30 @@ function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
                 <strong>{check.name}</strong>
                 <span>{check.status}</span>
                 <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+      {captureReport && (
+        <>
+          <div className="mission-result">
+            <strong>{captureReport.title}</strong>
+            <span>{captureReport.status}</span>
+            <p>{captureReport.artifact_path}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{captureReport.artifact_count}</strong><span>Captured</span></div>
+            <div><strong>{captureReport.artifacts.filter((artifact) => artifact.exists).length}</strong><span>Files Found</span></div>
+            <div><strong>{captureReport.artifacts.filter((artifact) => artifact.png_signature).length}</strong><span>PNG Valid</span></div>
+            <div><strong>{captureReport.checks.filter((check) => check.status === 'ready').length}</strong><span>Ready Checks</span></div>
+          </div>
+          <div className="mission-history">
+            {captureReport.artifacts.map((artifact) => (
+              <article key={artifact.relative_path}>
+                <strong>{artifact.viewport}</strong>
+                <span>{artifact.png_signature ? 'png-valid' : 'missing'}</span>
+                <p>{artifact.relative_path} / {artifact.bytes} bytes</p>
               </article>
             ))}
           </div>

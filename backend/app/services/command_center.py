@@ -410,6 +410,18 @@ class FrontendBrowserScreenshotPlan:
 
 
 @dataclass
+class FrontendBrowserScreenshotCaptureReport:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    artifact_path: str
+    artifact_count: int
+    artifacts: list[dict[str, object]]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class VerificationAutomationContract:
     title: str
     status: str
@@ -879,10 +891,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=78,
+                completion_percent=80,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, and binary screenshot artifact capture.",
-                next_step="Add a Command Center UI report for captured screenshot artifacts.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, and a Command Center screenshot capture report.",
+                next_step="Add visual thumbnail previews for captured screenshot artifacts.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2044,6 +2056,7 @@ class CommandCenterSummaryService:
             "Refresh Frontend Regression",
             "Refresh Visual Contract",
             "Refresh Screenshot Plan",
+            "Refresh Screenshot Capture",
             "Refresh Verification Automation",
             "Export Diagnostics",
             "Export Completion Report",
@@ -2381,6 +2394,66 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def frontend_browser_screenshot_capture_report(self) -> FrontendBrowserScreenshotCaptureReport:
+        root = Path(__file__).resolve().parents[3]
+        artifact_path = (
+            root
+            / "artifacts"
+            / "frontend-regression"
+            / "command-center-browser-screenshot-capture.json"
+        )
+        expected_artifacts = [
+            root / "artifacts" / "frontend-regression" / "desktop-command-center.png",
+            root / "artifacts" / "frontend-regression" / "tablet-command-center.png",
+            root / "artifacts" / "frontend-regression" / "mobile-command-center.png",
+        ]
+        capture_payload: dict[str, object] = {}
+        if artifact_path.exists():
+            capture_payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifacts: list[dict[str, object]] = []
+        for expected_artifact in expected_artifacts:
+            exists = expected_artifact.exists()
+            png_signature = exists and expected_artifact.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+            artifacts.append(
+                {
+                    "viewport": expected_artifact.stem.replace("-command-center", ""),
+                    "relative_path": str(expected_artifact.relative_to(root)).replace("\\", "/"),
+                    "path": str(expected_artifact),
+                    "bytes": expected_artifact.stat().st_size if exists else 0,
+                    "exists": exists,
+                    "png_signature": png_signature,
+                }
+            )
+        artifact_count = int(capture_payload.get("artifact_count", 0)) if capture_payload else 0
+        checks = [
+            DataPlatformCheck(
+                name="capture_report_written",
+                status="ready" if artifact_path.exists() else "blocked",
+                detail=f"Browser screenshot capture report: {artifact_path}.",
+            ),
+            DataPlatformCheck(
+                name="capture_artifact_count",
+                status="ready" if artifact_count == 3 else "blocked",
+                detail=f"{artifact_count} captured screenshot artifacts reported.",
+            ),
+            DataPlatformCheck(
+                name="captured_png_files_valid",
+                status="ready" if all(artifact["png_signature"] for artifact in artifacts) else "blocked",
+                detail="Desktop, tablet, and mobile PNG artifacts exist with valid PNG signatures.",
+            ),
+        ]
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        return FrontendBrowserScreenshotCaptureReport(
+            title="Mariam Command Center Browser Screenshot Capture Report",
+            status=status,
+            generated_at=str(capture_payload.get("generated_at", datetime.now(UTC).isoformat())),
+            data_platform=str(capture_payload.get("data_platform", "DB MARIAM")),
+            artifact_path=str(artifact_path),
+            artifact_count=artifact_count,
+            artifacts=artifacts,
+            checks=checks,
+        )
+
     def verification_automation_contract(self) -> VerificationAutomationContract:
         root = Path(__file__).resolve().parents[3]
         package_file = root / "package.json"
@@ -2409,6 +2482,7 @@ class CommandCenterSummaryService:
             "/api/runtime/frontend/regression-snapshot",
             "/api/runtime/frontend/visual-contract",
             "/api/runtime/frontend/browser-screenshot-plan",
+            "/api/runtime/frontend/browser-screenshot-capture",
             "/api/runtime/api-error-contract",
             "/api/runtime/delivery-evidence-report",
             "/api/runtime/verification-report",

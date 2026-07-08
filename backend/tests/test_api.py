@@ -2973,7 +2973,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2999,6 +2999,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
+    assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
@@ -3048,6 +3049,20 @@ def test_runtime_frontend_browser_screenshot_plan_records_viewports_and_artifact
     assert Path(plan["artifact_path"]).exists()
 
 
+def test_runtime_frontend_browser_screenshot_capture_reports_generated_artifacts() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/frontend/browser-screenshot-capture")
+
+    assert response.status_code == 200
+    report = response.json()
+    assert report["title"] == "Mariam Command Center Browser Screenshot Capture Report"
+    assert report["data_platform"] == "DB MARIAM"
+    assert report["artifact_path"].endswith("command-center-browser-screenshot-capture.json")
+    assert {artifact["viewport"] for artifact in report["artifacts"]} == {"desktop", "tablet", "mobile"}
+    assert "capture_report_written" in [check["name"] for check in report["checks"]]
+
+
 def test_runtime_verification_automation_contract_records_local_coverage() -> None:
     client = TestClient(create_app())
 
@@ -3068,6 +3083,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     )
     assert "/api/runtime/api-error-contract" in contract["required_endpoints"]
     assert "/api/runtime/delivery-evidence-report" in contract["required_endpoints"]
+    assert "/api/runtime/frontend/browser-screenshot-capture" in contract["required_endpoints"]
     assert "/api/runtime/frontend/visual-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
@@ -3091,7 +3107,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
