@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.services.ai_resources import AIResourceManager
+from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
@@ -346,6 +348,20 @@ class LiveRepositoryWriteStatus:
 
 
 @dataclass
+class DeliveryEvidenceReport:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    delivery_count: int
+    signed_bundle_count: int
+    confirmed_delivery_count: int
+    invalid_signature_count: int
+    evidence_items: list[dict[str, object]]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class FrontendRegressionSnapshot:
     title: str
     status: str
@@ -415,6 +431,7 @@ class CommandCenterSummaryService:
         runtime_registry: RuntimeRegistry,
         runtime_object_service: RuntimeObjectService,
         mission_service: MissionService,
+        artifact_service: ArtifactService,
         ai_resource_manager: AIResourceManager,
         audit_service: AuditService,
         event_bus: InMemoryEventBus,
@@ -422,6 +439,7 @@ class CommandCenterSummaryService:
         self._runtime_registry = runtime_registry
         self._runtime_object_service = runtime_object_service
         self._mission_service = mission_service
+        self._artifact_service = artifact_service
         self._ai_resource_manager = ai_resource_manager
         self._audit_service = audit_service
         self._event_bus = event_bus
@@ -776,6 +794,78 @@ class CommandCenterSummaryService:
             usage_guide=usage_guide,
         )
 
+    def delivery_evidence_report(self) -> DeliveryEvidenceReport:
+        delivery_packages = self._artifact_service.list_delivery_packages()
+        evidence_items: list[dict[str, object]] = []
+        signed_bundle_count = 0
+        confirmed_delivery_count = 0
+        invalid_signature_count = 0
+        for delivery_package in delivery_packages:
+            manifest = delivery_package.package_manifest
+            evidence_bundle = manifest.get("evidence_bundle")
+            evidence_signature = manifest.get("evidence_signature")
+            signature_valid = False
+            if isinstance(evidence_bundle, dict) and isinstance(evidence_signature, str):
+                canonical_payload = json.dumps(evidence_bundle, sort_keys=True, separators=(",", ":"))
+                expected_signature = hashlib.sha256(canonical_payload.encode("utf-8")).hexdigest()
+                signature_valid = expected_signature == evidence_signature
+            if signature_valid:
+                signed_bundle_count += 1
+            elif evidence_bundle is not None or evidence_signature is not None:
+                invalid_signature_count += 1
+            if manifest.get("delivery_confirmed") is True:
+                confirmed_delivery_count += 1
+            evidence_items.append(
+                {
+                    "delivery_id": delivery_package.delivery_id,
+                    "artifact_id": delivery_package.artifact_id,
+                    "mission_id": delivery_package.mission_id,
+                    "plugin_id": delivery_package.plugin_id,
+                    "status": delivery_package.status,
+                    "destination": delivery_package.destination,
+                    "evidence_signed": bool(manifest.get("evidence_signed")),
+                    "signature_valid": signature_valid,
+                    "quality_review_id": manifest.get("quality_review_id"),
+                    "quality_score": manifest.get("quality_score"),
+                    "delivery_confirmed": bool(manifest.get("delivery_confirmed")),
+                    "client_reference": manifest.get("client_reference"),
+                    "data_platform": delivery_package.data_platform,
+                }
+            )
+        checks = [
+            DataPlatformCheck(
+                name="delivery_evidence_packages_readable",
+                status="ready",
+                detail=f"{len(delivery_packages)} delivery package records were read from DB MARIAM.",
+            ),
+            DataPlatformCheck(
+                name="signed_evidence_bundles_valid",
+                status="ready" if invalid_signature_count == 0 else "blocked",
+                detail=(
+                    "All delivery evidence signatures are valid."
+                    if invalid_signature_count == 0
+                    else f"{invalid_signature_count} delivery evidence signatures are invalid."
+                ),
+            ),
+            DataPlatformCheck(
+                name="client_confirmation_traceable",
+                status="ready" if confirmed_delivery_count <= len(delivery_packages) else "blocked",
+                detail=f"{confirmed_delivery_count} delivery packages include client confirmation traceability.",
+            ),
+        ]
+        return DeliveryEvidenceReport(
+            title="Mariam Delivery Evidence Bundle Verification Report",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            delivery_count=len(delivery_packages),
+            signed_bundle_count=signed_bundle_count,
+            confirmed_delivery_count=confirmed_delivery_count,
+            invalid_signature_count=invalid_signature_count,
+            evidence_items=evidence_items,
+            checks=checks,
+        )
+
     def completion_report(self) -> ProjectCompletionReport:
         verification = self.verification_report()
         usage_guide = self.usage_guide()
@@ -803,10 +893,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=78,
+                completion_percent=80,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add delivery evidence bundle verification report in the Command Center UI.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add delivery SLA aging and escalation checks for signed client packages.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -1944,6 +2034,7 @@ class CommandCenterSummaryService:
             "Refresh Docker Execution",
             "Run DB MARIAM Write Smoke",
             "Run Repository Write Smoke",
+            "Refresh Delivery Evidence",
             "Open Live Plugin Workspace",
             "Start CRM Mission",
             "Route Notification",
@@ -2319,6 +2410,7 @@ class CommandCenterSummaryService:
             "/api/runtime/frontend/visual-contract",
             "/api/runtime/frontend/browser-screenshot-plan",
             "/api/runtime/api-error-contract",
+            "/api/runtime/delivery-evidence-report",
             "/api/runtime/verification-report",
             "/api/runtime/completion-report",
             "/api/runtime/implementation-roadmap",

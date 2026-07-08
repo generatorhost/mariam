@@ -241,6 +241,7 @@ def get_command_center_summary_service() -> CommandCenterSummaryService:
         get_runtime_registry(),
         get_runtime_object_service(),
         get_mission_service(),
+        get_artifact_service(),
         get_ai_resource_manager(),
         get_audit_service(),
         get_event_bus(),

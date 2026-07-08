@@ -1547,6 +1547,22 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
         for event in event_response.json()["events"]
         if event["name"] == "artifact.delivery_confirmed"
     ]
+    evidence_report_response = client.get("/api/runtime/delivery-evidence-report")
+    assert evidence_report_response.status_code == 200
+    evidence_report = evidence_report_response.json()
+    assert evidence_report["title"] == "Mariam Delivery Evidence Bundle Verification Report"
+    assert evidence_report["status"] == "ready"
+    assert evidence_report["data_platform"] == "DB MARIAM"
+    assert evidence_report["signed_bundle_count"] >= 1
+    assert evidence_report["confirmed_delivery_count"] >= 1
+    assert evidence_report["invalid_signature_count"] == 0
+    evidence_item = next(
+        item for item in evidence_report["evidence_items"]
+        if item["delivery_id"] == confirmed["delivery_id"]
+    )
+    assert evidence_item["signature_valid"] is True
+    assert evidence_item["delivery_confirmed"] is True
+    assert evidence_item["client_reference"] == "client-confirmation-001"
 
     second_confirm_response = client.post(
         f"/api/artifacts/deliveries/{delivery_package['delivery_id']}/confirm",
@@ -2957,8 +2973,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3051,6 +3067,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
         for check in contract["checks"]
     )
     assert "/api/runtime/api-error-contract" in contract["required_endpoints"]
+    assert "/api/runtime/delivery-evidence-report" in contract["required_endpoints"]
     assert "/api/runtime/frontend/visual-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
@@ -3074,7 +3091,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

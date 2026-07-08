@@ -124,6 +124,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/frontend/browser-screenshot-plan",
         "/api/runtime/api-error-contract",
+        "/api/runtime/delivery-evidence-report",
         "/api/runtime/verification-report",
         "/api/runtime/verification-automation",
         "/api/runtime/verification-report/snapshots",
@@ -505,7 +506,8 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"]
-        and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"],
+        and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"]
+        and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     print("[verify] ok: verification automation contract")
@@ -633,7 +635,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -760,6 +762,23 @@ def verify_api_smoke_flow() -> None:
         and confirmed["package_manifest"]["evidence_signature"]
         == delivery_package["package_manifest"]["evidence_signature"],
         "Delivery was not confirmed to client with a signed evidence bundle.",
+    )
+    delivery_evidence_report = request_json("/api/runtime/delivery-evidence-report")
+    evidence_item = next(
+        (
+            item for item in delivery_evidence_report["evidence_items"]
+            if item["delivery_id"] == confirmed["delivery_id"]
+        ),
+        None,
+    )
+    assert_condition(
+        delivery_evidence_report["status"] == "ready"
+        and delivery_evidence_report["invalid_signature_count"] == 0
+        and delivery_evidence_report["signed_bundle_count"] >= 1
+        and evidence_item is not None
+        and evidence_item["signature_valid"] is True
+        and evidence_item["delivery_confirmed"] is True,
+        "Delivery evidence report did not verify the signed client delivery package.",
     )
     print("[verify] ok: mission -> artifact -> revision -> quality -> package -> client delivery")
 

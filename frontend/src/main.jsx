@@ -283,6 +283,10 @@ async function loadQualityReviews() {
   );
 }
 
+async function loadDeliveryEvidenceReport() {
+  return apiGet('/api/runtime/delivery-evidence-report');
+}
+
 async function loadAuditRecords() {
   const body = await apiGet('/api/audit');
   return (body.audit_records || []).sort(
@@ -1494,6 +1498,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [artifact, setArtifact] = useState(null);
   const [qualityReview, setQualityReview] = useState(null);
   const [deliveryPackage, setDeliveryPackage] = useState(null);
+  const [deliveryEvidenceReport, setDeliveryEvidenceReport] = useState(null);
 
   const refreshMissions = useCallback(async () => {
     setStatus('loading');
@@ -1531,11 +1536,24 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }, []);
 
+  const refreshDeliveryEvidenceReport = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setDeliveryEvidenceReport(await loadDeliveryEvidenceReport());
+      setStatus('ready');
+    } catch (evidenceError) {
+      setStatus('error');
+      setError(evidenceError.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshMissions();
     refreshDeliveryPackages();
     refreshQualityReviews();
-  }, [refreshMissions, refreshDeliveryPackages, refreshQualityReviews, refreshVersion]);
+    refreshDeliveryEvidenceReport();
+  }, [refreshMissions, refreshDeliveryPackages, refreshQualityReviews, refreshDeliveryEvidenceReport, refreshVersion]);
 
   async function handleHistoryDecision(missionId, decision) {
     setStatus('loading');
@@ -1628,6 +1646,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
       const body = await packageArtifactDelivery(artifact.artifact_id);
       setDeliveryPackage(body.delivery_package);
       await refreshDeliveryPackages();
+      await refreshDeliveryEvidenceReport();
       onActionComplete();
       setStatus('ready');
     } catch (artifactError) {
@@ -1643,6 +1662,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
       const body = await confirmDeliveryPackage(deliveryId);
       setDeliveryPackage(body.delivery_package);
       await refreshDeliveryPackages();
+      await refreshDeliveryEvidenceReport();
       onActionComplete();
       setStatus('ready');
     } catch (deliveryError) {
@@ -1719,7 +1739,19 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
         <button onClick={refreshQualityReviews} disabled={status === 'loading'}>
           Refresh Quality Reviews
         </button>
+        <button onClick={refreshDeliveryEvidenceReport} disabled={status === 'loading'}>
+          Refresh Delivery Evidence
+        </button>
       </div>
+      {deliveryEvidenceReport && (
+        <div className="mission-result">
+          <strong>{deliveryEvidenceReport.title}</strong>
+          <span>{deliveryEvidenceReport.status}</span>
+          <p>
+            Signed {deliveryEvidenceReport.signed_bundle_count} / Confirmed {deliveryEvidenceReport.confirmed_delivery_count} / Invalid {deliveryEvidenceReport.invalid_signature_count}
+          </p>
+        </div>
+      )}
       <div className="mission-history">
         {qualityReviews.length ? (
           qualityReviews.map((item) => (
