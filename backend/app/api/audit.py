@@ -58,6 +58,14 @@ def governance_assignment_history(service: AuditService = Depends(get_audit_serv
     return {"history_report": service.governance_assignment_history().model_dump(mode="json")}
 
 
+@router.post("/governance-decision-evidence/export")
+def export_governance_decision_evidence(
+    authorization=Depends(require_permission("governance.assign_approval", "governance_decision_export")),
+    service: AuditService = Depends(get_audit_service),
+) -> dict:
+    return {"export_package": service.export_governance_decision_evidence().model_dump(mode="json")}
+
+
 @router.post("/reviewer-decisions")
 def record_reviewer_decision(
     request: ReviewerDecisionRequest,

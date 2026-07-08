@@ -1778,6 +1778,54 @@ def test_governance_reviewer_decision_outcome_persists_lifecycle_history() -> No
     ]
 
 
+def test_governance_decision_evidence_can_be_exported_for_review() -> None:
+    client = TestClient(create_app())
+    assignment_response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-export",
+            "target_type": "artifact",
+            "target_id": "artifact-export-review",
+            "approval_role": "quality-reviewer",
+            "reason": "Assign reviewer before exporting decision evidence.",
+        },
+    )
+    assignment_audit = assignment_response.json()["audit_record"]
+    history_before = client.get("/api/audit/governance-assignment-history").json()["history_report"]
+    assignment = next(
+        item for item in history_before["assignments"] if item["audit_id"] == assignment_audit["audit_id"]
+    )
+    client.post(
+        "/api/audit/reviewer-decisions",
+        json={
+            "decided_by": "quality-reviewer-export",
+            "reviewer_id": "quality-reviewer-export",
+            "target_type": "artifact",
+            "target_id": "artifact-export-review",
+            "assignment_id": assignment["assignment_id"],
+            "decision": "approved",
+            "reason": "Exportable reviewer decision evidence is complete.",
+            "evidence": {"verification": "governance-decision-export"},
+        },
+    )
+
+    response = client.post("/api/audit/governance-decision-evidence/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("governance-decision-evidence-export-")
+    assert export_package["title"] == "Mariam Governance Reviewer Decision Evidence Export"
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["decision_count"] >= 1
+    assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert "quality-reviewer-export" in export_package["package_manifest"]["reviewer_ids"]
+    assert "approved" in export_package["package_manifest"]["decision_outcomes"]
+    assert export_package["history_report"]["decision_count"] >= 1
+
+
 def test_governance_notification_routing_records_audit_and_event() -> None:
     client = TestClient(create_app())
 
@@ -3285,8 +3333,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3310,6 +3358,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Governance SLA" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Record Reviewer Decision" in snapshot["controls_checked"]
+    assert "Export Reviewer Decision Evidence" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
@@ -3518,7 +3567,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

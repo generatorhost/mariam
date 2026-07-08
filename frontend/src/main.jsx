@@ -811,6 +811,10 @@ async function recordReviewerDecision(assignmentId = null) {
   });
 }
 
+async function exportGovernanceDecisionEvidence() {
+  return apiRequest('/api/audit/governance-decision-evidence/export', {});
+}
+
 async function escalateReviewerWorkload() {
   return apiRequest('/api/audit/escalations', {
     escalated_by: 'command-center-governance',
@@ -4104,6 +4108,7 @@ function AuditPanel({ onActionComplete }) {
   const [slaReport, setSlaReport] = useState(null);
   const [governanceHistory, setGovernanceHistory] = useState(null);
   const [reviewerDecisionRecord, setReviewerDecisionRecord] = useState(null);
+  const [decisionEvidenceExport, setDecisionEvidenceExport] = useState(null);
   const [decisionReviewerFilter, setDecisionReviewerFilter] = useState(() => (
     readCommandCenterPreference('governanceDecisionReviewerFilter', 'all')
   ));
@@ -4262,6 +4267,24 @@ function AuditPanel({ onActionComplete }) {
     }
   }, [governanceHistory, onActionComplete]);
 
+  const handleDecisionEvidenceExport = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const body = await exportGovernanceDecisionEvidence();
+      setDecisionEvidenceExport(body.export_package);
+      setStatus('ready');
+      onActionComplete();
+    } catch (auditError) {
+      setStatus('error');
+      setError(createPanelError(
+        auditError,
+        'Export Reviewer Decision Evidence',
+        handleDecisionEvidenceExport,
+      ));
+    }
+  }, [onActionComplete]);
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -4279,6 +4302,9 @@ function AuditPanel({ onActionComplete }) {
       </button>
       <button onClick={handleReviewerDecision} disabled={status === 'loading'}>
         {status === 'loading' ? 'Recording...' : 'Record Reviewer Decision'}
+      </button>
+      <button onClick={handleDecisionEvidenceExport} disabled={status === 'loading' || !governanceHistory}>
+        {status === 'loading' ? 'Exporting...' : 'Export Reviewer Decision Evidence'}
       </button>
       <button onClick={refreshReviewerWorkload} disabled={status === 'loading'}>
         {status === 'loading' ? 'Refreshing...' : 'Refresh Reviewer Workload'}
@@ -4342,6 +4368,22 @@ function AuditPanel({ onActionComplete }) {
           <p>
             Audit <strong>{reviewerDecisionRecord.audit_id}</strong> recorded in{' '}
             <strong>{reviewerDecisionRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+      {decisionEvidenceExport && (
+        <div className="mission-result">
+          <h3>Reviewer Decision Evidence Export Ready</h3>
+          <p>
+            <strong>{decisionEvidenceExport.export_id}</strong> is{' '}
+            <strong>{decisionEvidenceExport.status}</strong> with{' '}
+            <strong>{decisionEvidenceExport.package_manifest.decision_count}</strong> decisions.
+          </p>
+          <p>
+            Review required before external delivery:{' '}
+            <strong>
+              {String(decisionEvidenceExport.package_manifest.requires_governance_review_before_external_delivery)}
+            </strong>
           </p>
         </div>
       )}

@@ -158,6 +158,17 @@ class GovernanceAssignmentHistoryReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class GovernanceDecisionEvidenceExportPackage(BaseModel):
+    export_id: str
+    title: str
+    status: str
+    format: str
+    generated_at: datetime
+    data_platform: str = "DB MARIAM"
+    package_manifest: dict[str, object]
+    history_report: GovernanceAssignmentHistoryReport
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str

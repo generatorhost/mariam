@@ -7,6 +7,7 @@ from app.core.audit import (
     AuditRecordRequest,
     EscalationRequest,
     GovernanceAssignmentHistoryReport,
+    GovernanceDecisionEvidenceExportPackage,
     GovernanceSLAEscalationRecord,
     GovernanceSLAItem,
     GovernanceSLAReport,
@@ -104,6 +105,30 @@ class AuditService:
             assignments=assignments,
             escalations=escalations,
             decisions=decisions,
+        )
+
+    def export_governance_decision_evidence(self) -> GovernanceDecisionEvidenceExportPackage:
+        history = self.governance_assignment_history()
+        reviewer_ids = sorted({decision.reviewer_id for decision in history.decisions})
+        decision_outcomes = sorted({decision.decision for decision in history.decisions})
+        return GovernanceDecisionEvidenceExportPackage(
+            export_id=f"governance-decision-evidence-export-{uuid4()}",
+            title="Mariam Governance Reviewer Decision Evidence Export",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC),
+            package_manifest={
+                "title": "Mariam Governance Reviewer Decision Evidence Export",
+                "assignment_count": history.assignment_count,
+                "escalation_count": history.escalation_count,
+                "decision_count": history.decision_count,
+                "reviewer_count": len(reviewer_ids),
+                "reviewer_ids": reviewer_ids,
+                "decision_outcomes": decision_outcomes,
+                "requires_governance_review_before_external_delivery": True,
+                "data_platform": "DB MARIAM",
+            },
+            history_report=history,
         )
 
     def record_reviewer_decision(self, request: ReviewerDecisionRequest) -> AuditRecord:

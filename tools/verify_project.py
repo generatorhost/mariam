@@ -502,6 +502,7 @@ def verify_api_smoke_flow() -> None:
         and "Refresh Screenshot Plan" in frontend_regression["controls_checked"]
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Record Reviewer Decision" in frontend_regression["controls_checked"]
+        and "Export Reviewer Decision Evidence" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"]
         and "Latest CI run result ingestion" in frontend_regression["controls_checked"]
@@ -903,6 +904,21 @@ def verify_api_smoke_flow() -> None:
         ),
         "Runtime events did not include reviewer decision outcome evidence.",
     )
+    governance_decision_export = request_json(
+        "/api/audit/governance-decision-evidence/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        governance_decision_export["status"] == "ready_for_review"
+        and governance_decision_export["package_manifest"]["decision_count"] >= 1
+        and governance_decision_export["package_manifest"][
+            "requires_governance_review_before_external_delivery"
+        ]
+        is True
+        and "quality-reviewer-01" in governance_decision_export["package_manifest"]["reviewer_ids"],
+        "Governance decision evidence export did not include reviewer decision history.",
+    )
     print("[verify] ok: reviewer decision outcome")
 
     governance_sla = request_json("/api/audit/governance-sla")["sla_report"]
@@ -962,7 +978,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
