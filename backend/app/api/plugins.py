@@ -65,6 +65,17 @@ def get_plugin_dashboard(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
+@router.get("/{plugin_id}/workspace")
+def get_plugin_workspace(
+    plugin_id: str,
+    registry: RuntimeRegistry = Depends(get_runtime_registry),
+) -> dict:
+    try:
+        return registry.plugin_workspace(plugin_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 @router.post("/{plugin_id}/chat")
 def send_plugin_chat_request(
     plugin_id: str,

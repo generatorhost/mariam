@@ -642,10 +642,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=68,
+                completion_percent=70,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, and responsive state guidance.",
-                next_step="Add deeper plugin workspace details.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, and responsive state guidance.",
+                next_step="Add browser regression screenshots for critical Command Center flows.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",

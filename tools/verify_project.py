@@ -304,10 +304,22 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: notification routing")
 
+    plugin_manifest = json.loads((ROOT / "plugins" / "crm" / "manifest.json").read_text(encoding="utf-8"))
+    plugin = request_json("/api/plugins", "POST", plugin_manifest)["plugin"]
+    plugin_workspace = request_json(f"/api/plugins/{plugin['plugin_id']}/workspace")
+    assert_condition(
+        plugin_workspace["dashboard"]["dashboard_route"] == "/plugins/crm"
+        and plugin_workspace["chief_agent"]["role"] == "CRM Chief Agent"
+        and plugin_workspace["data_boundary"]["platform"] == "DB MARIAM"
+        and len(plugin_workspace["workspace_actions"]) == 4,
+        "Plugin workspace did not expose dashboard, Chief, DB MARIAM boundary, and actions.",
+    )
+    print("[verify] ok: plugin workspace")
+
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

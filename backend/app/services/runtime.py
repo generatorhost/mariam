@@ -150,6 +150,73 @@ class RuntimeRegistry:
             "data_platform": "DB MARIAM",
         }
 
+    def plugin_workspace(self, plugin_id: str) -> dict:
+        plugin = self._plugin_repository.get(plugin_id)
+        if plugin is None:
+            raise ValueError(f"Plugin {plugin_id} was not found.")
+        dashboard = self.plugin_dashboard(plugin_id)
+        settings = self.get_plugin_settings(plugin_id)
+        timeline = self.plugin_timeline(plugin_id)
+        workspace_title = plugin.name if plugin.name.lower().endswith("workspace") else f"{plugin.name} Workspace"
+        return {
+            "plugin_id": plugin.plugin_id,
+            "title": workspace_title,
+            "status": plugin.status,
+            "dashboard": dashboard,
+            "settings": settings,
+            "chief_agent": {
+                "role": plugin.chief_agent_role,
+                "entrypoint": f"{plugin.dashboard_route}/chat",
+                "responsibilities": [
+                    "Understand user requests inside the plugin boundary.",
+                    "Route work to plugin swarm roles.",
+                    "Keep artifacts behind governance and approval gates.",
+                ],
+            },
+            "swarm": [
+                {
+                    "role": role,
+                    "scope": f"{plugin.name} execution support",
+                    "data_boundary": plugin.data_boundary,
+                }
+                for role in plugin.swarm_roles
+            ],
+            "workspace_actions": [
+                {
+                    "label": "Open Dashboard",
+                    "api": f"GET /api/plugins/{plugin.plugin_id}/dashboard",
+                    "result": "Shows status, lifecycle, activity, workflows, and DB MARIAM evidence.",
+                },
+                {
+                    "label": "Update Settings",
+                    "api": f"PATCH /api/plugins/{plugin.plugin_id}/settings",
+                    "result": "Updates plugin-owned settings after governance evidence is recorded.",
+                },
+                {
+                    "label": "Send Plugin Chat Request",
+                    "api": f"POST /api/plugins/{plugin.plugin_id}/chat",
+                    "result": "Creates a governed mission owned by the plugin Chief Agent.",
+                },
+                {
+                    "label": "Review Timeline",
+                    "api": f"GET /api/plugins/{plugin.plugin_id}/timeline",
+                    "result": "Shows audit records and runtime events linked to the plugin.",
+                },
+            ],
+            "data_boundary": {
+                "platform": "DB MARIAM",
+                "boundary": plugin.data_boundary,
+                "shared_tables": ["identity", "permissions", "audit", "events", "registry"],
+                "private_tables": [
+                    f"{plugin.plugin_id}_settings",
+                    f"{plugin.plugin_id}_workflows",
+                    f"{plugin.plugin_id}_artifacts",
+                ],
+            },
+            "activity": timeline["summary"],
+            "data_platform": "DB MARIAM",
+        }
+
     def record_plugin_chat_request(
         self,
         plugin_id: str,

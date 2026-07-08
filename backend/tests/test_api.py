@@ -933,6 +933,27 @@ def test_plugin_dashboard_returns_runtime_view_model() -> None:
     assert dashboard["data_platform"] == "DB MARIAM"
 
 
+def test_plugin_workspace_returns_dashboard_settings_chief_swarm_and_data_boundary() -> None:
+    client = TestClient(create_app())
+    manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = client.post("/api/plugins", json=manifest).json()["plugin"]["plugin_id"]
+
+    workspace_response = client.get(f"/api/plugins/{plugin_id}/workspace")
+
+    assert workspace_response.status_code == 200
+    workspace = workspace_response.json()
+    assert workspace["title"] == "CRM Workspace"
+    assert workspace["dashboard"]["dashboard_route"] == "/plugins/crm"
+    assert workspace["settings"]["plugin_id"] == plugin_id
+    assert workspace["chief_agent"]["role"] == "CRM Chief Agent"
+    assert "Lead Qualifier" in [agent["role"] for agent in workspace["swarm"]]
+    assert workspace["data_boundary"]["platform"] == "DB MARIAM"
+    assert f"{plugin_id}_settings" in workspace["data_boundary"]["private_tables"]
+    assert len(workspace["workspace_actions"]) == 4
+    assert workspace["data_platform"] == "DB MARIAM"
+
+
 def test_plugin_chat_request_creates_governed_mission() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
@@ -2566,8 +2587,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2584,7 +2605,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

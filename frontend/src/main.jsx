@@ -244,6 +244,10 @@ async function loadPluginDashboard(pluginId) {
   return apiGet(`/api/plugins/${pluginId}/dashboard`);
 }
 
+async function loadPluginWorkspace(pluginId) {
+  return apiGet(`/api/plugins/${pluginId}/workspace`);
+}
+
 async function updatePluginSettings(pluginId) {
   return apiRequest(`/api/plugins/${pluginId}/settings`, {
     actor_id: 'command-center-plugin-governance',
@@ -2954,13 +2958,63 @@ function PluginPanel({ onActionComplete }) {
   );
 }
 
-function PluginWorkspacePanel() {
+function PluginWorkspacePanel({ onActionComplete }) {
+  const [workspace, setWorkspace] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  async function handleOpenLiveWorkspace() {
+    setStatus('loading');
+    setError('');
+    try {
+      let plugins = await loadPlugins();
+      if (!plugins.some((plugin) => plugin.plugin_id === 'crm')) {
+        const body = await registerCRMPlugin();
+        plugins = [body.plugin, ...plugins];
+        onActionComplete();
+      }
+      const plugin = plugins.find((item) => item.plugin_id === 'crm') || plugins[0];
+      setWorkspace(await loadPluginWorkspace(plugin.plugin_id));
+      setStatus('ready');
+    } catch (workspaceError) {
+      setStatus('error');
+      setError(workspaceError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
         <h2>Plugin Workspaces</h2>
         <p>Open Plugin-managed Business Units as simple app cards with dashboard, settings, Chief, swarm, and data boundaries.</p>
       </div>
+      <button onClick={handleOpenLiveWorkspace} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Opening...' : 'Open Live Plugin Workspace'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {workspace && (
+        <div className="mission-result">
+          <h3>{workspace.title}</h3>
+          <p>
+            <strong>{workspace.chief_agent.role}</strong> operates at{' '}
+            <strong>{workspace.dashboard.dashboard_route}</strong> with{' '}
+            <strong>{workspace.swarm.length}</strong> swarm roles.
+          </p>
+          <p>
+            Data boundary: <strong>{workspace.data_boundary.boundary}</strong> on{' '}
+            <strong>{workspace.data_boundary.platform}</strong>.
+          </p>
+          <div className="app-meta">
+            {workspace.workspace_actions.map((action) => (
+              <span key={action.label}>{action.label}: {action.api}</span>
+            ))}
+          </div>
+          <p>
+            Private tables:{' '}
+            <strong>{workspace.data_boundary.private_tables.join(', ')}</strong>
+          </p>
+        </div>
+      )}
       <div className="app-grid">
         {pluginWorkspaceApps.map((plugin) => (
           <article className="app-card" key={plugin.name}>
@@ -3245,7 +3299,7 @@ function App() {
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <section id="plugins" className="workspace-section">
-          <PluginWorkspacePanel />
+          <PluginWorkspacePanel onActionComplete={refreshCommandCenterSummary} />
           <ResponsiveStatePanel />
           <PluginPanel onActionComplete={refreshCommandCenterSummary} />
           <PluginHistoryPanel

@@ -199,6 +199,12 @@ Governance notification routing records reviewer notifications as DB MARIAM audi
 POST /api/audit/notifications/route
 ```
 
+Plugin workspaces expose dashboard, settings, Chief Agent, swarm, timeline, actions, and DB MARIAM data boundaries through:
+
+```http
+GET /api/plugins/{plugin_id}/workspace
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:
