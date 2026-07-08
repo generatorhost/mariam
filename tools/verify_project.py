@@ -106,6 +106,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/verification-report",
+        "/api/runtime/verification-automation",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
         "/api/runtime/usage-guide",
@@ -352,7 +353,8 @@ def verify_api_smoke_flow() -> None:
         and "Refresh Actor Context" in frontend_regression["controls_checked"]
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
-        and "Refresh Visual Contract" in frontend_regression["controls_checked"],
+        and "Refresh Visual Contract" in frontend_regression["controls_checked"]
+        and "Refresh Verification Automation" in frontend_regression["controls_checked"],
         "Frontend regression snapshot did not pass.",
     )
     print("[verify] ok: frontend regression snapshot")
@@ -367,6 +369,16 @@ def verify_api_smoke_flow() -> None:
         "Frontend visual contract did not pass.",
     )
     print("[verify] ok: frontend visual contract")
+
+    verification_automation = request_json("/api/runtime/verification-automation")
+    assert_condition(
+        verification_automation["status"] == "ready"
+        and verification_automation["local_automation_status"] == "ready"
+        and "npm run verify" in verification_automation["required_commands"]
+        and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"],
+        "Verification automation contract did not pass.",
+    )
+    print("[verify] ok: verification automation contract")
 
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
@@ -482,7 +494,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

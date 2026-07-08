@@ -131,6 +131,13 @@ def command_center_verification_report(
     return service.verification_report().__dict__
 
 
+@router.get("/verification-automation")
+def command_center_verification_automation(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.verification_automation_contract())
+
+
 @router.post("/verification-report/record")
 def record_command_center_verification_report(
     request: VerificationSnapshotRequest,

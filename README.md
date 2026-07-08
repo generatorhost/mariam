@@ -167,6 +167,12 @@ Frontend visual contracts verify official design tokens, layout contracts, break
 GET /api/runtime/frontend/visual-contract
 ```
 
+Verification automation contracts verify the local `npm run verify` entrypoint, backend tests, frontend build, critical endpoint coverage, and generated review artifacts:
+
+```http
+GET /api/runtime/verification-automation
+```
+
 Runtime diagnostics can be reviewed through:
 
 ```http

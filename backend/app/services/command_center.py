@@ -355,6 +355,22 @@ class FrontendVisualContract:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class VerificationAutomationContract:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    artifact_path: str
+    required_commands: list[str]
+    required_endpoints: list[str]
+    required_artifacts: list[str]
+    local_automation_status: str
+    ci_status: str
+    next_ci_step: str
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -756,10 +772,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=72,
+                completion_percent=74,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, and mission-to-delivery smoke flow.",
-                next_step="Add browser regression screenshots, Docker verification, and CI execution.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, and a reviewable verification automation contract artifact.",
+                next_step="Add browser regression screenshots and CI execution for pull requests.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -1511,6 +1527,7 @@ class CommandCenterSummaryService:
             "Escalate Reviewer Workload",
             "Refresh Frontend Regression",
             "Refresh Visual Contract",
+            "Refresh Verification Automation",
             "Export Diagnostics",
             "Export Completion Report",
             "Export Roadmap",
@@ -1732,6 +1749,141 @@ class CommandCenterSummaryService:
             breakpoint_contracts_checked=breakpoint_contracts_checked,
             missing_breakpoint_contracts=missing_breakpoint_contracts,
             screenshot_targets=screenshot_targets,
+            checks=checks,
+        )
+
+    def verification_automation_contract(self) -> VerificationAutomationContract:
+        root = Path(__file__).resolve().parents[3]
+        package_file = root / "package.json"
+        frontend_package_file = root / "frontend" / "package.json"
+        requirements_file = root / "backend" / "requirements.txt"
+        verification_script = root / "tools" / "verify_project.py"
+        docker_compose_file = root / "docker-compose.yml"
+        ci_workflow_dir = root / ".github" / "workflows"
+        artifact_path = root / "artifacts" / "verification" / "verification-automation-contract.json"
+        package_text = package_file.read_text(encoding="utf-8") if package_file.exists() else ""
+        frontend_package_text = (
+            frontend_package_file.read_text(encoding="utf-8") if frontend_package_file.exists() else ""
+        )
+        verification_text = verification_script.read_text(encoding="utf-8") if verification_script.exists() else ""
+        required_commands = [
+            "npm run verify",
+            "py -3.11 -m pytest",
+            "npm.cmd run build",
+        ]
+        required_endpoints = [
+            "/api/health",
+            "/api/runtime/readiness",
+            "/api/runtime/frontend/regression-snapshot",
+            "/api/runtime/frontend/visual-contract",
+            "/api/runtime/verification-report",
+            "/api/runtime/completion-report",
+            "/api/runtime/implementation-roadmap",
+        ]
+        required_artifacts = [
+            "artifacts/frontend-regression/command-center-regression-snapshot.json",
+            "artifacts/frontend-regression/command-center-visual-contract.json",
+            "artifacts/verification/verification-automation-contract.json",
+        ]
+        missing_commands = []
+        if '"verify"' not in package_text or "tools/verify_project.py" not in package_text:
+            missing_commands.append("npm run verify")
+        if "pytest" not in verification_text:
+            missing_commands.append("py -3.11 -m pytest")
+        if (
+            ("run build" not in verification_text and '"run", "build"' not in verification_text)
+            or '"build"' not in frontend_package_text
+        ):
+            missing_commands.append("npm.cmd run build")
+        missing_endpoints = [
+            endpoint for endpoint in required_endpoints if endpoint not in verification_text
+        ]
+        expected_files = [
+            package_file,
+            frontend_package_file,
+            requirements_file,
+            verification_script,
+            docker_compose_file,
+        ]
+        missing_files = [str(path.relative_to(root)) for path in expected_files if not path.exists()]
+        ci_status = "ready" if ci_workflow_dir.exists() and list(ci_workflow_dir.glob("*.yml")) else "planned"
+        checks = [
+            DataPlatformCheck(
+                name="verification_entrypoint_present",
+                status="ready" if "npm run verify" not in missing_commands else "blocked",
+                detail="Root package.json exposes npm run verify through tools/verify_project.py.",
+            ),
+            DataPlatformCheck(
+                name="backend_tests_included",
+                status="ready" if "py -3.11 -m pytest" not in missing_commands else "blocked",
+                detail="Verification automation runs backend pytest.",
+            ),
+            DataPlatformCheck(
+                name="frontend_build_included",
+                status="ready" if "npm.cmd run build" not in missing_commands else "blocked",
+                detail="Verification automation runs the frontend production build.",
+            ),
+            DataPlatformCheck(
+                name="critical_endpoints_covered",
+                status="ready" if not missing_endpoints else "blocked",
+                detail=(
+                    "Verification automation covers critical runtime endpoints."
+                    if not missing_endpoints
+                    else f"Missing endpoint checks: {', '.join(missing_endpoints)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="verification_inputs_present",
+                status="ready" if not missing_files else "blocked",
+                detail=(
+                    "Verification input files are present."
+                    if not missing_files
+                    else f"Missing verification inputs: {', '.join(missing_files)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="ci_execution_plan",
+                status="ready",
+                detail=(
+                    "CI workflow is present."
+                    if ci_status == "ready"
+                    else "CI workflow is not present yet; local verification is authoritative until CI is added."
+                ),
+            ),
+        ]
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        local_automation_status = "ready" if all(
+            check.status == "ready" for check in checks if check.name != "ci_execution_plan"
+        ) else "blocked"
+        status = "ready" if local_automation_status == "ready" else "blocked"
+        generated_at = datetime.now(UTC).isoformat()
+        payload = {
+            "title": "Mariam Verification Automation Contract",
+            "status": status,
+            "generated_at": generated_at,
+            "data_platform": "DB MARIAM",
+            "artifact_path": str(artifact_path),
+            "required_commands": required_commands,
+            "required_endpoints": required_endpoints,
+            "required_artifacts": required_artifacts,
+            "local_automation_status": local_automation_status,
+            "ci_status": ci_status,
+            "next_ci_step": "Add GitHub Actions workflow that runs npm run verify on pull requests.",
+            "checks": [check.__dict__ for check in checks],
+        }
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return VerificationAutomationContract(
+            title=str(payload["title"]),
+            status=status,
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            artifact_path=str(artifact_path),
+            required_commands=required_commands,
+            required_endpoints=required_endpoints,
+            required_artifacts=required_artifacts,
+            local_automation_status=local_automation_status,
+            ci_status=ci_status,
+            next_ci_step=str(payload["next_ci_step"]),
             checks=checks,
         )
 

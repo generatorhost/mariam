@@ -206,6 +206,10 @@ async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
 
+async function loadVerificationAutomation() {
+  return apiGet('/api/runtime/verification-automation');
+}
+
 async function recordVerificationSnapshot() {
   return apiRequest('/api/runtime/verification-report/record', {
     actor_id: 'command-center-verifier',
@@ -2837,6 +2841,70 @@ function VerificationReportPanel({ refreshVersion }) {
   );
 }
 
+function VerificationAutomationPanel({ refreshVersion }) {
+  const [contract, setContract] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshAutomation = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setContract(await loadVerificationAutomation());
+      setStatus('ready');
+    } catch (automationError) {
+      setStatus('error');
+      setError(automationError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshAutomation();
+  }, [refreshAutomation, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Verification Automation Contract</h2>
+        <p>Review local verification coverage, CI status, commands, endpoints, and generated evidence.</p>
+      </div>
+      <button onClick={refreshAutomation} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Verification Automation'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {contract && (
+        <>
+          <div className="mission-result">
+            <strong>{contract.status}</strong>
+            <span>{contract.data_platform}</span>
+            <p>{contract.artifact_path}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{contract.local_automation_status}</strong><span>Local Automation</span></div>
+            <div><strong>{contract.ci_status}</strong><span>CI Status</span></div>
+            <div><strong>{contract.required_commands.length}</strong><span>Commands</span></div>
+            <div><strong>{contract.required_endpoints.length}</strong><span>Endpoints</span></div>
+          </div>
+          <div className="terms">
+            {contract.required_commands.map((command) => (
+              <span key={command}>{command}</span>
+            ))}
+          </div>
+          <div className="mission-history">
+            {contract.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function RuntimeDiagnosticsPanel({ refreshVersion }) {
   const [diagnostics, setDiagnostics] = useState(null);
   const [exportPackage, setExportPackage] = useState(null);
@@ -3783,6 +3851,7 @@ function App() {
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
           <FrontendVisualContractPanel refreshVersion={refreshVersion} />
           <VerificationReportPanel refreshVersion={refreshVersion} />
+          <VerificationAutomationPanel refreshVersion={refreshVersion} />
           <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
           <UsageGuidePanel refreshVersion={refreshVersion} />
           <CompletionReportPanel refreshVersion={refreshVersion} />
