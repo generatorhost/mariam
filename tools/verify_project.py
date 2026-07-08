@@ -119,6 +119,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
             "artifacts/frontend-regression/command-center-export-button-click-smoke.json",
             "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json",
+            "artifacts/frontend-regression/command-center-responsive-navigation-smoke.json",
             "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
             "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
             "artifacts/frontend-regression/desktop-command-center.png",
@@ -238,6 +239,29 @@ def verify_command_center_keyboard_focus_smoke() -> None:
     print("[verify] ok: command center keyboard focus smoke")
 
 
+def verify_command_center_responsive_navigation_smoke() -> None:
+    run_command(["node", "tools/verify_command_center_responsive_navigation_smoke.mjs"], ROOT)
+    report_path = (
+        ROOT
+        / "artifacts"
+        / "frontend-regression"
+        / "command-center-responsive-navigation-smoke.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        report["status"] == "ready"
+        and report["data_platform"] == "DB MARIAM"
+        and report["checks"]["tablet_navigation_ready"] is True
+        and report["checks"]["mobile_navigation_ready"] is True
+        and report["checks"]["all_viewports_update_hash"] is True
+        and report["checks"]["all_viewports_persist_active_section"] is True
+        and report["checks"]["all_viewports_show_db_mariam"] is True
+        and report["checks"]["no_browser_console_errors"] is True,
+        "Command Center responsive navigation smoke did not pass.",
+    )
+    print("[verify] ok: command center responsive navigation smoke")
+
+
 def verify_ci_artifact_replay() -> None:
     run_command([sys.executable, "tools/verify_ci_artifact_replay.py"], ROOT)
     report_path = ROOT / "artifacts" / "ci-artifact-replay" / "ci-artifact-replay-report.json"
@@ -248,6 +272,7 @@ def verify_ci_artifact_replay() -> None:
         and report["checks"]["json_artifacts_replayed"] is True
         and report["checks"]["png_artifacts_replayed"] is True
         and report["checks"]["keyboard_focus_smoke_replayed"] is True
+        and report["checks"]["responsive_navigation_smoke_replayed"] is True
         and report["checks"]["db_mariam_preserved"] is True,
         "CI frontend artifact replay did not pass.",
     )
@@ -844,6 +869,7 @@ def verify_api_smoke_flow() -> None:
     verify_delivery_governance_export_visual()
     verify_command_center_export_click_smoke()
     verify_command_center_keyboard_focus_smoke()
+    verify_command_center_responsive_navigation_smoke()
     verify_ci_artifact_replay()
     frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
     assert_condition(
@@ -912,6 +938,8 @@ def verify_api_smoke_flow() -> None:
         and "node tools/verify_command_center_export_click_smoke.mjs"
         in verification_automation["required_commands"]
         and "node tools/verify_command_center_keyboard_focus_smoke.mjs"
+        in verification_automation["required_commands"]
+        and "node tools/verify_command_center_responsive_navigation_smoke.mjs"
         in verification_automation["required_commands"]
         and "py -3.11 tools/verify_ci_artifact_replay.py"
         in verification_automation["required_commands"]
@@ -1008,6 +1036,11 @@ def verify_api_smoke_flow() -> None:
             and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
+        and any(
+            check["name"] == "command_center_responsive_navigation_smoke_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
         and isinstance(verification_automation["persisted_verification_runs"], list)
         and "artifacts/verification/local-verification-runs.json"
@@ -1019,6 +1052,8 @@ def verify_api_smoke_flow() -> None:
         and "artifacts/frontend-regression/command-center-export-button-click-smoke.json"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json"
+        in verification_automation["required_artifacts"]
+        and "artifacts/frontend-regression/command-center-responsive-navigation-smoke.json"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png"
         in verification_automation["required_artifacts"]
@@ -1492,7 +1527,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -21,6 +21,7 @@ REQUIRED_JSON = [
     "command-center-delivery-governance-export-visual-smoke.json",
     "command-center-export-button-click-smoke.json",
     "command-center-keyboard-focus-smoke.json",
+    "command-center-responsive-navigation-smoke.json",
 ]
 
 REQUIRED_PNG = [
@@ -76,6 +77,11 @@ def main() -> None:
         "png_artifacts_replayed": not missing_png and not invalid_png,
         "keyboard_focus_smoke_replayed": json_reports.get(
             "command-center-keyboard-focus-smoke.json",
+            {},
+        ).get("status")
+        == "ready",
+        "responsive_navigation_smoke_replayed": json_reports.get(
+            "command-center-responsive-navigation-smoke.json",
             {},
         ).get("status")
         == "ready",
