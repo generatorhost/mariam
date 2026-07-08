@@ -12,18 +12,22 @@ from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.data_records import (
     ArtifactStoreRecord,
+    AuditEventArchiveRecord,
     CapabilityGraphRecord,
     CommunicationRecord,
     DocumentRecord,
+    MetricsStoreRecord,
     VectorIndexRecord,
     WorkflowRecord,
 )
 from app.core.events import InMemoryEventBus
 from app.repositories.data_records import (
     CursorArtifactStoreRecordRepository,
+    CursorAuditEventArchiveRecordRepository,
     CursorCapabilityGraphRecordRepository,
     CursorCommunicationRecordRepository,
     CursorDocumentRecordRepository,
+    CursorMetricsStoreRecordRepository,
     CursorVectorIndexRecordRepository,
     CursorWorkflowRecordRepository,
 )
@@ -360,6 +364,8 @@ class LiveRepositoryWriteStatus:
     capability_graph_record_id: str
     vector_index_record_id: str
     artifact_store_record_id: str
+    audit_event_archive_record_id: str
+    metrics_store_record_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
@@ -373,6 +379,8 @@ class LiveRepositoryWriteStatus:
     capability_graph_record_written: bool
     vector_index_record_written: bool
     artifact_store_record_written: bool
+    audit_event_archive_record_written: bool
+    metrics_store_record_written: bool
     checks: list[DataPlatformCheck]
 
 
@@ -1138,10 +1146,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=88,
+                completion_percent=90,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication, document, workflow, capability graph, vector index, and artifact store records.",
-                next_step="Add repository abstraction classes for audit event archive and metrics store records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, and metrics store records.",
+                next_step="Add repository abstraction classes for logs store and artifact lineage records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1272,6 +1280,8 @@ class CommandCenterSummaryService:
             "capability_graph_records",
             "vector_index_records",
             "artifact_store_records",
+            "audit_event_archive_records",
+            "metrics_store_records",
             "audit_log",
             "reviewer_queue_assignments",
             "governance_sla_escalations",
@@ -1911,6 +1921,10 @@ class CommandCenterSummaryService:
         capability_graph_record_id = str(uuid4())
         vector_index_record_id = str(uuid4())
         artifact_store_record_id = str(uuid4())
+        audit_event_archive_record_id = str(uuid4())
+        metrics_store_record_id = str(uuid4())
+        repository_event_id = str(uuid4())
+        repository_audit_id = str(uuid4())
         generated_at = datetime.now(UTC).isoformat()
         mission_written = False
         artifact_written = False
@@ -1925,6 +1939,8 @@ class CommandCenterSummaryService:
         capability_graph_record_written = False
         vector_index_record_written = False
         artifact_store_record_written = False
+        audit_event_archive_record_written = False
+        metrics_store_record_written = False
         database_error = ""
         try:
             import psycopg
@@ -1939,12 +1955,16 @@ class CommandCenterSummaryService:
                     capability_graph_repository = CursorCapabilityGraphRecordRepository(cursor)
                     vector_index_repository = CursorVectorIndexRecordRepository(cursor)
                     artifact_store_repository = CursorArtifactStoreRecordRepository(cursor)
+                    audit_event_archive_repository = CursorAuditEventArchiveRecordRepository(cursor)
+                    metrics_store_repository = CursorMetricsStoreRecordRepository(cursor)
                     communication_repository.ensure_schema()
                     document_repository.ensure_schema()
                     workflow_repository.ensure_schema()
                     capability_graph_repository.ensure_schema()
                     vector_index_repository.ensure_schema()
                     artifact_store_repository.ensure_schema()
+                    audit_event_archive_repository.ensure_schema()
+                    metrics_store_repository.ensure_schema()
                     cursor.execute(
                         """
                         INSERT INTO plugin_manifests (
@@ -2257,6 +2277,93 @@ class CommandCenterSummaryService:
                         )
                     )
                     cursor.execute(
+                        """
+                        INSERT INTO runtime_events (event_id, name, source, payload, created_at)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            repository_event_id,
+                            "repository_smoke.archived",
+                            "db-mariam-repository-smoke",
+                            Jsonb(
+                                {
+                                    "mission_id": mission_id,
+                                    "artifact_id": artifact_id,
+                                    "verification": "repository-write-smoke",
+                                    "data_platform": "DB MARIAM",
+                                }
+                            ),
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO audit_log (
+                            audit_id,
+                            actor_id,
+                            action,
+                            target_type,
+                            target_id,
+                            decision,
+                            evidence,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            repository_audit_id,
+                            "db-mariam-repository-smoke",
+                            "repository_smoke.archive",
+                            "artifact",
+                            artifact_id,
+                            "archived",
+                            Jsonb(
+                                {
+                                    "mission_id": mission_id,
+                                    "event_id": repository_event_id,
+                                    "verification": "repository-write-smoke",
+                                    "data_platform": "DB MARIAM",
+                                }
+                            ),
+                            datetime.now(UTC),
+                        ),
+                    )
+                    audit_event_archive_repository.save(
+                        AuditEventArchiveRecord(
+                            archive_id=audit_event_archive_record_id,
+                            audit_id=repository_audit_id,
+                            event_id=repository_event_id,
+                            action="repository_smoke.archive",
+                            actor_id="db-mariam-repository-smoke",
+                            target_type="artifact",
+                            target_id=artifact_id,
+                            decision="archived",
+                            archive_reason=(
+                                "Verify DB MARIAM audit/event archive repository persistence."
+                            ),
+                            payload={
+                                "mission_id": mission_id,
+                                "artifact_id": artifact_id,
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
+                    metrics_store_repository.save(
+                        MetricsStoreRecord(
+                            metric_id=metrics_store_record_id,
+                            metric_name="db_mariam.repository_write_smoke.ready_records",
+                            metric_value=1.0,
+                            metric_unit="record",
+                            source="db-mariam-repository-smoke",
+                            dimensions={
+                                "mission_id": mission_id,
+                                "artifact_id": artifact_id,
+                                "plugin_id": "crm",
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
+                    cursor.execute(
                         "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
                         (mission_id, "DB MARIAM"),
                     )
@@ -2319,6 +2426,15 @@ class CommandCenterSummaryService:
                     artifact_store_record_written = artifact_store_repository.exists(
                         artifact_store_record_id,
                         artifact_id,
+                    )
+                    audit_event_archive_record_written = audit_event_archive_repository.exists(
+                        audit_event_archive_record_id,
+                        repository_audit_id,
+                        repository_event_id,
+                    )
+                    metrics_store_record_written = metrics_store_repository.exists(
+                        metrics_store_record_id,
+                        "db_mariam.repository_write_smoke.ready_records",
                     )
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
@@ -2442,6 +2558,24 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="live_audit_event_archive_repository_write",
+                status="ready" if audit_event_archive_record_written else "blocked",
+                detail=(
+                    f"Audit event archive smoke record {audit_event_archive_record_id} was written and read from DB MARIAM."
+                    if audit_event_archive_record_written
+                    else f"Audit event archive repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_metrics_store_repository_write",
+                status="ready" if metrics_store_record_written else "blocked",
+                detail=(
+                    f"Metrics store smoke record {metrics_store_record_id} was written and read from DB MARIAM."
+                    if metrics_store_record_written
+                    else f"Metrics store repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
                 name="repository_write_database_name",
                 status="ready" if "db_mariam" in settings.database_url else "blocked",
                 detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
@@ -2465,6 +2599,8 @@ class CommandCenterSummaryService:
             capability_graph_record_id=capability_graph_record_id,
             vector_index_record_id=vector_index_record_id,
             artifact_store_record_id=artifact_store_record_id,
+            audit_event_archive_record_id=audit_event_archive_record_id,
+            metrics_store_record_id=metrics_store_record_id,
             mission_written=mission_written,
             artifact_written=artifact_written,
             delivery_written=delivery_written,
@@ -2478,6 +2614,8 @@ class CommandCenterSummaryService:
             capability_graph_record_written=capability_graph_record_written,
             vector_index_record_written=vector_index_record_written,
             artifact_store_record_written=artifact_store_record_written,
+            audit_event_archive_record_written=audit_event_archive_record_written,
+            metrics_store_record_written=metrics_store_record_written,
             checks=checks,
         )
 

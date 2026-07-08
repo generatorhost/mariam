@@ -74,3 +74,30 @@ class ArtifactStoreRecord(BaseModel):
     metadata: dict[str, object] = Field(default_factory=dict)
     data_platform: str = "DB MARIAM"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AuditEventArchiveRecord(BaseModel):
+    archive_id: str
+    audit_id: str
+    event_id: str
+    action: str
+    actor_id: str
+    target_type: str
+    target_id: str
+    decision: str
+    archive_reason: str
+    payload: dict[str, object] = Field(default_factory=dict)
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class MetricsStoreRecord(BaseModel):
+    metric_id: str
+    metric_name: str
+    metric_value: float
+    metric_unit: str
+    source: str
+    dimensions: dict[str, object] = Field(default_factory=dict)
+    status: str = "recorded"
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -472,8 +472,10 @@ def verify_api_smoke_flow() -> None:
         and live_repository_write_smoke["capability_graph_record_written"] is True
         and live_repository_write_smoke["vector_index_record_written"] is True
         and live_repository_write_smoke["artifact_store_record_written"] is True
+        and live_repository_write_smoke["audit_event_archive_record_written"] is True
+        and live_repository_write_smoke["metrics_store_record_written"] is True
         and live_repository_write_smoke["data_platform"] == "DB MARIAM",
-        "DB MARIAM live repository write smoke did not write mission/artifact/delivery/plugin/runtime object/AI route/quality review/communication/document/workflow/capability graph/vector index/artifact store records.",
+        "DB MARIAM live repository write smoke did not write mission/artifact/delivery/plugin/runtime object/AI route/quality review/communication/document/workflow/capability graph/vector index/artifact store/audit archive/metrics store records.",
     )
     print("[verify] ok: live repository write smoke")
 
@@ -818,7 +820,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -160,6 +160,8 @@ class LiveRepositoryWriteStatusResponse(BaseModel):
     capability_graph_record_id: str
     vector_index_record_id: str
     artifact_store_record_id: str
+    audit_event_archive_record_id: str
+    metrics_store_record_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
@@ -173,6 +175,8 @@ class LiveRepositoryWriteStatusResponse(BaseModel):
     capability_graph_record_written: bool
     vector_index_record_written: bool
     artifact_store_record_written: bool
+    audit_event_archive_record_written: bool
+    metrics_store_record_written: bool
     checks: list[RuntimeCheckResponse]
 
 

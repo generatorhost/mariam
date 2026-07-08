@@ -3145,7 +3145,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3355,7 +3355,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3382,6 +3382,8 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
         "capability_graph_records",
         "vector_index_records",
         "artifact_store_records",
+        "audit_event_archive_records",
+        "metrics_store_records",
         "reviewer_queue_assignments",
         "governance_sla_escalations",
     }.issubset(set(readiness["expected_tables"]))
@@ -3583,6 +3585,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["capability_graph_record_written"] is True
     assert status["vector_index_record_written"] is True
     assert status["artifact_store_record_written"] is True
+    assert status["audit_event_archive_record_written"] is True
+    assert status["metrics_store_record_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
@@ -3596,6 +3600,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["capability_graph_record_id"]
     assert status["vector_index_record_id"]
     assert status["artifact_store_record_id"]
+    assert status["audit_event_archive_record_id"]
+    assert status["metrics_store_record_id"]
     assert "live_ai_resource_route_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_quality_review_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_communication_record_repository_write" in [check["name"] for check in status["checks"]]
@@ -3604,6 +3610,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert "live_capability_graph_record_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_vector_index_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_store_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_audit_event_archive_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_metrics_store_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
@@ -3844,6 +3852,29 @@ def test_vector_index_and_artifact_store_schema_targets_db_mariam() -> None:
     assert "artifact_id UUID REFERENCES artifacts" in upgrade
 
 
+def test_audit_archive_and_metrics_store_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0011_audit_archive_metrics_store.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS audit_event_archive_records" in migration
+    assert "CREATE TABLE IF NOT EXISTS metrics_store_records" in migration
+    assert "payload JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "dimensions JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "DOUBLE PRECISION" in migration
+    assert "idx_audit_event_archive_records_target_created" in migration
+    assert "idx_metrics_store_records_name_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS audit_event_archive_records" in upgrade
+    assert "CREATE TABLE IF NOT EXISTS metrics_store_records" in upgrade
+    assert "event_id UUID REFERENCES runtime_events" in upgrade
+
+
 def test_data_record_repositories_are_explicit_abstractions() -> None:
     root = Path(__file__).resolve().parents[2]
     backend_root = root / "backend"
@@ -3861,24 +3892,32 @@ def test_data_record_repositories_are_explicit_abstractions() -> None:
     assert "class CapabilityGraphRecordRepository" in repository_source
     assert "class VectorIndexRecordRepository" in repository_source
     assert "class ArtifactStoreRecordRepository" in repository_source
+    assert "class AuditEventArchiveRecordRepository" in repository_source
+    assert "class MetricsStoreRecordRepository" in repository_source
     assert "class CursorCommunicationRecordRepository" in repository_source
     assert "class CursorDocumentRecordRepository" in repository_source
     assert "class CursorWorkflowRecordRepository" in repository_source
     assert "class CursorCapabilityGraphRecordRepository" in repository_source
     assert "class CursorVectorIndexRecordRepository" in repository_source
     assert "class CursorArtifactStoreRecordRepository" in repository_source
+    assert "class CursorAuditEventArchiveRecordRepository" in repository_source
+    assert "class CursorMetricsStoreRecordRepository" in repository_source
     assert "class CommunicationRecord" in core_source
     assert "class DocumentRecord" in core_source
     assert "class WorkflowRecord" in core_source
     assert "class CapabilityGraphRecord" in core_source
     assert "class VectorIndexRecord" in core_source
     assert "class ArtifactStoreRecord" in core_source
+    assert "class AuditEventArchiveRecord" in core_source
+    assert "class MetricsStoreRecord" in core_source
     assert "CursorCommunicationRecordRepository(cursor)" in command_center_source
     assert "CursorDocumentRecordRepository(cursor)" in command_center_source
     assert "CursorWorkflowRecordRepository(cursor)" in command_center_source
     assert "CursorCapabilityGraphRecordRepository(cursor)" in command_center_source
     assert "CursorVectorIndexRecordRepository(cursor)" in command_center_source
     assert "CursorArtifactStoreRecordRepository(cursor)" in command_center_source
+    assert "CursorAuditEventArchiveRecordRepository(cursor)" in command_center_source
+    assert "CursorMetricsStoreRecordRepository(cursor)" in command_center_source
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:

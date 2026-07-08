@@ -2,9 +2,11 @@ from typing import Protocol
 
 from app.core.data_records import (
     ArtifactStoreRecord,
+    AuditEventArchiveRecord,
     CapabilityGraphRecord,
     CommunicationRecord,
     DocumentRecord,
+    MetricsStoreRecord,
     VectorIndexRecord,
     WorkflowRecord,
 )
@@ -73,6 +75,28 @@ class ArtifactStoreRecordRepository(Protocol):
         pass
 
     def exists(self, store_id: str, artifact_id: str, status: str = "stored") -> bool:
+        pass
+
+
+class AuditEventArchiveRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: AuditEventArchiveRecord) -> AuditEventArchiveRecord:
+        pass
+
+    def exists(self, archive_id: str, audit_id: str, event_id: str) -> bool:
+        pass
+
+
+class MetricsStoreRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: MetricsStoreRecord) -> MetricsStoreRecord:
+        pass
+
+    def exists(self, metric_id: str, metric_name: str, status: str = "recorded") -> bool:
         pass
 
 
@@ -465,5 +489,144 @@ class CursorArtifactStoreRecordRepository:
             WHERE store_id = %s AND artifact_id = %s AND data_platform = %s AND status = %s
             """,
             (store_id, artifact_id, "DB MARIAM", status),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorAuditEventArchiveRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS audit_event_archive_records (
+                archive_id UUID PRIMARY KEY,
+                audit_id UUID REFERENCES audit_log (audit_id) ON DELETE SET NULL,
+                event_id UUID REFERENCES runtime_events (event_id) ON DELETE SET NULL,
+                action TEXT NOT NULL,
+                actor_id TEXT NOT NULL,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                archive_reason TEXT NOT NULL,
+                payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: AuditEventArchiveRecord) -> AuditEventArchiveRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO audit_event_archive_records (
+                archive_id,
+                audit_id,
+                event_id,
+                action,
+                actor_id,
+                target_type,
+                target_id,
+                decision,
+                archive_reason,
+                payload,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.archive_id,
+                record.audit_id,
+                record.event_id,
+                record.action,
+                record.actor_id,
+                record.target_type,
+                record.target_id,
+                record.decision,
+                record.archive_reason,
+                Jsonb(record.payload),
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, archive_id: str, audit_id: str, event_id: str) -> bool:
+        self._cursor.execute(
+            """
+            SELECT archive_id
+            FROM audit_event_archive_records
+            WHERE archive_id = %s AND audit_id = %s AND event_id = %s AND data_platform = %s
+            """,
+            (archive_id, audit_id, event_id, "DB MARIAM"),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorMetricsStoreRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS metrics_store_records (
+                metric_id UUID PRIMARY KEY,
+                metric_name TEXT NOT NULL,
+                metric_value DOUBLE PRECISION NOT NULL,
+                metric_unit TEXT NOT NULL,
+                source TEXT NOT NULL,
+                dimensions JSONB NOT NULL DEFAULT '{}'::jsonb,
+                status TEXT NOT NULL,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: MetricsStoreRecord) -> MetricsStoreRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO metrics_store_records (
+                metric_id,
+                metric_name,
+                metric_value,
+                metric_unit,
+                source,
+                dimensions,
+                status,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.metric_id,
+                record.metric_name,
+                record.metric_value,
+                record.metric_unit,
+                record.source,
+                Jsonb(record.dimensions),
+                record.status,
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, metric_id: str, metric_name: str, status: str = "recorded") -> bool:
+        self._cursor.execute(
+            """
+            SELECT metric_id
+            FROM metrics_store_records
+            WHERE metric_id = %s AND metric_name = %s AND data_platform = %s AND status = %s
+            """,
+            (metric_id, metric_name, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
