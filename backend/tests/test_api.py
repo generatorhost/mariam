@@ -2993,7 +2993,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3134,7 +3134,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3154,6 +3154,7 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
     assert {"missions", "artifacts", "delivery_packages", "audit_log"}.issubset(
         set(readiness["expected_tables"])
     )
+    assert {"communication_records", "document_records"}.issubset(set(readiness["expected_tables"]))
     assert all(check["status"] == "ready" for check in readiness["checks"])
 
 
@@ -3346,6 +3347,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["runtime_object_written"] is True
     assert status["ai_resource_route_written"] is True
     assert status["quality_review_written"] is True
+    assert status["communication_record_written"] is True
+    assert status["document_record_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
@@ -3353,8 +3356,12 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["runtime_object_id"]
     assert status["ai_resource_route_id"]
     assert status["quality_review_id"]
+    assert status["communication_record_id"]
+    assert status["document_record_id"]
     assert "live_ai_resource_route_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_quality_review_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_communication_record_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_document_record_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
@@ -3525,6 +3532,28 @@ def test_artifact_quality_review_schema_targets_db_mariam() -> None:
     assert "idx_artifact_quality_reviews_artifact_created" in migration
     assert "CREATE TABLE IF NOT EXISTS artifact_quality_reviews" in quality_upgrade
     assert "artifact_id UUID NOT NULL REFERENCES artifacts" in quality_upgrade
+
+
+def test_communication_and_document_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0007_communication_document_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS communication_records" in migration
+    assert "CREATE TABLE IF NOT EXISTS document_records" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "metadata JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "idx_communication_records_channel_created" in migration
+    assert "idx_document_records_type_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS communication_records" in upgrade
+    assert "CREATE TABLE IF NOT EXISTS document_records" in upgrade
+    assert "artifact_id UUID REFERENCES artifacts" in upgrade
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:
