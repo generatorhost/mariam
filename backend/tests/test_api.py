@@ -2485,6 +2485,23 @@ def test_data_platform_migration_runner_can_be_exported_for_review() -> None:
     )
 
 
+def test_data_platform_seed_data_status_reports_non_secret_seed_manifest() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/data-platform/seed-data")
+
+    assert response.status_code == 200
+    status = response.json()
+    assert status["title"] == "DB MARIAM Seed Data Status"
+    assert status["status"] == "ready"
+    assert status["data_platform"] == "DB MARIAM"
+    assert status["seed_id"] == "db-mariam-core-seed-v1"
+    assert status["contains_secrets"] is False
+    assert status["item_count"] >= 3
+    assert "plugin_manifests" in status["target_tables"]
+    assert all(check["status"] == "ready" for check in status["checks"])
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

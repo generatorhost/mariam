@@ -1,0 +1,32 @@
+{
+  "seed_id": "db-mariam-core-seed-v1",
+  "data_platform": "DB MARIAM",
+  "version": "0.1.0",
+  "status": "ready_for_review",
+  "description": "Initial non-secret seed manifest for local and Docker review of Mariam executable rebuild foundations.",
+  "items": [
+    {
+      "type": "plugin_manifest",
+      "source": "plugins/crm/manifest.json",
+      "target_table": "plugin_manifests",
+      "purpose": "Seed the CRM Workspace as the first Plugin-managed Business Unit."
+    },
+    {
+      "type": "runtime_object_policy",
+      "source": "architecture-library-pointer",
+      "target_table": "runtime_objects",
+      "purpose": "Reserve governed runtime object boundaries for providers, connectors, tools, and services."
+    },
+    {
+      "type": "audit_policy",
+      "source": "command-center",
+      "target_table": "audit_log",
+      "purpose": "Ensure first-run actions write governance evidence to DB MARIAM."
+    }
+  ],
+  "security": {
+    "contains_secrets": false,
+    "allowed_in_repository": true,
+    "notes": "This file contains seed metadata only. It must not contain passwords, tokens, private keys, or runtime data."
+  }
+}

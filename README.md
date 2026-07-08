@@ -91,6 +91,12 @@ Migration runner status can also be exported as a JSON review package:
 POST /api/runtime/data-platform/migration-runner/export
 ```
 
+Seed data status verifies the initial non-secret DB MARIAM seed manifest before first-run setup:
+
+```http
+GET /api/runtime/data-platform/seed-data
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

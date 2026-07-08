@@ -61,6 +61,13 @@ def export_command_center_data_platform_migration_runner(
     return {"export_package": asdict(service.export_migration_runner_status())}
 
 
+@router.get("/data-platform/seed-data")
+def command_center_data_platform_seed_data(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.seed_data_status())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

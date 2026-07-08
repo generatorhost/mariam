@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -224,6 +225,20 @@ class MigrationRunnerExportPackage:
     package_manifest: dict[str, object]
     migration_runner: MigrationRunnerStatus
     data_platform: str = "DB MARIAM"
+
+
+@dataclass
+class SeedDataStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    seed_id: str
+    seed_file: str
+    item_count: int
+    target_tables: list[str]
+    contains_secrets: bool
+    checks: list[DataPlatformCheck]
 
 
 class CommandCenterSummaryService:
@@ -559,10 +574,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=60,
+                completion_percent=62,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness and migration runner status are exposed by API, and local development still supports in-memory fallback.",
-                next_step="Add seed data, backup checks, and per-plugin schema isolation.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, and non-secret seed data status are exposed by API.",
+                next_step="Add backup checks and per-plugin schema isolation.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -625,6 +640,7 @@ class CommandCenterSummaryService:
             "Frontend Command Center": "medium",
             "Verification automation": "medium",
         }
+        priority_rank = {"high": 0, "medium": 1, "low": 2}
         items = [
             ImplementationRoadmapItem(
                 area=area.name,
@@ -633,7 +649,14 @@ class CommandCenterSummaryService:
                 next_step=area.next_step,
                 acceptance_signal=f"{area.name} reaches a verified executable state above {area.completion_percent}%.",
             )
-            for area in sorted(report.areas, key=lambda item: item.completion_percent)
+            for area in sorted(
+                report.areas,
+                key=lambda item: (
+                    item.completion_percent,
+                    priority_rank.get(priority_order.get(item.name, "medium"), 1),
+                    item.name,
+                ),
+            )
         ]
         return ImplementationRoadmap(
             title="Mariam Next Implementation Roadmap",
@@ -833,4 +856,52 @@ class CommandCenterSummaryService:
                 "requires_governance_review_before_execution": True,
             },
             migration_runner=runner_status,
+        )
+
+    def seed_data_status(self) -> SeedDataStatus:
+        seed_file = Path(__file__).resolve().parents[3] / "database" / "seeds" / "core_seed_manifest.json"
+        seed_payload = json.loads(seed_file.read_text(encoding="utf-8")) if seed_file.exists() else {}
+        items = list(seed_payload.get("items", []))
+        target_tables = sorted({str(item.get("target_table", "")) for item in items if item.get("target_table")})
+        contains_secrets = bool(seed_payload.get("security", {}).get("contains_secrets", True))
+        checks = [
+            DataPlatformCheck(
+                name="seed_file_present",
+                status="ready" if seed_file.exists() else "blocked",
+                detail=f"Seed manifest path: {seed_file}.",
+            ),
+            DataPlatformCheck(
+                name="seed_data_platform",
+                status="ready" if seed_payload.get("data_platform") == "DB MARIAM" else "blocked",
+                detail="Seed manifest is scoped to DB MARIAM.",
+            ),
+            DataPlatformCheck(
+                name="seed_items",
+                status="ready" if items else "blocked",
+                detail=f"{len(items)} seed items declared.",
+            ),
+            DataPlatformCheck(
+                name="no_secrets",
+                status="ready" if contains_secrets is False else "blocked",
+                detail="Seed manifest declares that it contains no secrets.",
+            ),
+            DataPlatformCheck(
+                name="crm_plugin_seed",
+                status="ready"
+                if any(item.get("source") == "plugins/crm/manifest.json" for item in items)
+                else "blocked",
+                detail="CRM plugin manifest is declared as an initial seed source.",
+            ),
+        ]
+        return SeedDataStatus(
+            title="DB MARIAM Seed Data Status",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            seed_id=str(seed_payload.get("seed_id", "")),
+            seed_file=str(seed_file),
+            item_count=len(items),
+            target_tables=target_tables,
+            contains_secrets=contains_secrets,
+            checks=checks,
         )

@@ -95,6 +95,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/readiness",
         "/api/runtime/data-platform/readiness",
         "/api/runtime/data-platform/migration-runner",
+        "/api/runtime/data-platform/seed-data",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -177,6 +178,13 @@ def verify_api_smoke_flow() -> None:
         "DB MARIAM migration runner export did not preserve migration count.",
     )
     print("[verify] ok: migration runner export")
+
+    seed_data_status = request_json("/api/runtime/data-platform/seed-data")
+    assert_condition(
+        seed_data_status["status"] == "ready" and seed_data_status["contains_secrets"] is False,
+        "DB MARIAM seed data status did not pass.",
+    )
+    print("[verify] ok: seed data status")
 
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
