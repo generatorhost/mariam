@@ -133,6 +133,12 @@ The implementation roadmap turns completion gaps into prioritized next build ste
 GET /api/runtime/implementation-roadmap
 ```
 
+The implementation roadmap can be exported as a JSON review package:
+
+```http
+POST /api/runtime/implementation-roadmap/export
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

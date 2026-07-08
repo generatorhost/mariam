@@ -157,6 +157,17 @@ class ImplementationRoadmap:
     operating_rule: str
 
 
+@dataclass
+class ImplementationRoadmapExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    roadmap: ImplementationRoadmap
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -577,4 +588,23 @@ class CommandCenterSummaryService:
                 "Work on the lowest-completion high-impact area first, verify with automated tests, "
                 "then update the completion report before moving to the next area."
             ),
+        )
+
+    def export_implementation_roadmap(self) -> ImplementationRoadmapExportPackage:
+        roadmap = self.implementation_roadmap()
+        return ImplementationRoadmapExportPackage(
+            export_id=f"implementation-roadmap-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": roadmap.title,
+                "version": roadmap.version,
+                "roadmap_status": roadmap.status,
+                "item_count": len(roadmap.items),
+                "first_priority_area": roadmap.items[0].area if roadmap.items else None,
+                "data_platform": roadmap.data_platform,
+                "requires_governance_review_before_execution": True,
+            },
+            roadmap=roadmap,
         )

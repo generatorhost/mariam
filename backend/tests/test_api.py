@@ -2396,6 +2396,22 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
 
+def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/implementation-roadmap/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("implementation-roadmap-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

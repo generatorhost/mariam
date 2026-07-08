@@ -90,6 +90,10 @@ async function loadImplementationRoadmap() {
   return apiGet('/api/runtime/implementation-roadmap');
 }
 
+async function exportImplementationRoadmap() {
+  return apiRequest('/api/runtime/implementation-roadmap/export', {});
+}
+
 async function exportCompletionReport() {
   return apiRequest('/api/runtime/completion-report/export', {});
 }
@@ -2027,6 +2031,7 @@ function CompletionReportPanel({ refreshVersion }) {
 
 function ImplementationRoadmapPanel({ refreshVersion }) {
   const [roadmap, setRoadmap] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -2046,6 +2051,19 @@ function ImplementationRoadmapPanel({ refreshVersion }) {
     refreshRoadmap();
   }, [refreshRoadmap, refreshVersion]);
 
+  async function handleRoadmapExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportImplementationRoadmap();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (roadmapError) {
+      setStatus('error');
+      setError(roadmapError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -2055,7 +2073,17 @@ function ImplementationRoadmapPanel({ refreshVersion }) {
       <button onClick={refreshRoadmap} disabled={status === 'loading'}>
         {status === 'loading' ? 'Loading...' : 'Refresh Roadmap'}
       </button>
+      <button onClick={handleRoadmapExport} disabled={status === 'loading' || !roadmap}>
+        Export Roadmap
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>Roadmap Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>{exportPackage.status} / {exportPackage.package_manifest.item_count} items</p>
+        </div>
+      )}
       {roadmap && (
         <>
           <div className="mission-result">

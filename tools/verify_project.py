@@ -177,6 +177,18 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: implementation roadmap")
 
+    implementation_roadmap_export = request_json(
+        "/api/runtime/implementation-roadmap/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        implementation_roadmap_export["package_manifest"]["item_count"]
+        == len(implementation_roadmap["items"]),
+        "Implementation roadmap export package did not preserve the item count.",
+    )
+    print("[verify] ok: implementation roadmap export")
+
     print("[verify] checking mission to delivery flow")
     mission = request_json(
         "/api/missions",
