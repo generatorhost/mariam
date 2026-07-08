@@ -283,8 +283,16 @@ async function loadAuditEventArchiveRecords() {
   return apiGet('/api/runtime/data-platform/audit-event-archive');
 }
 
+async function exportAuditEventArchiveRecords() {
+  return apiRequest('/api/runtime/data-platform/audit-event-archive/export', {});
+}
+
 async function loadMetricsStoreRecords() {
   return apiGet('/api/runtime/data-platform/metrics-store');
+}
+
+async function exportMetricsStoreRecords() {
+  return apiRequest('/api/runtime/data-platform/metrics-store/export', {});
 }
 
 async function loadFrontendRegressionSnapshot() {
@@ -2979,13 +2987,18 @@ function DataPlatformEvidenceStorePanel({
   description,
   refreshLabel,
   loadRecords,
+  exportRecords,
   recordKey,
   renderRecord,
+  exportSummaryLabel,
   refreshVersion,
 }) {
   const [storeStatus, setStoreStatus] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
+  const [exportStatus, setExportStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [exportError, setExportError] = useState('');
 
   const refreshStore = useCallback(async () => {
     setStatus('loading');
@@ -2998,6 +3011,19 @@ function DataPlatformEvidenceStorePanel({
       setError(storeError.message);
     }
   }, [loadRecords]);
+
+  const exportStore = useCallback(async () => {
+    setExportStatus('loading');
+    setExportError('');
+    try {
+      const body = await exportRecords();
+      setExportPackage(body.export_package);
+      setExportStatus('ready');
+    } catch (storeExportError) {
+      setExportStatus('error');
+      setExportError(storeExportError.message);
+    }
+  }, [exportRecords]);
 
   useEffect(() => {
     refreshStore();
@@ -3012,7 +3038,11 @@ function DataPlatformEvidenceStorePanel({
       <button onClick={refreshStore} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : refreshLabel}
       </button>
+      <button onClick={exportStore} disabled={exportStatus === 'loading'}>
+        {exportStatus === 'loading' ? 'Exporting...' : exportSummaryLabel}
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportError && <p className="error">{exportError}</p>}
       {storeStatus && (
         <>
           <div className="mission-result">
@@ -3036,6 +3066,15 @@ function DataPlatformEvidenceStorePanel({
               </article>
             ))}
           </div>
+          {exportPackage && (
+            <div className="mission-result">
+              <strong>{exportPackage.export_id}</strong>
+              <span>{exportPackage.status}</span>
+              <p>
+                {exportPackage.package_manifest.record_count} records / {exportPackage.data_platform}
+              </p>
+            </div>
+          )}
         </>
       )}
     </section>
@@ -3049,7 +3088,9 @@ function AuditEventArchivePanel({ refreshVersion }) {
       description="Read recent governed audit/event archive records from DB MARIAM."
       refreshLabel="Refresh Audit Event Archive"
       loadRecords={loadAuditEventArchiveRecords}
+      exportRecords={exportAuditEventArchiveRecords}
       recordKey="archive_id"
+      exportSummaryLabel="Export Audit Event Archive Evidence"
       refreshVersion={refreshVersion}
       renderRecord={(record) => (
         <>
@@ -3070,7 +3111,9 @@ function MetricsStorePanel({ refreshVersion }) {
       description="Read recent operational metric records from DB MARIAM."
       refreshLabel="Refresh Metrics Store"
       loadRecords={loadMetricsStoreRecords}
+      exportRecords={exportMetricsStoreRecords}
       recordKey="metric_id"
+      exportSummaryLabel="Export Metrics Store Evidence"
       refreshVersion={refreshVersion}
       renderRecord={(record) => (
         <>

@@ -256,6 +256,28 @@ class MigrationRunnerExportPackage:
 
 
 @dataclass
+class AuditEventArchiveExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    audit_event_archive: "AuditEventArchiveReadStatus"
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
+class MetricsStoreExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    metrics_store: "MetricsStoreReadStatus"
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
 class SeedDataStatus:
     title: str
     status: str
@@ -694,7 +716,9 @@ class CommandCenterSummaryService:
                 "/api/runtime/data-platform/live-write-smoke",
                 "/api/runtime/data-platform/logs-store",
                 "/api/runtime/data-platform/audit-event-archive",
+                "/api/runtime/data-platform/audit-event-archive/export",
                 "/api/runtime/data-platform/metrics-store",
+                "/api/runtime/data-platform/metrics-store/export",
                 "/api/runtime/data-platform/artifact-lineage",
                 "/api/runtime/delivery-evidence-report/export",
                 "/api/plugins",
@@ -883,6 +907,26 @@ class CommandCenterSummaryService:
                     data_platform_effect="Confirms live persistence for audit_log and runtime_events without exposing secrets.",
                     result="The user sees generated audit and event ids with ready status.",
                     verification_signal="verify_project.py runs the live write smoke after Docker container verification.",
+                ),
+                UsageGuideStep(
+                    action="Export audit event archive evidence",
+                    frontend_control="Export Audit Event Archive Evidence",
+                    api_endpoint="POST /api/runtime/data-platform/audit-event-archive/export",
+                    backend_handler="export_command_center_data_platform_audit_event_archive",
+                    service_effect="Builds a review-ready package from the recent DB MARIAM audit event archive records.",
+                    data_platform_effect="Reads audit_event_archive_records and preserves record count, checks, and no-secret metadata.",
+                    result="The user sees an audit event archive export id with ready_for_review status.",
+                    verification_signal="Backend tests and verify_project.py assert the export manifest and archived record ids.",
+                ),
+                UsageGuideStep(
+                    action="Export metrics store evidence",
+                    frontend_control="Export Metrics Store Evidence",
+                    api_endpoint="POST /api/runtime/data-platform/metrics-store/export",
+                    backend_handler="export_command_center_data_platform_metrics_store",
+                    service_effect="Builds a review-ready package from recent DB MARIAM operational metric records.",
+                    data_platform_effect="Reads metrics_store_records and preserves record count, checks, and no-secret metadata.",
+                    result="The user sees a metrics store export id with ready_for_review status.",
+                    verification_signal="Backend tests and verify_project.py assert the export manifest and metric record ids.",
                 ),
                 UsageGuideStep(
                     action="Create governed mission",
@@ -1263,10 +1307,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=93,
+                completion_percent=94,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, plus read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records.",
-                next_step="Add export packages for DB MARIAM metrics store and audit event archive evidence.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for audit event archive and metrics store evidence.",
+                next_step="Add export packages for logs store and artifact lineage evidence.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -2894,6 +2938,25 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def export_audit_event_archive(self) -> AuditEventArchiveExportPackage:
+        archive_status = self.audit_event_archive_read_status()
+        return AuditEventArchiveExportPackage(
+            export_id=f"audit-event-archive-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": archive_status.title,
+                "archive_status": archive_status.status,
+                "record_count": archive_status.record_count,
+                "check_count": len(archive_status.checks),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": archive_status.data_platform,
+            },
+            audit_event_archive=archive_status,
+        )
+
     def metrics_store_read_status(self) -> MetricsStoreReadStatus:
         settings = get_settings()
         records: list[dict[str, object]] = []
@@ -2936,6 +2999,25 @@ class CommandCenterSummaryService:
             record_count=len(records),
             records=records,
             checks=checks,
+        )
+
+    def export_metrics_store(self) -> MetricsStoreExportPackage:
+        metrics_status = self.metrics_store_read_status()
+        return MetricsStoreExportPackage(
+            export_id=f"metrics-store-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": metrics_status.title,
+                "metrics_status": metrics_status.status,
+                "record_count": metrics_status.record_count,
+                "check_count": len(metrics_status.checks),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": metrics_status.data_platform,
+            },
+            metrics_store=metrics_status,
         )
 
     def artifact_lineage_read_status(self) -> ArtifactLineageReadStatus:
@@ -3009,7 +3091,9 @@ class CommandCenterSummaryService:
             "Run DB MARIAM Write Smoke",
             "Run Repository Write Smoke",
             "Refresh Audit Event Archive",
+            "Export Audit Event Archive Evidence",
             "Refresh Metrics Store",
+            "Export Metrics Store Evidence",
             "Refresh Delivery Evidence",
             "Export Delivery Governance Evidence",
             "Open Live Plugin Workspace",
@@ -3567,7 +3651,9 @@ class CommandCenterSummaryService:
             "/api/runtime/delivery-evidence-report/export",
             "/api/runtime/data-platform/logs-store",
             "/api/runtime/data-platform/audit-event-archive",
+            "/api/runtime/data-platform/audit-event-archive/export",
             "/api/runtime/data-platform/metrics-store",
+            "/api/runtime/data-platform/metrics-store/export",
             "/api/runtime/data-platform/artifact-lineage",
             "/api/audit/governance-assignment-history",
             "/api/runtime/verification-report",

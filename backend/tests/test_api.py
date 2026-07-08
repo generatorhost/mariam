@@ -3308,9 +3308,19 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/AuditEventArchiveReadStatusResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/data-platform/audit-event-archive/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/AuditEventArchiveExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/data-platform/metrics-store"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/MetricsStoreReadStatusResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/data-platform/metrics-store/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/MetricsStoreExportResponse"
     )
     assert (
         openapi["paths"]["/api/runtime/data-platform/artifact-lineage"]["get"]["responses"]["200"]
@@ -3375,6 +3385,10 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "LiveDatabaseWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LiveRepositoryWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LogsStoreReadStatusResponse" in openapi["components"]["schemas"]
+    assert "AuditEventArchiveReadStatusResponse" in openapi["components"]["schemas"]
+    assert "AuditEventArchiveExportResponse" in openapi["components"]["schemas"]
+    assert "MetricsStoreReadStatusResponse" in openapi["components"]["schemas"]
+    assert "MetricsStoreExportResponse" in openapi["components"]["schemas"]
     assert "ArtifactLineageReadStatusResponse" in openapi["components"]["schemas"]
     assert "DeliveryEvidenceExportResponse" in openapi["components"]["schemas"]
     live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
@@ -3417,7 +3431,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3439,7 +3453,9 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
     assert "Run Repository Write Smoke" in snapshot["controls_checked"]
     assert "Refresh Audit Event Archive" in snapshot["controls_checked"]
+    assert "Export Audit Event Archive Evidence" in snapshot["controls_checked"]
     assert "Refresh Metrics Store" in snapshot["controls_checked"]
+    assert "Export Metrics Store Evidence" in snapshot["controls_checked"]
     assert "Refresh Reviewer Workload" in snapshot["controls_checked"]
     assert "Refresh Governance SLA" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
@@ -3702,7 +3718,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -4051,6 +4067,45 @@ def test_data_platform_evidence_store_read_apis_return_recent_records() -> None:
     assert lineage_record["mission_id"] == smoke["mission_id"]
     assert lineage_record["lineage_metadata"]["verification"] == "repository-write-smoke"
     assert all(check["status"] == "ready" for check in lineage_status["checks"])
+
+
+def test_data_platform_audit_archive_and_metrics_store_can_be_exported_for_review() -> None:
+    client = TestClient(create_app())
+
+    smoke_response = client.post("/api/runtime/data-platform/live-repository-write-smoke")
+    smoke = smoke_response.json()
+
+    audit_export_response = client.post("/api/runtime/data-platform/audit-event-archive/export")
+    metrics_export_response = client.post("/api/runtime/data-platform/metrics-store/export")
+
+    assert smoke_response.status_code == 200
+    assert smoke["status"] == "ready"
+    assert audit_export_response.status_code == 200
+    assert metrics_export_response.status_code == 200
+    audit_export = audit_export_response.json()["export_package"]
+    metrics_export = metrics_export_response.json()["export_package"]
+    assert audit_export["export_id"].startswith("audit-event-archive-export-")
+    assert audit_export["status"] == "ready_for_review"
+    assert audit_export["format"] == "json"
+    assert audit_export["data_platform"] == "DB MARIAM"
+    assert audit_export["package_manifest"]["record_count"] >= 1
+    assert audit_export["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert audit_export["package_manifest"]["contains_secrets"] is False
+    assert audit_export["audit_event_archive"]["status"] == "ready"
+    assert smoke["audit_event_archive_record_id"] in [
+        record["archive_id"] for record in audit_export["audit_event_archive"]["records"]
+    ]
+    assert metrics_export["export_id"].startswith("metrics-store-export-")
+    assert metrics_export["status"] == "ready_for_review"
+    assert metrics_export["format"] == "json"
+    assert metrics_export["data_platform"] == "DB MARIAM"
+    assert metrics_export["package_manifest"]["record_count"] >= 1
+    assert metrics_export["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert metrics_export["package_manifest"]["contains_secrets"] is False
+    assert metrics_export["metrics_store"]["status"] == "ready"
+    assert smoke["metrics_store_record_id"] in [
+        record["metric_id"] for record in metrics_export["metrics_store"]["records"]
+    ]
 
 
 def test_mission_list_reads_saved_mission_history() -> None:

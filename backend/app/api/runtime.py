@@ -77,6 +77,14 @@ class MigrationRunnerExportResponse(BaseModel):
     export_package: dict[str, Any]
 
 
+class AuditEventArchiveExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
+class MetricsStoreExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class SeedDataStatusResponse(BaseModel):
     title: str
     status: str
@@ -587,11 +595,27 @@ def command_center_data_platform_audit_event_archive(
     return asdict(service.audit_event_archive_read_status())
 
 
+@router.post("/data-platform/audit-event-archive/export", response_model=AuditEventArchiveExportResponse)
+def export_command_center_data_platform_audit_event_archive(
+    authorization=Depends(require_permission("diagnostics.export", "audit_event_archive")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> AuditEventArchiveExportResponse:
+    return {"export_package": asdict(service.export_audit_event_archive())}
+
+
 @router.get("/data-platform/metrics-store", response_model=MetricsStoreReadStatusResponse)
 def command_center_data_platform_metrics_store(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> MetricsStoreReadStatusResponse:
     return asdict(service.metrics_store_read_status())
+
+
+@router.post("/data-platform/metrics-store/export", response_model=MetricsStoreExportResponse)
+def export_command_center_data_platform_metrics_store(
+    authorization=Depends(require_permission("diagnostics.export", "metrics_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> MetricsStoreExportResponse:
+    return {"export_package": asdict(service.export_metrics_store())}
 
 
 @router.get("/data-platform/artifact-lineage", response_model=ArtifactLineageReadStatusResponse)

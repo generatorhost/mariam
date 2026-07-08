@@ -639,6 +639,16 @@ def verify_api_smoke_flow() -> None:
     audit_event_archive_read = request_json("/api/runtime/data-platform/audit-event-archive")
     metrics_store_read = request_json("/api/runtime/data-platform/metrics-store")
     artifact_lineage_read = request_json("/api/runtime/data-platform/artifact-lineage")
+    audit_event_archive_export = request_json(
+        "/api/runtime/data-platform/audit-event-archive/export",
+        "POST",
+        {},
+    )["export_package"]
+    metrics_store_export = request_json(
+        "/api/runtime/data-platform/metrics-store/export",
+        "POST",
+        {},
+    )["export_package"]
     assert_condition(
         logs_store_read["status"] == "ready"
         and logs_store_read["data_platform"] == "DB MARIAM"
@@ -664,6 +674,23 @@ def verify_api_smoke_flow() -> None:
         "DB MARIAM metrics store read API did not return the latest repository smoke metric record.",
     )
     assert_condition(
+        audit_event_archive_export["status"] == "ready_for_review"
+        and audit_event_archive_export["data_platform"] == "DB MARIAM"
+        and audit_event_archive_export["package_manifest"]["record_count"]
+        == audit_event_archive_read["record_count"]
+        and live_repository_write_smoke["audit_event_archive_record_id"]
+        in [record["archive_id"] for record in audit_event_archive_export["audit_event_archive"]["records"]],
+        "Audit event archive export package did not preserve DB MARIAM archive evidence.",
+    )
+    assert_condition(
+        metrics_store_export["status"] == "ready_for_review"
+        and metrics_store_export["data_platform"] == "DB MARIAM"
+        and metrics_store_export["package_manifest"]["record_count"] == metrics_store_read["record_count"]
+        and live_repository_write_smoke["metrics_store_record_id"]
+        in [record["metric_id"] for record in metrics_store_export["metrics_store"]["records"]],
+        "Metrics store export package did not preserve DB MARIAM metrics evidence.",
+    )
+    assert_condition(
         artifact_lineage_read["status"] == "ready"
         and artifact_lineage_read["data_platform"] == "DB MARIAM"
         and artifact_lineage_read["record_count"] >= 1
@@ -671,7 +698,7 @@ def verify_api_smoke_flow() -> None:
         in [record["lineage_id"] for record in artifact_lineage_read["records"]],
         "DB MARIAM artifact lineage read API did not return the latest repository smoke lineage record.",
     )
-    print("[verify] ok: DB MARIAM audit archive, metrics store, logs store, and artifact lineage read APIs")
+    print("[verify] ok: DB MARIAM audit archive, metrics store, logs store, artifact lineage, and evidence exports")
 
     frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
     assert_condition(
@@ -687,7 +714,9 @@ def verify_api_smoke_flow() -> None:
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
         and "Refresh Audit Event Archive" in frontend_regression["controls_checked"]
+        and "Export Audit Event Archive Evidence" in frontend_regression["controls_checked"]
         and "Refresh Metrics Store" in frontend_regression["controls_checked"]
+        and "Export Metrics Store Evidence" in frontend_regression["controls_checked"]
         and "Refresh Visual Contract" in frontend_regression["controls_checked"]
         and "Refresh Screenshot Plan" in frontend_regression["controls_checked"]
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
@@ -917,7 +946,10 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/frontend/browser-screenshot-capture"
         in verification_automation["required_endpoints"]
         and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"]
-        and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"],
+        and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/audit-event-archive/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/metrics-store/export" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     assert_condition(
@@ -933,6 +965,11 @@ def verify_api_smoke_flow() -> None:
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
         "Usage guide did not map the diagnostics export button.",
+    )
+    assert_condition(
+        any(step["frontend_control"] == "Export Audit Event Archive Evidence" for step in usage_guide["steps"])
+        and any(step["frontend_control"] == "Export Metrics Store Evidence" for step in usage_guide["steps"]),
+        "Usage guide did not map the DB MARIAM evidence store export buttons.",
     )
     print("[verify] ok: usage guide")
 
@@ -1028,9 +1065,15 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/data-platform/audit-event-archive"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/AuditEventArchiveReadStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/audit-event-archive/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/AuditEventArchiveExportResponse"
         and openapi["paths"]["/api/runtime/data-platform/metrics-store"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/MetricsStoreReadStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/metrics-store/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/MetricsStoreExportResponse"
         and openapi["paths"]["/api/runtime/data-platform/artifact-lineage"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/ArtifactLineageReadStatusResponse"
@@ -1280,7 +1323,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
