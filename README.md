@@ -149,6 +149,12 @@ Recorded verification snapshots can be reviewed through:
 GET /api/runtime/verification-report/snapshots
 ```
 
+Frontend regression snapshots verify critical Command Center controls, responsive state labels, and DB MARIAM visibility, then write a JSON artifact for review:
+
+```http
+GET /api/runtime/frontend/regression-snapshot
+```
+
 Runtime diagnostics can be reviewed through:
 
 ```http

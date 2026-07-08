@@ -309,6 +309,21 @@ class DockerContainerExecutionStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class FrontendRegressionSnapshot:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_file: str
+    artifact_path: str
+    controls_checked: list[str]
+    missing_controls: list[str]
+    viewport_contracts: list[str]
+    missing_viewports: list[str]
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -656,10 +671,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=70,
+                completion_percent=72,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, and responsive state guidance.",
-                next_step="Add browser regression screenshots for critical Command Center flows.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, and frontend regression snapshot artifact generation.",
+                next_step="Add visual screenshot comparison artifacts for critical Command Center flows.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -1307,6 +1322,98 @@ class CommandCenterSummaryService:
                 "docker compose ps postgres --format json",
                 "docker compose exec -T postgres pg_isready -d db_mariam",
             ],
+            checks=checks,
+        )
+
+    def frontend_regression_snapshot(self) -> FrontendRegressionSnapshot:
+        root = Path(__file__).resolve().parents[3]
+        source_file = root / "frontend" / "src" / "main.jsx"
+        artifact_path = root / "artifacts" / "frontend-regression" / "command-center-regression-snapshot.json"
+        source_text = source_file.read_text(encoding="utf-8") if source_file.exists() else ""
+        controls_checked = [
+            "Refresh System Status",
+            "Enforce Permission Gate",
+            "Enforce Human Identity",
+            "Refresh Docker Execution",
+            "Open Live Plugin Workspace",
+            "Start CRM Mission",
+            "Route Notification",
+            "Export Diagnostics",
+            "Export Completion Report",
+            "Export Roadmap",
+        ]
+        viewport_contracts = ["Mobile", "Tablet", "Desktop"]
+        missing_controls = [control for control in controls_checked if control not in source_text]
+        missing_viewports = [viewport for viewport in viewport_contracts if viewport not in source_text]
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        checks = [
+            DataPlatformCheck(
+                name="frontend_source_present",
+                status="ready" if source_file.exists() else "blocked",
+                detail=f"Command Center source file: {source_file}.",
+            ),
+            DataPlatformCheck(
+                name="critical_controls_present",
+                status="ready" if not missing_controls else "blocked",
+                detail=(
+                    "All critical Command Center controls are present."
+                    if not missing_controls
+                    else f"Missing controls: {', '.join(missing_controls)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="responsive_contracts_present",
+                status="ready" if not missing_viewports else "blocked",
+                detail=(
+                    "Mobile, tablet, and desktop responsive states are documented in the UI."
+                    if not missing_viewports
+                    else f"Missing responsive contracts: {', '.join(missing_viewports)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="db_mariam_visible",
+                status="ready" if "DB MARIAM" in source_text else "blocked",
+                detail="Command Center visibly references DB MARIAM.",
+            ),
+        ]
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        generated_at = datetime.now(UTC).isoformat()
+        payload = {
+            "title": "Mariam Command Center Frontend Regression Snapshot",
+            "status": status,
+            "generated_at": generated_at,
+            "data_platform": "DB MARIAM",
+            "source_file": str(source_file),
+            "artifact_path": str(artifact_path),
+            "controls_checked": controls_checked,
+            "missing_controls": missing_controls,
+            "viewport_contracts": viewport_contracts,
+            "missing_viewports": missing_viewports,
+            "checks": [check.__dict__ for check in checks],
+        }
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        checks.append(
+            DataPlatformCheck(
+                name="snapshot_artifact_written",
+                status="ready" if artifact_path.exists() else "blocked",
+                detail=f"Frontend regression snapshot artifact: {artifact_path}.",
+            )
+        )
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        payload["status"] = status
+        payload["checks"] = [check.__dict__ for check in checks]
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return FrontendRegressionSnapshot(
+            title=str(payload["title"]),
+            status=status,
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            source_file=str(source_file),
+            artifact_path=str(artifact_path),
+            controls_checked=controls_checked,
+            missing_controls=missing_controls,
+            viewport_contracts=viewport_contracts,
+            missing_viewports=missing_viewports,
             checks=checks,
         )
 

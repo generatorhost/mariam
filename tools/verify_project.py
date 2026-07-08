@@ -102,6 +102,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/docker-persistence",
         "/api/runtime/data-platform/live-db-smoke",
         "/api/runtime/data-platform/docker-container-execution",
+        "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -301,6 +302,17 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: docker container execution")
 
+    frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
+    assert_condition(
+        frontend_regression["status"] == "ready"
+        and frontend_regression["missing_controls"] == []
+        and frontend_regression["missing_viewports"] == []
+        and "Enforce Human Identity" in frontend_regression["controls_checked"]
+        and "Refresh Docker Execution" in frontend_regression["controls_checked"],
+        "Frontend regression snapshot did not pass.",
+    )
+    print("[verify] ok: frontend regression snapshot")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -389,7 +401,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

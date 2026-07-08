@@ -2673,10 +2673,28 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
+
+
+def test_runtime_frontend_regression_snapshot_records_critical_controls() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/frontend/regression-snapshot")
+
+    assert response.status_code == 200
+    snapshot = response.json()
+    assert snapshot["title"] == "Mariam Command Center Frontend Regression Snapshot"
+    assert snapshot["status"] == "ready"
+    assert snapshot["data_platform"] == "DB MARIAM"
+    assert "Enforce Human Identity" in snapshot["controls_checked"]
+    assert "Refresh Docker Execution" in snapshot["controls_checked"]
+    assert snapshot["missing_controls"] == []
+    assert snapshot["missing_viewports"] == []
+    assert snapshot["artifact_path"].endswith("command-center-regression-snapshot.json")
+    assert Path(snapshot["artifact_path"]).exists()
 
 
 def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> None:
@@ -2691,7 +2709,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

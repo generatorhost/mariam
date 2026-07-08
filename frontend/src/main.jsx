@@ -176,6 +176,10 @@ async function loadDockerContainerExecution() {
   return apiGet('/api/runtime/data-platform/docker-container-execution');
 }
 
+async function loadFrontendRegressionSnapshot() {
+  return apiGet('/api/runtime/frontend/regression-snapshot');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2478,6 +2482,70 @@ function DockerContainerExecutionPanel({ refreshVersion }) {
   );
 }
 
+function FrontendRegressionSnapshotPanel({ refreshVersion }) {
+  const [snapshot, setSnapshot] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshFrontendRegression = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setSnapshot(await loadFrontendRegressionSnapshot());
+      setStatus('ready');
+    } catch (snapshotError) {
+      setStatus('error');
+      setError(snapshotError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshFrontendRegression();
+  }, [refreshFrontendRegression, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Frontend Regression Snapshot</h2>
+        <p>Verify critical Command Center controls, responsive states, and DB MARIAM visibility from the React source.</p>
+      </div>
+      <button onClick={refreshFrontendRegression} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Frontend Regression'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {snapshot && (
+        <>
+          <div className="mission-result">
+            <strong>{snapshot.status}</strong>
+            <span>{snapshot.data_platform}</span>
+            <p>{snapshot.artifact_path}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{snapshot.controls_checked.length}</strong><span>Controls Checked</span></div>
+            <div><strong>{snapshot.missing_controls.length}</strong><span>Missing Controls</span></div>
+            <div><strong>{snapshot.viewport_contracts.length}</strong><span>Viewport Contracts</span></div>
+            <div><strong>{snapshot.missing_viewports.length}</strong><span>Missing Viewports</span></div>
+          </div>
+          <div className="terms">
+            {snapshot.controls_checked.map((control) => (
+              <span key={control}>{control}</span>
+            ))}
+          </div>
+          <div className="mission-history">
+            {snapshot.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -3428,6 +3496,7 @@ function App() {
           <DockerContainerExecutionPanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
+          <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
           <VerificationReportPanel refreshVersion={refreshVersion} />
           <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
           <UsageGuidePanel refreshVersion={refreshVersion} />
