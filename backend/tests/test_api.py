@@ -2236,6 +2236,34 @@ def test_runtime_verification_snapshot_records_audit_evidence() -> None:
     ]
 
 
+def test_runtime_verification_snapshot_history_lists_snapshots() -> None:
+    client = TestClient(create_app())
+    first_response = client.post(
+        "/api/runtime/verification-report/record",
+        json={
+            "actor_id": "project-verifier",
+            "evidence": {"sequence": "first"},
+        },
+    )
+    second_response = client.post(
+        "/api/runtime/verification-report/record",
+        json={
+            "actor_id": "project-verifier",
+            "evidence": {"sequence": "second"},
+        },
+    )
+
+    history_response = client.get("/api/runtime/verification-report/snapshots")
+
+    assert history_response.status_code == 200
+    snapshots = history_response.json()["snapshots"]
+    snapshot_ids = [snapshot["audit_id"] for snapshot in snapshots]
+    assert first_response.json()["audit_record"]["audit_id"] in snapshot_ids
+    assert second_response.json()["audit_record"]["audit_id"] in snapshot_ids
+    assert snapshots[0]["action"] == "runtime.verification_report.record"
+    assert snapshots[0]["evidence"]["verification_status"] == "passed"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

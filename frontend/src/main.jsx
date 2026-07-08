@@ -69,6 +69,11 @@ async function recordVerificationSnapshot() {
   });
 }
 
+async function loadVerificationSnapshots() {
+  const body = await apiGet('/api/runtime/verification-report/snapshots');
+  return body.snapshots || [];
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1646,6 +1651,7 @@ function SystemReadinessPanel({ refreshVersion }) {
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
+  const [snapshots, setSnapshots] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1654,6 +1660,7 @@ function VerificationReportPanel({ refreshVersion }) {
     setError('');
     try {
       setReport(await loadVerificationReport());
+      setSnapshots((await loadVerificationSnapshots()).slice(0, 5));
       setStatus('ready');
     } catch (reportError) {
       setStatus('error');
@@ -1714,6 +1721,20 @@ function VerificationReportPanel({ refreshVersion }) {
             <div><strong>{report.summary.ai_routes}</strong><span>AI Routes</span></div>
             <div><strong>{report.summary.audit_records}</strong><span>Audit Records</span></div>
             <div><strong>{report.summary.runtime_events}</strong><span>Runtime Events</span></div>
+          </div>
+          <div className="mission-history">
+            {snapshots.length ? (
+              snapshots.map((snapshot) => (
+                <article key={snapshot.audit_id}>
+                  <strong>{snapshot.decision}</strong>
+                  <span>{snapshot.evidence.verification_status}</span>
+                  <p>{snapshot.audit_id}</p>
+                  <time>{new Date(snapshot.created_at).toLocaleString()}</time>
+                </article>
+              ))
+            ) : (
+              <p>No verification snapshots recorded yet.</p>
+            )}
           </div>
         </>
       )}

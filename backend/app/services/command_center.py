@@ -197,3 +197,11 @@ class CommandCenterSummaryService:
                 },
             )
         )
+
+    def list_verification_snapshots(self) -> list[AuditRecord]:
+        snapshots = [
+            record
+            for record in self._audit_service.list()
+            if record.action == "runtime.verification_report.record"
+        ]
+        return sorted(snapshots, key=lambda record: record.created_at, reverse=True)

@@ -47,6 +47,18 @@ def record_command_center_verification_report(
     return {"audit_record": audit_record.model_dump(mode="json")}
 
 
+@router.get("/verification-report/snapshots")
+def list_command_center_verification_snapshots(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return {
+        "snapshots": [
+            snapshot.model_dump(mode="json")
+            for snapshot in service.list_verification_snapshots()
+        ]
+    }
+
+
 @router.get("/events")
 def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
     return {"events": [event.__dict__ for event in event_bus.list_events()]}

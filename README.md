@@ -83,6 +83,12 @@ POST /api/runtime/verification-report/record
 
 The Command Center exposes this as **Record Verification Snapshot**.
 
+Recorded verification snapshots can be reviewed through:
+
+```http
+GET /api/runtime/verification-report/snapshots
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

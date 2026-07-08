@@ -94,6 +94,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/summary",
         "/api/runtime/readiness",
         "/api/runtime/verification-report",
+        "/api/runtime/verification-report/snapshots",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
@@ -118,6 +119,11 @@ def verify_api_smoke_flow() -> None:
     assert_condition(
         snapshot["action"] == "runtime.verification_report.record",
         "Verification snapshot did not record the expected audit action.",
+    )
+    snapshot_history = request_json("/api/runtime/verification-report/snapshots")["snapshots"]
+    assert_condition(
+        snapshot["audit_id"] in [item["audit_id"] for item in snapshot_history],
+        "Verification snapshot was not available from snapshot history.",
     )
     print("[verify] ok: verification snapshot audit")
 
