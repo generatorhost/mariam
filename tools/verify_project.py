@@ -668,7 +668,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -804,14 +804,31 @@ def verify_api_smoke_flow() -> None:
         ),
         None,
     )
+    sla_item = next(
+        (
+            item for item in delivery_evidence_report["sla_items"]
+            if item["delivery_id"] == confirmed["delivery_id"]
+        ),
+        None,
+    )
     assert_condition(
         delivery_evidence_report["status"] == "ready"
         and delivery_evidence_report["invalid_signature_count"] == 0
         and delivery_evidence_report["signed_bundle_count"] >= 1
+        and delivery_evidence_report["sla_minutes"] == 240
+        and delivery_evidence_report["escalation_after_minutes"] == 480
         and evidence_item is not None
         and evidence_item["signature_valid"] is True
         and evidence_item["delivery_confirmed"] is True,
         "Delivery evidence report did not verify the signed client delivery package.",
+    )
+    assert_condition(
+        sla_item is not None
+        and sla_item["signature_valid"] is True
+        and sla_item["delivery_confirmed"] is True
+        and sla_item["sla_state"] == "confirmed"
+        and sla_item["escalation_required"] is False,
+        "Delivery evidence report did not expose the signed delivery SLA trace.",
     )
     print("[verify] ok: mission -> artifact -> revision -> quality -> package -> client delivery")
 

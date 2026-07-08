@@ -1754,6 +1754,20 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>
             Signed {deliveryEvidenceReport.signed_bundle_count} / Confirmed {deliveryEvidenceReport.confirmed_delivery_count} / Invalid {deliveryEvidenceReport.invalid_signature_count}
           </p>
+          <p>
+            SLA {deliveryEvidenceReport.sla_status} / {deliveryEvidenceReport.escalation_required_count} escalations / review after {deliveryEvidenceReport.sla_minutes} minutes
+          </p>
+          {deliveryEvidenceReport.sla_items?.length ? (
+            <div className="mission-history compact-history">
+              {deliveryEvidenceReport.sla_items.slice(0, 3).map((item) => (
+                <article key={item.delivery_id}>
+                  <strong>{item.sla_state}</strong>
+                  <span>{item.age_minutes} minutes old</span>
+                  <p>{item.plugin_id} / {item.governance_action}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
       <div className="mission-history">

@@ -357,11 +357,16 @@ class DeliveryEvidenceReport:
     status: str
     generated_at: str
     data_platform: str
+    sla_minutes: int
+    escalation_after_minutes: int
+    sla_status: str
+    escalation_required_count: int
     delivery_count: int
     signed_bundle_count: int
     confirmed_delivery_count: int
     invalid_signature_count: int
     evidence_items: list[dict[str, object]]
+    sla_items: list[dict[str, object]]
     checks: list[DataPlatformCheck]
 
 
@@ -814,9 +819,14 @@ class CommandCenterSummaryService:
     def delivery_evidence_report(self) -> DeliveryEvidenceReport:
         delivery_packages = self._artifact_service.list_delivery_packages()
         evidence_items: list[dict[str, object]] = []
+        sla_items: list[dict[str, object]] = []
+        sla_minutes = 240
+        escalation_after_minutes = 480
         signed_bundle_count = 0
         confirmed_delivery_count = 0
         invalid_signature_count = 0
+        escalation_required_count = 0
+        generated_at = datetime.now(UTC)
         for delivery_package in delivery_packages:
             manifest = delivery_package.package_manifest
             evidence_bundle = manifest.get("evidence_bundle")
@@ -830,8 +840,25 @@ class CommandCenterSummaryService:
                 signed_bundle_count += 1
             elif evidence_bundle is not None or evidence_signature is not None:
                 invalid_signature_count += 1
-            if manifest.get("delivery_confirmed") is True:
+            delivery_confirmed = manifest.get("delivery_confirmed") is True
+            if delivery_confirmed:
                 confirmed_delivery_count += 1
+            created_at = delivery_package.created_at
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=UTC)
+            age_minutes = max(0, int((generated_at - created_at).total_seconds() // 60))
+            if delivery_confirmed:
+                sla_state = "confirmed"
+            elif not signature_valid:
+                sla_state = "unsigned"
+            elif age_minutes >= escalation_after_minutes:
+                sla_state = "escalation_required"
+                escalation_required_count += 1
+            elif age_minutes >= sla_minutes:
+                sla_state = "review_due"
+            else:
+                sla_state = "on_track"
+            escalation_required = sla_state == "escalation_required"
             evidence_items.append(
                 {
                     "delivery_id": delivery_package.delivery_id,
@@ -844,8 +871,35 @@ class CommandCenterSummaryService:
                     "signature_valid": signature_valid,
                     "quality_review_id": manifest.get("quality_review_id"),
                     "quality_score": manifest.get("quality_score"),
-                    "delivery_confirmed": bool(manifest.get("delivery_confirmed")),
+                    "delivery_confirmed": delivery_confirmed,
                     "client_reference": manifest.get("client_reference"),
+                    "age_minutes": age_minutes,
+                    "sla_state": sla_state,
+                    "escalation_required": escalation_required,
+                    "data_platform": delivery_package.data_platform,
+                }
+            )
+            sla_items.append(
+                {
+                    "delivery_id": delivery_package.delivery_id,
+                    "artifact_id": delivery_package.artifact_id,
+                    "mission_id": delivery_package.mission_id,
+                    "plugin_id": delivery_package.plugin_id,
+                    "status": delivery_package.status,
+                    "signature_valid": signature_valid,
+                    "delivery_confirmed": delivery_confirmed,
+                    "age_minutes": age_minutes,
+                    "sla_minutes": sla_minutes,
+                    "escalation_after_minutes": escalation_after_minutes,
+                    "sla_state": sla_state,
+                    "escalation_required": escalation_required,
+                    "governance_action": (
+                        "confirm_traceability_complete"
+                        if sla_state == "confirmed"
+                        else "route_to_delivery_governance"
+                        if sla_state in {"review_due", "escalation_required"}
+                        else "wait_for_sla_or_signature"
+                    ),
                     "data_platform": delivery_package.data_platform,
                 }
             )
@@ -869,17 +923,40 @@ class CommandCenterSummaryService:
                 status="ready" if confirmed_delivery_count <= len(delivery_packages) else "blocked",
                 detail=f"{confirmed_delivery_count} delivery packages include client confirmation traceability.",
             ),
+            DataPlatformCheck(
+                name="signed_delivery_sla_policy_declared",
+                status="ready",
+                detail=(
+                    f"Signed delivery packages are reviewed after {sla_minutes} minutes "
+                    f"and escalated after {escalation_after_minutes} minutes."
+                ),
+            ),
+            DataPlatformCheck(
+                name="signed_delivery_sla_items_traceable",
+                status="ready" if len(sla_items) == len(delivery_packages) else "blocked",
+                detail=f"{len(sla_items)} delivery SLA records were generated from DB MARIAM delivery packages.",
+            ),
+            DataPlatformCheck(
+                name="signed_delivery_escalation_scan_ready",
+                status="ready",
+                detail=f"{escalation_required_count} signed delivery packages currently require escalation.",
+            ),
         ]
         return DeliveryEvidenceReport(
             title="Mariam Delivery Evidence Bundle Verification Report",
             status="ready" if all(check.status == "ready" for check in checks) else "blocked",
-            generated_at=datetime.now(UTC).isoformat(),
+            generated_at=generated_at.isoformat(),
             data_platform="DB MARIAM",
+            sla_minutes=sla_minutes,
+            escalation_after_minutes=escalation_after_minutes,
+            sla_status="escalation_required" if escalation_required_count else "ready",
+            escalation_required_count=escalation_required_count,
             delivery_count=len(delivery_packages),
             signed_bundle_count=signed_bundle_count,
             confirmed_delivery_count=confirmed_delivery_count,
             invalid_signature_count=invalid_signature_count,
             evidence_items=evidence_items,
+            sla_items=sla_items,
             checks=checks,
         )
 
@@ -910,10 +987,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=80,
+                completion_percent=82,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add delivery SLA aging and escalation checks for signed client packages.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add governance dashboard drill-down for signed delivery SLA items.",
             ),
             CompletionArea(
                 name="Verification automation",

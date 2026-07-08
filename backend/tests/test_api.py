@@ -1573,6 +1573,9 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert evidence_report["title"] == "Mariam Delivery Evidence Bundle Verification Report"
     assert evidence_report["status"] == "ready"
     assert evidence_report["data_platform"] == "DB MARIAM"
+    assert evidence_report["sla_minutes"] == 240
+    assert evidence_report["escalation_after_minutes"] == 480
+    assert evidence_report["sla_status"] in {"ready", "escalation_required"}
     assert evidence_report["signed_bundle_count"] >= 1
     assert evidence_report["confirmed_delivery_count"] >= 1
     assert evidence_report["invalid_signature_count"] == 0
@@ -1583,6 +1586,16 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert evidence_item["signature_valid"] is True
     assert evidence_item["delivery_confirmed"] is True
     assert evidence_item["client_reference"] == "client-confirmation-001"
+    assert evidence_item["sla_state"] == "confirmed"
+    assert evidence_item["escalation_required"] is False
+    sla_item = next(
+        item for item in evidence_report["sla_items"]
+        if item["delivery_id"] == confirmed["delivery_id"]
+    )
+    assert sla_item["signature_valid"] is True
+    assert sla_item["delivery_confirmed"] is True
+    assert sla_item["sla_state"] == "confirmed"
+    assert sla_item["governance_action"] == "confirm_traceability_complete"
 
     second_confirm_response = client.post(
         f"/api/artifacts/deliveries/{delivery_package['delivery_id']}/confirm",
@@ -2993,8 +3006,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3134,7 +3147,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
