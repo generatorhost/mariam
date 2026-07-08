@@ -215,6 +215,17 @@ class MigrationRunnerStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class MigrationRunnerExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    migration_runner: MigrationRunnerStatus
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -801,4 +812,25 @@ class CommandCenterSummaryService:
             table_definitions=migration_text.count("CREATE TABLE IF NOT EXISTS"),
             index_definitions=migration_text.count("CREATE INDEX IF NOT EXISTS"),
             checks=checks,
+        )
+
+    def export_migration_runner_status(self) -> MigrationRunnerExportPackage:
+        runner_status = self.migration_runner_status()
+        return MigrationRunnerExportPackage(
+            export_id=f"migration-runner-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": runner_status.title,
+                "runner_status": runner_status.status,
+                "migration_count": runner_status.migration_count,
+                "table_definitions": runner_status.table_definitions,
+                "index_definitions": runner_status.index_definitions,
+                "first_migration": runner_status.ordered_migrations[0]
+                if runner_status.ordered_migrations
+                else None,
+                "requires_governance_review_before_execution": True,
+            },
+            migration_runner=runner_status,
         )

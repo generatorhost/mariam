@@ -85,6 +85,12 @@ Migration runner status verifies ordered DB MARIAM migration files before databa
 GET /api/runtime/data-platform/migration-runner
 ```
 
+Migration runner status can also be exported as a JSON review package:
+
+```http
+POST /api/runtime/data-platform/migration-runner/export
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

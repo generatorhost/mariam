@@ -70,6 +70,10 @@ async function loadMigrationRunnerStatus() {
   return apiGet('/api/runtime/data-platform/migration-runner');
 }
 
+async function exportMigrationRunnerStatus() {
+  return apiRequest('/api/runtime/data-platform/migration-runner/export', {});
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1779,6 +1783,7 @@ function DataPlatformReadinessPanel({ refreshVersion }) {
 
 function MigrationRunnerPanel({ refreshVersion }) {
   const [runnerStatus, setRunnerStatus] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1798,6 +1803,19 @@ function MigrationRunnerPanel({ refreshVersion }) {
     refreshRunnerStatus();
   }, [refreshRunnerStatus, refreshVersion]);
 
+  async function handleMigrationRunnerExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportMigrationRunnerStatus();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (runnerError) {
+      setStatus('error');
+      setError(runnerError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1807,7 +1825,17 @@ function MigrationRunnerPanel({ refreshVersion }) {
       <button onClick={refreshRunnerStatus} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh Migration Runner'}
       </button>
+      <button onClick={handleMigrationRunnerExport} disabled={status === 'loading' || !runnerStatus}>
+        Export Migration Runner
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>Migration Runner Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>{exportPackage.status} / {exportPackage.package_manifest.migration_count} migrations</p>
+        </div>
+      )}
       {runnerStatus && (
         <>
           <div className="mission-result">

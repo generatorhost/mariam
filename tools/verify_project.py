@@ -166,6 +166,18 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: migration runner status")
 
+    migration_runner_export = request_json(
+        "/api/runtime/data-platform/migration-runner/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        migration_runner_export["package_manifest"]["migration_count"]
+        == len(migration_runner["ordered_migrations"]),
+        "DB MARIAM migration runner export did not preserve migration count.",
+    )
+    print("[verify] ok: migration runner export")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),

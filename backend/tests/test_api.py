@@ -2467,6 +2467,24 @@ def test_data_platform_migration_runner_reports_ordered_migrations() -> None:
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
+def test_data_platform_migration_runner_can_be_exported_for_review() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/data-platform/migration-runner/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("migration-runner-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["runner_status"] == "ready"
+    assert export_package["package_manifest"]["first_migration"] == "0001_initial.sql"
+    assert export_package["package_manifest"]["migration_count"] == len(
+        export_package["migration_runner"]["ordered_migrations"]
+    )
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(
