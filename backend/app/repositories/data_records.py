@@ -90,6 +90,9 @@ class AuditEventArchiveRecordRepository(Protocol):
     def exists(self, archive_id: str, audit_id: str, event_id: str) -> bool:
         pass
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        pass
+
 
 class MetricsStoreRecordRepository(Protocol):
     def ensure_schema(self) -> None:
@@ -99,6 +102,9 @@ class MetricsStoreRecordRepository(Protocol):
         pass
 
     def exists(self, metric_id: str, metric_name: str, status: str = "recorded") -> bool:
+        pass
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         pass
 
 
@@ -596,6 +602,32 @@ class CursorAuditEventArchiveRecordRepository:
         )
         return self._cursor.fetchone() is not None
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                archive_id,
+                audit_id,
+                event_id,
+                action,
+                actor_id,
+                target_type,
+                target_id,
+                decision,
+                archive_reason,
+                payload,
+                data_platform,
+                created_at
+            FROM audit_event_archive_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
+
 
 class CursorMetricsStoreRecordRepository:
     def __init__(self, cursor) -> None:
@@ -660,6 +692,29 @@ class CursorMetricsStoreRecordRepository:
             (metric_id, metric_name, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                metric_id,
+                metric_name,
+                metric_value,
+                metric_unit,
+                source,
+                dimensions,
+                status,
+                data_platform,
+                created_at
+            FROM metrics_store_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
 
 
 class CursorLogsStoreRecordRepository:

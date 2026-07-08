@@ -279,6 +279,14 @@ async function runLiveRepositoryWriteSmoke() {
   return apiRequest('/api/runtime/data-platform/live-repository-write-smoke', {});
 }
 
+async function loadAuditEventArchiveRecords() {
+  return apiGet('/api/runtime/data-platform/audit-event-archive');
+}
+
+async function loadMetricsStoreRecords() {
+  return apiGet('/api/runtime/data-platform/metrics-store');
+}
+
 async function loadFrontendRegressionSnapshot() {
   return apiGet('/api/runtime/frontend/regression-snapshot');
 }
@@ -2966,6 +2974,118 @@ function LiveRepositoryWriteSmokePanel({ refreshVersion }) {
   );
 }
 
+function DataPlatformEvidenceStorePanel({
+  title,
+  description,
+  refreshLabel,
+  loadRecords,
+  recordKey,
+  renderRecord,
+  refreshVersion,
+}) {
+  const [storeStatus, setStoreStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshStore = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setStoreStatus(await loadRecords());
+      setStatus('ready');
+    } catch (storeError) {
+      setStatus('error');
+      setError(storeError.message);
+    }
+  }, [loadRecords]);
+
+  useEffect(() => {
+    refreshStore();
+  }, [refreshStore, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      <button onClick={refreshStore} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : refreshLabel}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {storeStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{storeStatus.status}</strong>
+            <span>{storeStatus.data_platform}</span>
+            <p>{storeStatus.record_count} recent records available for governance review.</p>
+          </div>
+          <div className="mission-history">
+            {storeStatus.records.slice(0, 5).map((record) => (
+              <article key={record[recordKey]}>
+                {renderRecord(record)}
+              </article>
+            ))}
+          </div>
+          <div className="mission-history">
+            {storeStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function AuditEventArchivePanel({ refreshVersion }) {
+  return (
+    <DataPlatformEvidenceStorePanel
+      title="DB MARIAM Audit Event Archive"
+      description="Read recent governed audit/event archive records from DB MARIAM."
+      refreshLabel="Refresh Audit Event Archive"
+      loadRecords={loadAuditEventArchiveRecords}
+      recordKey="archive_id"
+      refreshVersion={refreshVersion}
+      renderRecord={(record) => (
+        <>
+          <strong>{record.action}</strong>
+          <span>{record.decision}</span>
+          <p>{record.archive_reason}</p>
+          <time>{new Date(record.created_at).toLocaleString()}</time>
+        </>
+      )}
+    />
+  );
+}
+
+function MetricsStorePanel({ refreshVersion }) {
+  return (
+    <DataPlatformEvidenceStorePanel
+      title="DB MARIAM Metrics Store"
+      description="Read recent operational metric records from DB MARIAM."
+      refreshLabel="Refresh Metrics Store"
+      loadRecords={loadMetricsStoreRecords}
+      recordKey="metric_id"
+      refreshVersion={refreshVersion}
+      renderRecord={(record) => (
+        <>
+          <strong>{record.metric_name}</strong>
+          <span>{record.status}</span>
+          <p>
+            {record.metric_value} {record.metric_unit} from {record.source}
+          </p>
+          <time>{new Date(record.created_at).toLocaleString()}</time>
+        </>
+      )}
+    />
+  );
+}
+
 function FrontendRegressionSnapshotPanel({ refreshVersion }) {
   const [snapshot, setSnapshot] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -4680,6 +4800,8 @@ function App() {
           <DockerContainerExecutionPanel refreshVersion={refreshVersion} />
           <LiveDatabaseWriteSmokePanel refreshVersion={refreshVersion} />
           <LiveRepositoryWriteSmokePanel refreshVersion={refreshVersion} />
+          <AuditEventArchivePanel refreshVersion={refreshVersion} />
+          <MetricsStorePanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section" tabIndex="-1">
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />

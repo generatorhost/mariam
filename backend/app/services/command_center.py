@@ -404,6 +404,28 @@ class LogsStoreReadStatus:
 
 
 @dataclass
+class AuditEventArchiveReadStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, object]]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
+class MetricsStoreReadStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, object]]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class ArtifactLineageReadStatus:
     title: str
     status: str
@@ -671,6 +693,8 @@ class CommandCenterSummaryService:
                 "/api/runtime/data-platform/docker-container-execution",
                 "/api/runtime/data-platform/live-write-smoke",
                 "/api/runtime/data-platform/logs-store",
+                "/api/runtime/data-platform/audit-event-archive",
+                "/api/runtime/data-platform/metrics-store",
                 "/api/runtime/data-platform/artifact-lineage",
                 "/api/runtime/delivery-evidence-report/export",
                 "/api/plugins",
@@ -1239,10 +1263,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=92,
+                completion_percent=93,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, plus read APIs for recent logs store and artifact lineage records.",
-                next_step="Expose read APIs for DB MARIAM metrics store and audit event archive records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, plus read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records.",
+                next_step="Add export packages for DB MARIAM metrics store and audit event archive evidence.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -2826,6 +2850,94 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def audit_event_archive_read_status(self) -> AuditEventArchiveReadStatus:
+        settings = get_settings()
+        records: list[dict[str, object]] = []
+        database_error = ""
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+
+            with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+                with connection.cursor() as cursor:
+                    repository = CursorAuditEventArchiveRecordRepository(cursor)
+                    records = [
+                        self._serialize_database_row(row)
+                        for row in repository.list_recent(limit=10)
+                    ]
+        except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
+            database_error = str(error)
+
+        checks = [
+            DataPlatformCheck(
+                name="audit_event_archive_read_repository",
+                status="ready" if records else "blocked",
+                detail=(
+                    f"{len(records)} recent audit event archive records were read from DB MARIAM."
+                    if records
+                    else f"Audit event archive read failed or returned no records: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="audit_event_archive_database_name",
+                status="ready" if "db_mariam" in settings.database_url else "blocked",
+                detail="Audit event archive read API targets the db_mariam database configured for DB MARIAM.",
+            ),
+        ]
+        return AuditEventArchiveReadStatus(
+            title="DB MARIAM Audit Event Archive Read API",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            record_count=len(records),
+            records=records,
+            checks=checks,
+        )
+
+    def metrics_store_read_status(self) -> MetricsStoreReadStatus:
+        settings = get_settings()
+        records: list[dict[str, object]] = []
+        database_error = ""
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+
+            with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+                with connection.cursor() as cursor:
+                    repository = CursorMetricsStoreRecordRepository(cursor)
+                    records = [
+                        self._serialize_database_row(row)
+                        for row in repository.list_recent(limit=10)
+                    ]
+        except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
+            database_error = str(error)
+
+        checks = [
+            DataPlatformCheck(
+                name="metrics_store_read_repository",
+                status="ready" if records else "blocked",
+                detail=(
+                    f"{len(records)} recent metrics store records were read from DB MARIAM."
+                    if records
+                    else f"Metrics store read failed or returned no records: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="metrics_store_database_name",
+                status="ready" if "db_mariam" in settings.database_url else "blocked",
+                detail="Metrics store read API targets the db_mariam database configured for DB MARIAM.",
+            ),
+        ]
+        return MetricsStoreReadStatus(
+            title="DB MARIAM Metrics Store Read API",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            record_count=len(records),
+            records=records,
+            checks=checks,
+        )
+
     def artifact_lineage_read_status(self) -> ArtifactLineageReadStatus:
         settings = get_settings()
         records: list[dict[str, object]] = []
@@ -2896,6 +3008,8 @@ class CommandCenterSummaryService:
             "Refresh Docker Execution",
             "Run DB MARIAM Write Smoke",
             "Run Repository Write Smoke",
+            "Refresh Audit Event Archive",
+            "Refresh Metrics Store",
             "Refresh Delivery Evidence",
             "Export Delivery Governance Evidence",
             "Open Live Plugin Workspace",
@@ -3450,6 +3564,8 @@ class CommandCenterSummaryService:
             "/api/runtime/delivery-evidence-report",
             "/api/runtime/delivery-evidence-report/export",
             "/api/runtime/data-platform/logs-store",
+            "/api/runtime/data-platform/audit-event-archive",
+            "/api/runtime/data-platform/metrics-store",
             "/api/runtime/data-platform/artifact-lineage",
             "/api/audit/governance-assignment-history",
             "/api/runtime/verification-report",

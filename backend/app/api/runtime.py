@@ -226,6 +226,26 @@ class ArtifactLineageReadStatusResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class AuditEventArchiveReadStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
+class MetricsStoreReadStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
 class CompletionAreaResponse(BaseModel):
     name: str
     completion_percent: int
@@ -558,6 +578,20 @@ def command_center_data_platform_logs_store(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> LogsStoreReadStatusResponse:
     return asdict(service.logs_store_read_status())
+
+
+@router.get("/data-platform/audit-event-archive", response_model=AuditEventArchiveReadStatusResponse)
+def command_center_data_platform_audit_event_archive(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> AuditEventArchiveReadStatusResponse:
+    return asdict(service.audit_event_archive_read_status())
+
+
+@router.get("/data-platform/metrics-store", response_model=MetricsStoreReadStatusResponse)
+def command_center_data_platform_metrics_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> MetricsStoreReadStatusResponse:
+    return asdict(service.metrics_store_read_status())
 
 
 @router.get("/data-platform/artifact-lineage", response_model=ArtifactLineageReadStatusResponse)
