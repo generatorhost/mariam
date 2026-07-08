@@ -152,22 +152,22 @@ def get_plugin_timeline(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
-@router.get("/{plugin_id}/settings")
+@router.get("/{plugin_id}/settings", response_model=PluginSettingsResponse)
 def get_plugin_settings(
     plugin_id: str,
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginSettingsResponse:
     try:
         return registry.get_plugin_settings(plugin_id)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
-@router.get("/{plugin_id}/dashboard")
+@router.get("/{plugin_id}/dashboard", response_model=PluginDashboardResponse)
 def get_plugin_dashboard(
     plugin_id: str,
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginDashboardResponse:
     try:
         return registry.plugin_dashboard(plugin_id)
     except ValueError as error:
@@ -226,13 +226,13 @@ def send_plugin_chat_request(
     }
 
 
-@router.patch("/{plugin_id}/settings")
+@router.patch("/{plugin_id}/settings", response_model=PluginSettingsResponse)
 def update_plugin_settings(
     plugin_id: str,
     request: PluginSettingsUpdateRequest,
     authorization=Depends(require_permission("plugin.register", "plugin_settings")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
-) -> dict:
+) -> PluginSettingsResponse:
     try:
         return registry.update_plugin_settings(plugin_id, request)
     except ValueError as error:

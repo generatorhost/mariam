@@ -1179,6 +1179,15 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/plugins/{plugin_id}/timeline"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/PluginTimelineResponse"
+        and openapi["paths"]["/api/plugins/{plugin_id}/settings"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginSettingsResponse"
+        and openapi["paths"]["/api/plugins/{plugin_id}/settings"]["patch"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginSettingsResponse"
+        and openapi["paths"]["/api/plugins/{plugin_id}/dashboard"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginDashboardResponse"
         and openapi["paths"]["/api/plugins/{plugin_id}/workspace"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/PluginWorkspaceResponse",
@@ -1410,7 +1419,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
