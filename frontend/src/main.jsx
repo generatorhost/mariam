@@ -3203,6 +3203,12 @@ function VerificationAutomationPanel({ refreshVersion }) {
             <div><strong>{contract.ci_status}</strong><span>CI Status</span></div>
             <div><strong>{contract.required_commands.length}</strong><span>Commands</span></div>
             <div><strong>{contract.required_endpoints.length}</strong><span>Endpoints</span></div>
+            <div><strong>{contract.persisted_verification_run_count}</strong><span>Persisted Runs</span></div>
+          </div>
+          <div className="mission-result">
+            <strong>Persisted local verification runs</strong>
+            <span>{contract.persisted_run_log_path}</span>
+            <p>Local CLI executions are written to a DB MARIAM verification artifact.</p>
           </div>
           {contract.ci_artifact_retention && (
             <div className="mission-result">
@@ -3248,6 +3254,19 @@ function VerificationAutomationPanel({ refreshVersion }) {
                 <p>{check.detail}</p>
               </article>
             ))}
+          </div>
+          <div className="mission-history">
+            {contract.persisted_verification_runs.length ? (
+              contract.persisted_verification_runs.slice(0, 5).map((run) => (
+                <article key={run.run_id}>
+                  <strong>{run.status}</strong>
+                  <span>{run.command}</span>
+                  <p>{run.run_id} / {run.updated_at}</p>
+                </article>
+              ))
+            ) : (
+              <p>No local verification CLI runs persisted yet.</p>
+            )}
           </div>
         </>
       )}

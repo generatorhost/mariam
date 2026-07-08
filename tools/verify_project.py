@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 API_BASE_URL = os.environ.get("MARIAM_VERIFY_API_BASE_URL", "http://127.0.0.1:8000")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+VERIFICATION_RUN_LOG = ROOT / "artifacts" / "verification" / "local-verification-runs.json"
 
 
 def run_command(command: list[str], cwd: Path) -> None:
@@ -86,6 +88,36 @@ def start_backend_if_needed() -> subprocess.Popen[bytes] | None:
 def assert_condition(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def record_local_verification_run(run_id: str, status: str, checks_completed: list[str]) -> None:
+    VERIFICATION_RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        history = json.loads(VERIFICATION_RUN_LOG.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        history = []
+    if not isinstance(history, list):
+        history = []
+    existing = next((item for item in history if isinstance(item, dict) and item.get("run_id") == run_id), None)
+    payload = {
+        "run_id": run_id,
+        "status": status,
+        "command": "npm run verify",
+        "data_platform": "DB MARIAM",
+        "started_at": existing.get("started_at") if existing else time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "checks_completed": checks_completed,
+        "artifact_paths": [
+            "artifacts/frontend-regression/command-center-regression-snapshot.json",
+            "artifacts/frontend-regression/command-center-visual-contract.json",
+            "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
+            "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
+            "artifacts/verification/verification-automation-contract.json",
+        ],
+    }
+    history = [item for item in history if not (isinstance(item, dict) and item.get("run_id") == run_id)]
+    history.append(payload)
+    VERIFICATION_RUN_LOG.write_text(json.dumps(history[-25:], indent=2), encoding="utf-8")
 
 
 def verify_frontend_screenshot_capture() -> None:
@@ -563,6 +595,10 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["local_history_comparison"]["status"]
         in {"insufficient_history", "stable", "changed"}
         and "snapshot_count" in verification_automation["local_history_comparison"]
+        and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
+        and isinstance(verification_automation["persisted_verification_runs"], list)
+        and "artifacts/verification/local-verification-runs.json"
+        in verification_automation["required_artifacts"]
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"]
@@ -721,7 +757,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -907,11 +943,26 @@ def verify_api_smoke_flow() -> None:
 
 def main() -> None:
     npm = "npm.cmd" if os.name == "nt" else "npm"
-    run_command([sys.executable, "-m", "pytest"], BACKEND)
-    run_command([npm, "run", "build"], FRONTEND)
-    backend_process = start_backend_if_needed()
+    run_id = f"local-verify-{uuid4()}"
+    completed_checks: list[str] = []
+    record_local_verification_run(run_id, "running", completed_checks)
+    backend_process = None
     try:
+        run_command([sys.executable, "-m", "pytest"], BACKEND)
+        completed_checks.append("pytest")
+        record_local_verification_run(run_id, "running", completed_checks)
+        run_command([npm, "run", "build"], FRONTEND)
+        completed_checks.append("frontend_build")
+        record_local_verification_run(run_id, "running", completed_checks)
+        backend_process = start_backend_if_needed()
+        completed_checks.append("backend_health")
+        record_local_verification_run(run_id, "running", completed_checks)
         verify_api_smoke_flow()
+        completed_checks.append("api_smoke_flow")
+        record_local_verification_run(run_id, "passed", completed_checks)
+    except BaseException:
+        record_local_verification_run(run_id, "failed", completed_checks)
+        raise
     finally:
         if backend_process is not None:
             backend_process.terminate()

@@ -461,6 +461,9 @@ class VerificationAutomationContract:
     generated_at: str
     data_platform: str
     artifact_path: str
+    persisted_run_log_path: str
+    persisted_verification_run_count: int
+    persisted_verification_runs: list[dict[str, object]]
     required_commands: list[str]
     required_endpoints: list[str]
     required_artifacts: list[str]
@@ -1139,10 +1142,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=84,
+                completion_percent=86,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
-                next_step="Add persisted verification run records for local CLI executions.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
+                next_step="Add CI run result ingestion from the GitHub Actions API.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2884,6 +2887,7 @@ class CommandCenterSummaryService:
         ci_workflow_dir = root / ".github" / "workflows"
         ci_workflow_file = ci_workflow_dir / "verify.yml"
         artifact_path = root / "artifacts" / "verification" / "verification-automation-contract.json"
+        persisted_run_log_path = root / "artifacts" / "verification" / "local-verification-runs.json"
         package_text = package_file.read_text(encoding="utf-8") if package_file.exists() else ""
         frontend_package_text = (
             frontend_package_file.read_text(encoding="utf-8") if frontend_package_file.exists() else ""
@@ -2918,7 +2922,9 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
             "artifacts/verification/verification-automation-contract.json",
+            "artifacts/verification/local-verification-runs.json",
         ]
+        persisted_verification_runs = self._read_persisted_verification_runs(persisted_run_log_path)
         missing_commands = []
         if '"verify"' not in package_text or "tools/verify_project.py" not in package_text:
             missing_commands.append("npm run verify")
@@ -2993,6 +2999,10 @@ class CommandCenterSummaryService:
             "changed",
             "insufficient_history",
         }
+        persisted_verification_runs_ready = all(
+            "run_id" in run and "status" in run and "command" in run and "started_at" in run
+            for run in persisted_verification_runs
+        )
         ci_status = (
             "ready"
             if (
@@ -3097,6 +3107,15 @@ class CommandCenterSummaryService:
                 status="ready" if local_history_comparison_ready else "blocked",
                 detail=str(local_history_comparison["message"]),
             ),
+            DataPlatformCheck(
+                name="persisted_local_verification_runs_ready",
+                status="ready" if persisted_verification_runs_ready else "blocked",
+                detail=(
+                    f"{len(persisted_verification_runs)} persisted local verification run records were read."
+                    if persisted_verification_runs_ready
+                    else "Persisted local verification run records are malformed."
+                ),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -3108,6 +3127,9 @@ class CommandCenterSummaryService:
             "generated_at": generated_at,
             "data_platform": "DB MARIAM",
             "artifact_path": str(artifact_path),
+            "persisted_run_log_path": str(persisted_run_log_path),
+            "persisted_verification_run_count": len(persisted_verification_runs),
+            "persisted_verification_runs": persisted_verification_runs,
             "required_commands": required_commands,
             "required_endpoints": required_endpoints,
             "required_artifacts": required_artifacts,
@@ -3117,7 +3139,7 @@ class CommandCenterSummaryService:
             "local_history_comparison": local_history_comparison,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add persisted verification run records for local CLI executions.",
+            "next_ci_step": "Add CI run result ingestion from the GitHub Actions API.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -3127,6 +3149,9 @@ class CommandCenterSummaryService:
             generated_at=generated_at,
             data_platform="DB MARIAM",
             artifact_path=str(artifact_path),
+            persisted_run_log_path=str(persisted_run_log_path),
+            persisted_verification_run_count=len(persisted_verification_runs),
+            persisted_verification_runs=persisted_verification_runs,
             required_commands=required_commands,
             required_endpoints=required_endpoints,
             required_artifacts=required_artifacts,
@@ -3139,6 +3164,19 @@ class CommandCenterSummaryService:
             next_ci_step=str(payload["next_ci_step"]),
             checks=checks,
         )
+
+    def _read_persisted_verification_runs(self, path: Path) -> list[dict[str, object]]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text("[]", encoding="utf-8")
+            return []
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return [{"run_id": "malformed", "status": "blocked", "command": "npm run verify", "started_at": ""}]
+        if not isinstance(payload, list):
+            return [{"run_id": "malformed", "status": "blocked", "command": "npm run verify", "started_at": ""}]
+        return [item for item in payload if isinstance(item, dict)][-10:]
 
     def _run_readonly_command(self, command: list[str], cwd: Path) -> dict[str, object]:
         try:

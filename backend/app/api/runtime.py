@@ -92,6 +92,9 @@ class VerificationAutomationResponse(BaseModel):
     generated_at: str
     data_platform: str
     artifact_path: str
+    persisted_run_log_path: str
+    persisted_verification_run_count: int
+    persisted_verification_runs: list[dict[str, Any]]
     required_commands: list[str]
     required_endpoints: list[str]
     required_artifacts: list[str]
