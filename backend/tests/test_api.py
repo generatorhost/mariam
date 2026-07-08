@@ -1936,6 +1936,53 @@ def test_governance_reviewer_workload_reports_assignments_and_escalations() -> N
     assert escalated_reviewer["escalation_count"] >= 1
 
 
+def test_governance_workload_and_sla_can_be_exported_for_review() -> None:
+    client = TestClient(create_app())
+
+    assignment_response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-export",
+            "target_type": "artifact",
+            "target_id": "artifact-governance-export-target",
+            "approval_role": "quality-reviewer",
+            "reason": "Assign before exporting workload and SLA evidence.",
+            "evidence": {"verification": "governance-workload-sla-export"},
+        },
+    )
+    workload_export_response = client.post("/api/audit/reviewer-workload/export")
+    sla_export_response = client.post("/api/audit/governance-sla/export")
+
+    assert assignment_response.status_code == 200
+    assert workload_export_response.status_code == 200
+    assert sla_export_response.status_code == 200
+    workload_export = workload_export_response.json()["export_package"]
+    sla_export = sla_export_response.json()["export_package"]
+    assert workload_export["export_id"].startswith("governance-workload-evidence-export-")
+    assert workload_export["title"] == "Mariam Governance Workload Evidence Export"
+    assert workload_export["status"] == "ready_for_review"
+    assert workload_export["format"] == "json"
+    assert workload_export["data_platform"] == "DB MARIAM"
+    assert workload_export["package_manifest"]["reviewer_count"] >= 1
+    assert workload_export["package_manifest"]["contains_secrets"] is False
+    assert workload_export["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert "quality-reviewer-export" in [
+        item["reviewer_id"] for item in workload_export["workload_report"]["items"]
+    ]
+    assert sla_export["export_id"].startswith("governance-sla-evidence-export-")
+    assert sla_export["title"] == "Mariam Governance SLA Evidence Export"
+    assert sla_export["status"] == "ready_for_review"
+    assert sla_export["format"] == "json"
+    assert sla_export["data_platform"] == "DB MARIAM"
+    assert sla_export["package_manifest"]["item_count"] >= 1
+    assert sla_export["package_manifest"]["contains_secrets"] is False
+    assert sla_export["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert "artifact-governance-export-target" in [
+        item["target_id"] for item in sla_export["sla_report"]["items"]
+    ]
+
+
 def test_governance_sla_report_tracks_assignment_aging_rules() -> None:
     client = TestClient(create_app())
 
@@ -3213,6 +3260,11 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/ReviewerWorkloadResponse"
     )
     assert (
+        openapi["paths"]["/api/audit/reviewer-workload/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceWorkloadEvidenceExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/audit/governance-assignment-history"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/GovernanceAssignmentHistoryResponse"
@@ -3226,6 +3278,11 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         openapi["paths"]["/api/audit/governance-sla"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/GovernanceSLAResponse"
+    )
+    assert (
+        openapi["paths"]["/api/audit/governance-sla/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceSLAEvidenceExportResponse"
     )
     assert (
         openapi["paths"]["/api/audit/escalations"]["post"]["responses"]["200"]
@@ -3421,10 +3478,14 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "AuditRecordResponse" in openapi["components"]["schemas"]
     assert "ReviewerWorkloadResponse" in openapi["components"]["schemas"]
     assert "ReviewerWorkloadReport" in openapi["components"]["schemas"]
+    assert "GovernanceWorkloadEvidenceExportResponse" in openapi["components"]["schemas"]
+    assert "GovernanceWorkloadEvidenceExportPackage" in openapi["components"]["schemas"]
     assert "GovernanceAssignmentHistoryResponse" in openapi["components"]["schemas"]
     assert "GovernanceAssignmentHistoryReport" in openapi["components"]["schemas"]
     assert "GovernanceSLAResponse" in openapi["components"]["schemas"]
     assert "GovernanceSLAReport" in openapi["components"]["schemas"]
+    assert "GovernanceSLAEvidenceExportResponse" in openapi["components"]["schemas"]
+    assert "GovernanceSLAEvidenceExportPackage" in openapi["components"]["schemas"]
     assert "GovernanceDecisionEvidenceExportResponse" in openapi["components"]["schemas"]
     assert "GovernanceDecisionEvidenceExportPackage" in openapi["components"]["schemas"]
     assert "PluginTimelineResponse" in openapi["components"]["schemas"]
@@ -3497,8 +3558,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3805,7 +3866,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

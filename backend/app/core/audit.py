@@ -169,6 +169,28 @@ class GovernanceDecisionEvidenceExportPackage(BaseModel):
     history_report: GovernanceAssignmentHistoryReport
 
 
+class GovernanceWorkloadEvidenceExportPackage(BaseModel):
+    export_id: str
+    title: str
+    status: str
+    format: str
+    generated_at: datetime
+    data_platform: str = "DB MARIAM"
+    package_manifest: dict[str, object]
+    workload_report: ReviewerWorkloadReport
+
+
+class GovernanceSLAEvidenceExportPackage(BaseModel):
+    export_id: str
+    title: str
+    status: str
+    format: str
+    generated_at: datetime
+    data_platform: str = "DB MARIAM"
+    package_manifest: dict[str, object]
+    sla_report: GovernanceSLAReport
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str

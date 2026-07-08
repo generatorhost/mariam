@@ -8,9 +8,11 @@ from app.core.audit import (
     EscalationRequest,
     GovernanceAssignmentHistoryReport,
     GovernanceDecisionEvidenceExportPackage,
+    GovernanceSLAEvidenceExportPackage,
     GovernanceSLAEscalationRecord,
     GovernanceSLAItem,
     GovernanceSLAReport,
+    GovernanceWorkloadEvidenceExportPackage,
     NotificationRoutingRequest,
     ReviewerDecisionOutcomeRecord,
     ReviewerDecisionRequest,
@@ -269,6 +271,28 @@ class AuditService:
             items=items,
         )
 
+    def export_governance_workload_evidence(self) -> GovernanceWorkloadEvidenceExportPackage:
+        workload = self.reviewer_workload()
+        return GovernanceWorkloadEvidenceExportPackage(
+            export_id=f"governance-workload-evidence-export-{uuid4()}",
+            title="Mariam Governance Workload Evidence Export",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC),
+            package_manifest={
+                "title": "Mariam Governance Workload Evidence Export",
+                "workload_status": workload.status,
+                "reviewer_count": workload.reviewer_count,
+                "overloaded_reviewer_count": len(workload.overloaded_reviewers),
+                "overloaded_reviewers": workload.overloaded_reviewers,
+                "item_count": len(workload.items),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": "DB MARIAM",
+            },
+            workload_report=workload,
+        )
+
     def governance_sla_report(
         self,
         sla_minutes: int = 240,
@@ -334,6 +358,30 @@ class AuditService:
             overdue_count=overdue_count,
             escalation_required_count=escalation_required_count,
             items=items,
+        )
+
+    def export_governance_sla_evidence(self) -> GovernanceSLAEvidenceExportPackage:
+        sla_report = self.governance_sla_report()
+        return GovernanceSLAEvidenceExportPackage(
+            export_id=f"governance-sla-evidence-export-{uuid4()}",
+            title="Mariam Governance SLA Evidence Export",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC),
+            package_manifest={
+                "title": "Mariam Governance SLA Evidence Export",
+                "sla_status": sla_report.status,
+                "sla_minutes": sla_report.sla_minutes,
+                "escalation_after_minutes": sla_report.escalation_after_minutes,
+                "due_soon_count": sla_report.due_soon_count,
+                "overdue_count": sla_report.overdue_count,
+                "escalation_required_count": sla_report.escalation_required_count,
+                "item_count": len(sla_report.items),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": "DB MARIAM",
+            },
+            sla_report=sla_report,
         )
 
     def escalate_reviewer_workload(self, request: EscalationRequest) -> AuditRecord:

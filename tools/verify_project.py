@@ -274,6 +274,8 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/audit/approval-assignments"),
         ("POST", "/api/audit/notifications/route"),
         ("POST", "/api/audit/reviewer-decisions"),
+        ("POST", "/api/audit/reviewer-workload/export"),
+        ("POST", "/api/audit/governance-sla/export"),
         ("POST", "/api/audit/governance-decision-evidence/export"),
         ("POST", "/api/audit/escalations"),
         ("POST", "/api/plugins"),
@@ -1051,7 +1053,9 @@ def verify_api_smoke_flow() -> None:
         in verification_automation["required_endpoints"]
         and "/api/runtime/data-platform/metrics-store/export" in verification_automation["required_endpoints"]
         and "/api/runtime/data-platform/artifact-lineage/export"
-        in verification_automation["required_endpoints"],
+        in verification_automation["required_endpoints"]
+        and "/api/audit/reviewer-workload/export" in verification_automation["required_endpoints"]
+        and "/api/audit/governance-sla/export" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     assert_condition(
@@ -1119,6 +1123,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/audit/reviewer-workload"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/ReviewerWorkloadResponse"
+        and openapi["paths"]["/api/audit/reviewer-workload/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceWorkloadEvidenceExportResponse"
         and openapi["paths"]["/api/audit/governance-assignment-history"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/GovernanceAssignmentHistoryResponse"
@@ -1128,6 +1135,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/audit/governance-sla"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/GovernanceSLAResponse"
+        and openapi["paths"]["/api/audit/governance-sla/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceSLAEvidenceExportResponse"
         and openapi["paths"]["/api/audit/escalations"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/AuditRecordResponse"
@@ -1302,6 +1312,16 @@ def verify_api_smoke_flow() -> None:
         and any(item["reviewer_id"] == "quality-reviewer-01" for item in reviewer_workload["items"]),
         "Reviewer workload report did not include the assigned reviewer.",
     )
+    workload_export = request_json("/api/audit/reviewer-workload/export", "POST", {})["export_package"]
+    assert_condition(
+        workload_export["status"] == "ready_for_review"
+        and workload_export["data_platform"] == "DB MARIAM"
+        and workload_export["package_manifest"]["reviewer_count"]
+        == workload_export["workload_report"]["reviewer_count"]
+        and "quality-reviewer-01"
+        in [item["reviewer_id"] for item in workload_export["workload_report"]["items"]],
+        "Governance workload export did not preserve reviewer workload evidence.",
+    )
     governance_assignment_history = request_json("/api/audit/governance-assignment-history")[
         "history_report"
     ]
@@ -1412,6 +1432,20 @@ def verify_api_smoke_flow() -> None:
         ),
         "Governance SLA report did not expose assignment aging rules.",
     )
+    governance_sla_export = request_json("/api/audit/governance-sla/export", "POST", {})[
+        "export_package"
+    ]
+    assert_condition(
+        governance_sla_export["status"] == "ready_for_review"
+        and governance_sla_export["data_platform"] == "DB MARIAM"
+        and governance_sla_export["package_manifest"]["item_count"]
+        == len(governance_sla_export["sla_report"]["items"])
+        and any(
+            item["target_id"] == "verification-artifact-review"
+            for item in governance_sla_export["sla_report"]["items"]
+        ),
+        "Governance SLA export did not preserve SLA review evidence.",
+    )
     print("[verify] ok: governance SLA aging")
     escalation_record = request_json(
         "/api/audit/escalations",
@@ -1458,7 +1492,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

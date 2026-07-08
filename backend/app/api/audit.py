@@ -8,7 +8,9 @@ from app.core.audit import (
     EscalationRequest,
     GovernanceAssignmentHistoryReport,
     GovernanceDecisionEvidenceExportPackage,
+    GovernanceSLAEvidenceExportPackage,
     GovernanceSLAReport,
+    GovernanceWorkloadEvidenceExportPackage,
     NotificationRoutingRequest,
     ReviewerDecisionRequest,
     ReviewerWorkloadReport,
@@ -31,6 +33,10 @@ class ReviewerWorkloadResponse(BaseModel):
     workload_report: ReviewerWorkloadReport
 
 
+class GovernanceWorkloadEvidenceExportResponse(BaseModel):
+    export_package: GovernanceWorkloadEvidenceExportPackage
+
+
 class GovernanceAssignmentHistoryResponse(BaseModel):
     history_report: GovernanceAssignmentHistoryReport
 
@@ -41,6 +47,10 @@ class GovernanceDecisionEvidenceExportResponse(BaseModel):
 
 class GovernanceSLAResponse(BaseModel):
     sla_report: GovernanceSLAReport
+
+
+class GovernanceSLAEvidenceExportResponse(BaseModel):
+    export_package: GovernanceSLAEvidenceExportPackage
 
 
 @router.get("", response_model=AuditRecordsResponse)
@@ -83,6 +93,14 @@ def reviewer_workload(service: AuditService = Depends(get_audit_service)) -> Rev
     return {"workload_report": service.reviewer_workload().model_dump(mode="json")}
 
 
+@router.post("/reviewer-workload/export", response_model=GovernanceWorkloadEvidenceExportResponse)
+def export_reviewer_workload(
+    authorization=Depends(require_permission("governance.assign_approval", "governance_workload_export")),
+    service: AuditService = Depends(get_audit_service),
+) -> GovernanceWorkloadEvidenceExportResponse:
+    return {"export_package": service.export_governance_workload_evidence().model_dump(mode="json")}
+
+
 @router.get("/governance-assignment-history", response_model=GovernanceAssignmentHistoryResponse)
 def governance_assignment_history(
     service: AuditService = Depends(get_audit_service),
@@ -111,6 +129,14 @@ def record_reviewer_decision(
 @router.get("/governance-sla", response_model=GovernanceSLAResponse)
 def governance_sla(service: AuditService = Depends(get_audit_service)) -> GovernanceSLAResponse:
     return {"sla_report": service.governance_sla_report().model_dump(mode="json")}
+
+
+@router.post("/governance-sla/export", response_model=GovernanceSLAEvidenceExportResponse)
+def export_governance_sla(
+    authorization=Depends(require_permission("governance.assign_approval", "governance_sla_export")),
+    service: AuditService = Depends(get_audit_service),
+) -> GovernanceSLAEvidenceExportResponse:
+    return {"export_package": service.export_governance_sla_evidence().model_dump(mode="json")}
 
 
 @router.post("/escalations", response_model=AuditRecordResponse)
