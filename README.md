@@ -121,6 +121,12 @@ The executable completion report summarizes current project readiness and the ne
 GET /api/runtime/completion-report
 ```
 
+The completion report can also be exported as a JSON review package:
+
+```http
+POST /api/runtime/completion-report/export
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

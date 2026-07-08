@@ -86,6 +86,10 @@ async function loadCompletionReport() {
   return apiGet('/api/runtime/completion-report');
 }
 
+async function exportCompletionReport() {
+  return apiRequest('/api/runtime/completion-report/export', {});
+}
+
 async function exportUsageGuide() {
   return apiRequest('/api/runtime/usage-guide/export', {});
 }
@@ -1939,6 +1943,7 @@ function UsageGuidePanel({ refreshVersion }) {
 
 function CompletionReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1958,6 +1963,19 @@ function CompletionReportPanel({ refreshVersion }) {
     refreshReport();
   }, [refreshReport, refreshVersion]);
 
+  async function handleCompletionReportExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportCompletionReport();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (completionError) {
+      setStatus('error');
+      setError(completionError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1967,7 +1985,19 @@ function CompletionReportPanel({ refreshVersion }) {
       <button onClick={refreshReport} disabled={status === 'loading'}>
         {status === 'loading' ? 'Loading...' : 'Refresh Completion Report'}
       </button>
+      <button onClick={handleCompletionReportExport} disabled={status === 'loading' || !report}>
+        Export Completion Report
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>Completion Report Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>
+            {exportPackage.status} / {exportPackage.package_manifest.completion_percent}% complete
+          </p>
+        </div>
+      )}
       {report && (
         <>
           <div className="mission-result">

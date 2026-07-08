@@ -126,6 +126,17 @@ class ProjectCompletionReport:
     summary: str
 
 
+@dataclass
+class CompletionReportExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    completion_report: ProjectCompletionReport
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -495,4 +506,23 @@ class CommandCenterSummaryService:
                 "not a finished enterprise product. The verified core supports Command Center "
                 "operations, governance traces, delivery smoke flow, and review-package exports."
             ),
+        )
+
+    def export_completion_report(self) -> CompletionReportExportPackage:
+        report = self.completion_report()
+        return CompletionReportExportPackage(
+            export_id=f"completion-report-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": report.title,
+                "version": report.version,
+                "completion_percent": report.completion_percent,
+                "area_count": len(report.areas),
+                "verification_status": report.verification.status,
+                "data_platform": report.data_platform,
+                "requires_governance_review_before_external_delivery": True,
+            },
+            completion_report=report,
         )

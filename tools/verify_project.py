@@ -159,6 +159,15 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: completion report")
 
+    completion_report_export = request_json("/api/runtime/completion-report/export", "POST", {})[
+        "export_package"
+    ]
+    assert_condition(
+        completion_report_export["package_manifest"]["area_count"] == len(completion_report["areas"]),
+        "Completion report export package did not preserve the area count.",
+    )
+    print("[verify] ok: completion report export")
+
     print("[verify] checking mission to delivery flow")
     mission = request_json(
         "/api/missions",

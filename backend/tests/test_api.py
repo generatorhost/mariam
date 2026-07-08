@@ -2363,6 +2363,23 @@ def test_runtime_completion_report_summarizes_project_readiness() -> None:
     }
 
 
+def test_runtime_completion_report_can_be_exported_as_review_package() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/completion-report/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("completion-report-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["title"] == "Mariam Executable Project Completion Report"
+    assert export_package["package_manifest"]["verification_status"] == "passed"
+    assert export_package["package_manifest"]["area_count"] == len(export_package["completion_report"]["areas"])
+    assert export_package["completion_report"]["status"] == "in_progress_verified"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(
