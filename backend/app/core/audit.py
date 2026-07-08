@@ -34,6 +34,35 @@ class NotificationRoutingRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class EscalationRequest(BaseModel):
+    escalated_by: str = Field(default="governance-lead", min_length=2)
+    reviewer_id: str = Field(min_length=2)
+    target_type: str = Field(min_length=2)
+    target_id: str = Field(min_length=2)
+    reason: str = Field(min_length=3)
+    escalation_level: str = Field(default="governance-lead-review", min_length=2)
+    evidence: dict = Field(default_factory=dict)
+
+
+class ReviewerWorkloadItem(BaseModel):
+    reviewer_id: str
+    assigned_count: int
+    routed_notifications: int
+    escalation_count: int
+    target_ids: list[str]
+    status: str
+    data_platform: str = "DB MARIAM"
+
+
+class ReviewerWorkloadReport(BaseModel):
+    title: str
+    status: str
+    reviewer_count: int
+    overloaded_reviewers: list[str]
+    items: list[ReviewerWorkloadItem]
+    data_platform: str = "DB MARIAM"
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str

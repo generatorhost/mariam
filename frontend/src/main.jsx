@@ -678,6 +678,23 @@ async function routeGovernanceNotification() {
   });
 }
 
+async function loadReviewerWorkload() {
+  const body = await apiGet('/api/audit/reviewer-workload');
+  return body.workload_report;
+}
+
+async function escalateReviewerWorkload() {
+  return apiRequest('/api/audit/escalations', {
+    escalated_by: 'command-center-governance',
+    reviewer_id: 'quality-reviewer-01',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    reason: 'Escalate reviewer workload for governance lead attention.',
+    escalation_level: 'governance-lead-review',
+    evidence: { escalation_source: 'command-center' },
+  });
+}
+
 function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [dnaPackage, setDnaPackage] = useState(null);
@@ -3439,8 +3456,26 @@ function AuditPanel({ onActionComplete }) {
   const [auditRecord, setAuditRecord] = useState(null);
   const [assignmentRecord, setAssignmentRecord] = useState(null);
   const [notificationRecord, setNotificationRecord] = useState(null);
+  const [workloadReport, setWorkloadReport] = useState(null);
+  const [escalationRecord, setEscalationRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+
+  const refreshReviewerWorkload = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setWorkloadReport(await loadReviewerWorkload());
+      setStatus('ready');
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshReviewerWorkload();
+  }, [refreshReviewerWorkload]);
 
   async function handleAudit() {
     setStatus('loading');
@@ -3462,6 +3497,7 @@ function AuditPanel({ onActionComplete }) {
     try {
       const body = await assignApproval();
       setAssignmentRecord(body.audit_record);
+      setWorkloadReport(await loadReviewerWorkload());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -3476,6 +3512,22 @@ function AuditPanel({ onActionComplete }) {
     try {
       const body = await routeGovernanceNotification();
       setNotificationRecord(body.audit_record);
+      setWorkloadReport(await loadReviewerWorkload());
+      setStatus('ready');
+      onActionComplete();
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }
+
+  async function handleReviewerEscalation() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await escalateReviewerWorkload();
+      setEscalationRecord(body.audit_record);
+      setWorkloadReport(await loadReviewerWorkload());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -3498,6 +3550,12 @@ function AuditPanel({ onActionComplete }) {
       </button>
       <button onClick={handleNotificationRouting} disabled={status === 'loading'}>
         {status === 'loading' ? 'Routing...' : 'Route Notification'}
+      </button>
+      <button onClick={refreshReviewerWorkload} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Refreshing...' : 'Refresh Reviewer Workload'}
+      </button>
+      <button onClick={handleReviewerEscalation} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Escalating...' : 'Escalate Reviewer Workload'}
       </button>
       {error && <p className="error">{error}</p>}
       {auditRecord && (
@@ -3538,6 +3596,51 @@ function AuditPanel({ onActionComplete }) {
           <p>
             Audit <strong>{notificationRecord.audit_id}</strong> recorded in{' '}
             <strong>{notificationRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+      {workloadReport && (
+        <>
+          <div className="mission-result">
+            <h3>Reviewer Workload</h3>
+            <p>
+              <strong>{workloadReport.status}</strong> /{' '}
+              <strong>{workloadReport.reviewer_count}</strong> reviewers in{' '}
+              <strong>{workloadReport.data_platform}</strong>.
+            </p>
+            <p>
+              Overloaded:{' '}
+              <strong>
+                {workloadReport.overloaded_reviewers.length
+                  ? workloadReport.overloaded_reviewers.join(', ')
+                  : 'none'}
+              </strong>
+            </p>
+          </div>
+          <div className="mission-history">
+            {workloadReport.items.map((item) => (
+              <article key={item.reviewer_id}>
+                <strong>{item.reviewer_id}</strong>
+                <span>{item.status}</span>
+                <p>
+                  Assigned {item.assigned_count}, routed {item.routed_notifications},
+                  escalated {item.escalation_count}
+                </p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+      {escalationRecord && (
+        <div className="mission-result">
+          <h3>Reviewer Workload Escalated</h3>
+          <p>
+            <strong>{escalationRecord.evidence.reviewer_id}</strong> escalated to{' '}
+            <strong>{escalationRecord.evidence.escalation_level}</strong>.
+          </p>
+          <p>
+            Audit <strong>{escalationRecord.audit_id}</strong> recorded in{' '}
+            <strong>{escalationRecord.data_platform}</strong>.
           </p>
         </div>
       )}

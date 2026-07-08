@@ -114,6 +114,7 @@ def verify_api_smoke_flow() -> None:
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
         "/api/audit",
+        "/api/audit/reviewer-workload",
         "/api/runtime/events",
         "/api/plugins",
         "/api/runtime-objects",
@@ -427,6 +428,32 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: notification routing")
 
+    reviewer_workload = request_json("/api/audit/reviewer-workload")["workload_report"]
+    assert_condition(
+        reviewer_workload["reviewer_count"] >= 1
+        and any(item["reviewer_id"] == "quality-reviewer-01" for item in reviewer_workload["items"]),
+        "Reviewer workload report did not include the assigned reviewer.",
+    )
+    escalation_record = request_json(
+        "/api/audit/escalations",
+        "POST",
+        {
+            "escalated_by": "project-verifier",
+            "reviewer_id": "quality-reviewer-01",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "reason": "Verify governance reviewer workload escalation.",
+            "escalation_level": "governance-lead-review",
+            "evidence": {"verification": "reviewer-workload-escalated"},
+        },
+    )["audit_record"]
+    assert_condition(
+        escalation_record["decision"] == "escalated"
+        and escalation_record["evidence"]["reviewer_id"] == "quality-reviewer-01",
+        "Reviewer workload escalation did not record the expected audit evidence.",
+    )
+    print("[verify] ok: reviewer workload escalation")
+
     plugin_manifest = json.loads((ROOT / "plugins" / "crm" / "manifest.json").read_text(encoding="utf-8"))
     plugin = request_json("/api/plugins", "POST", plugin_manifest)["plugin"]
     plugin_workspace = request_json(f"/api/plugins/{plugin['plugin_id']}/workspace")
@@ -442,7 +469,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

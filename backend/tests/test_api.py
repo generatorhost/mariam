@@ -1499,6 +1499,62 @@ def test_governance_notification_routing_records_audit_and_event() -> None:
     ]
 
 
+def test_governance_reviewer_workload_reports_assignments_and_escalations() -> None:
+    client = TestClient(create_app())
+    for index in range(3):
+        response = client.post(
+            "/api/audit/approval-assignments",
+            json={
+                "assigned_by": "governance-lead",
+                "assignee_id": "quality-reviewer-02",
+                "target_type": "artifact",
+                "target_id": f"artifact-workload-target-{index}",
+                "approval_role": "quality-reviewer",
+                "reason": "Assign workload before delivery.",
+                "evidence": {"assignment_source": "test"},
+            },
+        )
+        assert response.status_code == 200
+
+    workload_response = client.get("/api/audit/reviewer-workload")
+
+    assert workload_response.status_code == 200
+    report = workload_response.json()["workload_report"]
+    assert report["title"] == "Governance Reviewer Workload Report"
+    assert report["status"] == "attention_required"
+    assert "quality-reviewer-02" in report["overloaded_reviewers"]
+    reviewer = next(item for item in report["items"] if item["reviewer_id"] == "quality-reviewer-02")
+    assert reviewer["assigned_count"] == 3
+    assert reviewer["status"] == "overloaded"
+    assert reviewer["data_platform"] == "DB MARIAM"
+
+    escalation_response = client.post(
+        "/api/audit/escalations",
+        json={
+            "escalated_by": "governance-lead",
+            "reviewer_id": "quality-reviewer-02",
+            "target_type": "artifact",
+            "target_id": "artifact-workload-target-0",
+            "reason": "Reviewer workload requires governance lead review.",
+            "escalation_level": "governance-lead-review",
+            "evidence": {"source": "test"},
+        },
+    )
+
+    assert escalation_response.status_code == 200
+    escalation = escalation_response.json()["audit_record"]
+    assert escalation["action"] == "governance.escalate_reviewer_workload"
+    assert escalation["decision"] == "escalated"
+    assert escalation["evidence"]["reviewer_id"] == "quality-reviewer-02"
+
+    escalated_report = client.get("/api/audit/reviewer-workload").json()["workload_report"]
+    escalated_reviewer = next(
+        item for item in escalated_report["items"] if item["reviewer_id"] == "quality-reviewer-02"
+    )
+    assert escalated_reviewer["status"] == "escalated"
+    assert escalated_reviewer["escalation_count"] >= 1
+
+
 def test_rejected_artifact_can_request_revision_and_return_to_approval() -> None:
     client = TestClient(create_app())
     mission_id = client.post(
@@ -2708,8 +2764,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2728,6 +2784,8 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Enforce Human Identity" in snapshot["controls_checked"]
     assert "Refresh Docker Execution" in snapshot["controls_checked"]
     assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
+    assert "Refresh Reviewer Workload" in snapshot["controls_checked"]
+    assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
     assert snapshot["artifact_path"].endswith("command-center-regression-snapshot.json")
@@ -2746,7 +2804,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

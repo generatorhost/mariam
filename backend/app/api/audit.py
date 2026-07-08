@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends
 
-from app.core.audit import ApprovalAssignmentRequest, AuditRecordRequest, NotificationRoutingRequest
+from app.core.audit import (
+    ApprovalAssignmentRequest,
+    AuditRecordRequest,
+    EscalationRequest,
+    NotificationRoutingRequest,
+)
 from app.dependencies import get_audit_service
 from app.services.audit import AuditService
 
@@ -36,4 +41,18 @@ def route_notification(
     service: AuditService = Depends(get_audit_service),
 ) -> dict:
     record = service.route_notification(request)
+    return {"audit_record": record.model_dump(mode="json")}
+
+
+@router.get("/reviewer-workload")
+def reviewer_workload(service: AuditService = Depends(get_audit_service)) -> dict:
+    return {"workload_report": service.reviewer_workload().model_dump(mode="json")}
+
+
+@router.post("/escalations")
+def escalate_reviewer_workload(
+    request: EscalationRequest,
+    service: AuditService = Depends(get_audit_service),
+) -> dict:
+    record = service.escalate_reviewer_workload(request)
     return {"audit_record": record.model_dump(mode="json")}

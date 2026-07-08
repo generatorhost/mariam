@@ -217,6 +217,13 @@ Governance notification routing records reviewer notifications as DB MARIAM audi
 POST /api/audit/notifications/route
 ```
 
+Reviewer workload and escalation APIs summarize approval assignment load and record governance lead escalation when review capacity needs attention:
+
+```http
+GET /api/audit/reviewer-workload
+POST /api/audit/escalations
+```
+
 Plugin workspaces expose dashboard, settings, Chief Agent, swarm, timeline, actions, and DB MARIAM data boundaries through:
 
 ```http
