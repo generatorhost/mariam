@@ -372,6 +372,10 @@ async function loadDeliveryEvidenceReport() {
   return apiGet('/api/runtime/delivery-evidence-report');
 }
 
+async function exportDeliveryGovernanceEvidence() {
+  return apiRequest('/api/runtime/delivery-evidence-report/export', {});
+}
+
 async function loadAuditRecords() {
   const body = await apiGet('/api/audit');
   return (body.audit_records || []).sort(
@@ -1606,6 +1610,7 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [qualityReview, setQualityReview] = useState(null);
   const [deliveryPackage, setDeliveryPackage] = useState(null);
   const [deliveryEvidenceReport, setDeliveryEvidenceReport] = useState(null);
+  const [deliveryEvidenceExport, setDeliveryEvidenceExport] = useState(null);
   const [slaStateFilter, setSlaStateFilter] = useState(() => (
     readCommandCenterPreference('deliverySlaStateFilter', 'all')
   ));
@@ -1685,6 +1690,20 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     } catch (evidenceError) {
       setStatus('error');
       setError(evidenceError.message);
+    }
+  }, []);
+
+  const handleDeliveryEvidenceExport = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportDeliveryGovernanceEvidence();
+      setDeliveryEvidenceExport(body.export_package);
+      setDeliveryEvidenceReport(body.export_package.delivery_evidence_report);
+      setStatus('ready');
+    } catch (exportError) {
+      setStatus('error');
+      setError(exportError.message);
     }
   }, []);
 
@@ -1882,6 +1901,9 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
         <button onClick={refreshDeliveryEvidenceReport} disabled={status === 'loading'}>
           Refresh Delivery Evidence
         </button>
+        <button onClick={handleDeliveryEvidenceExport} disabled={status === 'loading'}>
+          {status === 'loading' ? 'Exporting...' : 'Export Delivery Governance Evidence'}
+        </button>
       </div>
       {deliveryEvidenceReport && (
         <div className="mission-result">
@@ -1960,6 +1982,15 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                 )}
               </div>
             </>
+          )}
+          {deliveryEvidenceExport && (
+            <div className="mission-result compact-result">
+              <strong>Delivery Governance Evidence Export Ready</strong>
+              <span>{deliveryEvidenceExport.export_id}</span>
+              <p>
+                {deliveryEvidenceExport.package_manifest.delivery_count} deliveries / {deliveryEvidenceExport.package_manifest.sla_drilldown_count} SLA rows / {deliveryEvidenceExport.status}
+              </p>
+            </div>
           )}
         </div>
       )}

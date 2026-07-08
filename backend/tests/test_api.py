@@ -1607,6 +1607,18 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert "signed_delivery_sla_filters_ready" in [
         check["name"] for check in evidence_report["checks"]
     ]
+    export_response = client.post("/api/runtime/delivery-evidence-report/export")
+    assert export_response.status_code == 200
+    export_package = export_response.json()["export_package"]
+    assert export_package["export_id"].startswith("delivery-governance-evidence-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["delivery_count"] >= 1
+    assert export_package["package_manifest"]["signed_bundle_count"] >= 1
+    assert export_package["package_manifest"]["confirmed_delivery_count"] >= 1
+    assert export_package["package_manifest"]["invalid_signature_count"] == 0
+    assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert export_package["delivery_evidence_report"]["data_platform"] == "DB MARIAM"
     drilldown_item = next(
         item for item in evidence_report["sla_drilldown_items"]
         if item["delivery_id"] == confirmed["delivery_id"]
@@ -3202,6 +3214,11 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/DeliveryEvidenceReportResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/delivery-evidence-report/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DeliveryEvidenceExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/data-platform/readiness"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DataPlatformReadinessResponse"
@@ -3305,6 +3322,7 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "LiveRepositoryWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LogsStoreReadStatusResponse" in openapi["components"]["schemas"]
     assert "ArtifactLineageReadStatusResponse" in openapi["components"]["schemas"]
+    assert "DeliveryEvidenceExportResponse" in openapi["components"]["schemas"]
     live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
         "properties"
     ]
@@ -3345,8 +3363,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3371,6 +3389,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Record Reviewer Decision" in snapshot["controls_checked"]
     assert "Export Reviewer Decision Evidence" in snapshot["controls_checked"]
+    assert "Export Delivery Governance Evidence" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
@@ -3504,6 +3523,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["quality_gates"]["missing_mutation_gates"] == []
     assert "POST /api/audit/reviewer-decisions" in contract["quality_gates"]["mutation_gate_covered_endpoints"]
     assert "POST /api/artifacts/{artifact_id}/package-delivery" in contract["quality_gates"]["mutation_gate_covered_endpoints"]
+    assert "POST /api/runtime/delivery-evidence-report/export" in contract["quality_gates"]["mutation_gate_covered_endpoints"]
     assert contract["artifact_freshness"]["status"] == "ready"
     assert contract["artifact_freshness"]["max_age_hours"] == 24
     assert contract["artifact_freshness"]["stale_artifacts"] == []
@@ -3593,7 +3613,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

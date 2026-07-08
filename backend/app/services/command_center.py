@@ -438,6 +438,17 @@ class DeliveryEvidenceReport:
 
 
 @dataclass
+class DeliveryEvidenceExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    delivery_evidence_report: DeliveryEvidenceReport
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
 class FrontendRegressionSnapshot:
     title: str
     status: str
@@ -661,6 +672,7 @@ class CommandCenterSummaryService:
                 "/api/runtime/data-platform/live-write-smoke",
                 "/api/runtime/data-platform/logs-store",
                 "/api/runtime/data-platform/artifact-lineage",
+                "/api/runtime/delivery-evidence-report/export",
                 "/api/plugins",
                 "/api/runtime-objects",
                 "/api/ai-resources/providers",
@@ -1184,6 +1196,29 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def export_delivery_evidence_report(self) -> DeliveryEvidenceExportPackage:
+        report = self.delivery_evidence_report()
+        return DeliveryEvidenceExportPackage(
+            export_id=f"delivery-governance-evidence-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": report.title,
+                "report_status": report.status,
+                "delivery_count": report.delivery_count,
+                "signed_bundle_count": report.signed_bundle_count,
+                "confirmed_delivery_count": report.confirmed_delivery_count,
+                "invalid_signature_count": report.invalid_signature_count,
+                "sla_status": report.sla_status,
+                "sla_drilldown_count": len(report.sla_drilldown_items),
+                "filter_rule": report.sla_filters.get("filter_rule"),
+                "data_platform": report.data_platform,
+                "requires_governance_review_before_external_delivery": True,
+            },
+            delivery_evidence_report=report,
+        )
+
     def completion_report(self) -> ProjectCompletionReport:
         verification = self.verification_report()
         usage_guide = self.usage_guide()
@@ -1211,10 +1246,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=91,
+                completion_percent=92,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, reviewer decision evidence export packages, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, and reviewer decision outcome filters by reviewer and decision are covered by tests and smoke verification.",
-                next_step="Add delivery governance export evidence to the Command Center client delivery dashboard.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, reviewer decision evidence export packages, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, and reviewer decision outcome filters by reviewer and decision are covered by tests and smoke verification.",
+                next_step="Add visual interaction smoke coverage for delivery governance export controls.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -2862,6 +2897,7 @@ class CommandCenterSummaryService:
             "Run DB MARIAM Write Smoke",
             "Run Repository Write Smoke",
             "Refresh Delivery Evidence",
+            "Export Delivery Governance Evidence",
             "Open Live Plugin Workspace",
             "Start CRM Mission",
             "Route Notification",
@@ -3411,6 +3447,7 @@ class CommandCenterSummaryService:
             "/api/runtime/frontend/browser-screenshot-capture",
             "/api/runtime/api-error-contract",
             "/api/runtime/delivery-evidence-report",
+            "/api/runtime/delivery-evidence-report/export",
             "/api/runtime/data-platform/logs-store",
             "/api/runtime/data-platform/artifact-lineage",
             "/api/audit/governance-assignment-history",
@@ -3513,6 +3550,7 @@ class CommandCenterSummaryService:
             "POST /api/runtime/usage-guide/export": ["/api/runtime/usage-guide/export"],
             "POST /api/runtime/completion-report/export": ["/api/runtime/completion-report/export"],
             "POST /api/runtime/implementation-roadmap/export": ["/api/runtime/implementation-roadmap/export"],
+            "POST /api/runtime/delivery-evidence-report/export": ["/api/runtime/delivery-evidence-report/export"],
             "POST /api/runtime/data-platform/readiness/export": ["/api/runtime/data-platform/readiness/export"],
             "POST /api/runtime/data-platform/migration-runner/export": ["/api/runtime/data-platform/migration-runner/export"],
             "POST /api/runtime/data-platform/live-write-smoke": ["/api/runtime/data-platform/live-write-smoke"],

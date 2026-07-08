@@ -38,6 +38,9 @@ def run_interaction_smoke() -> dict[str, Any]:
         "export_function_bound": "exportGovernanceDecisionEvidence" in source_text,
         "success_state_visible": "Reviewer Decision Evidence Export Ready" in source_text,
         "decision_count_rendered": "package_manifest.decision_count" in source_text,
+        "delivery_governance_export_button_visible": "Export Delivery Governance Evidence" in source_text,
+        "delivery_governance_export_function_bound": "exportDeliveryGovernanceEvidence" in source_text,
+        "delivery_governance_export_success_visible": "Delivery Governance Evidence Export Ready" in source_text,
         "governance_filters_visible": "Filter reviewer decisions by reviewer" in source_text
         and "Filter reviewer decisions by outcome" in source_text,
     }
@@ -78,6 +81,11 @@ def run_interaction_smoke() -> dict[str, Any]:
         "POST",
         {},
     )["export_package"]
+    delivery_evidence_export = request_json(
+        "/api/runtime/delivery-evidence-report/export",
+        "POST",
+        {},
+    )["export_package"]
     api_checks = {
         "export_ready_for_review": export_package["status"] == "ready_for_review",
         "export_counts_decisions": export_package["package_manifest"]["decision_count"] >= 1,
@@ -88,6 +96,14 @@ def run_interaction_smoke() -> dict[str, Any]:
         ]
         is True,
         "export_uses_db_mariam": export_package["data_platform"] == "DB MARIAM",
+        "delivery_governance_export_ready_for_review": delivery_evidence_export["status"]
+        == "ready_for_review",
+        "delivery_governance_export_uses_db_mariam": delivery_evidence_export["data_platform"]
+        == "DB MARIAM",
+        "delivery_governance_export_gated": delivery_evidence_export["package_manifest"][
+            "requires_governance_review_before_external_delivery"
+        ]
+        is True,
     }
     checks = {**source_checks, **api_checks}
     report = {
@@ -101,10 +117,15 @@ def run_interaction_smoke() -> dict[str, Any]:
             "Press Export Reviewer Decision Evidence",
             "POST /api/audit/governance-decision-evidence/export",
             "Render Reviewer Decision Evidence Export Ready",
+            "Press Export Delivery Governance Evidence",
+            "POST /api/runtime/delivery-evidence-report/export",
+            "Render Delivery Governance Evidence Export Ready",
         ],
         "source_file": str(FRONTEND_SOURCE),
         "export_id": export_package["export_id"],
+        "delivery_governance_export_id": delivery_evidence_export["export_id"],
         "decision_count": export_package["package_manifest"]["decision_count"],
+        "delivery_export_count": delivery_evidence_export["package_manifest"]["delivery_count"],
         "reviewer_ids": export_package["package_manifest"]["reviewer_ids"],
         "checks": checks,
     }

@@ -546,6 +546,7 @@ def verify_api_smoke_flow() -> None:
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Record Reviewer Decision" in frontend_regression["controls_checked"]
         and "Export Reviewer Decision Evidence" in frontend_regression["controls_checked"]
+        and "Export Delivery Governance Evidence" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"]
         and "Latest CI run result ingestion" in frontend_regression["controls_checked"]
@@ -785,6 +786,9 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/delivery-evidence-report"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DeliveryEvidenceReportResponse"
+        and openapi["paths"]["/api/runtime/delivery-evidence-report/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DeliveryEvidenceExportResponse"
         and openapi["paths"]["/api/runtime/data-platform/readiness"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DataPlatformReadinessResponse"
@@ -1042,7 +1046,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -1195,6 +1199,23 @@ def verify_api_smoke_flow() -> None:
         and evidence_item["signature_valid"] is True
         and evidence_item["delivery_confirmed"] is True,
         "Delivery evidence report did not verify the signed client delivery package.",
+    )
+    delivery_evidence_export = request_json(
+        "/api/runtime/delivery-evidence-report/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        delivery_evidence_export["status"] == "ready_for_review"
+        and delivery_evidence_export["data_platform"] == "DB MARIAM"
+        and delivery_evidence_export["package_manifest"]["delivery_count"] >= 1
+        and delivery_evidence_export["package_manifest"]["signed_bundle_count"] >= 1
+        and delivery_evidence_export["package_manifest"]["confirmed_delivery_count"] >= 1
+        and delivery_evidence_export["package_manifest"][
+            "requires_governance_review_before_external_delivery"
+        ]
+        is True,
+        "Delivery governance evidence export package was not ready for review.",
     )
     assert_condition(
         sla_item is not None

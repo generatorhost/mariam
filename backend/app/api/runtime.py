@@ -298,6 +298,10 @@ class DeliveryEvidenceReportResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class DeliveryEvidenceExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class FrontendRegressionSnapshotResponse(BaseModel):
     title: str
     status: str
@@ -588,6 +592,14 @@ def command_center_delivery_evidence_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> DeliveryEvidenceReportResponse:
     return asdict(service.delivery_evidence_report())
+
+
+@router.post("/delivery-evidence-report/export", response_model=DeliveryEvidenceExportResponse)
+def export_command_center_delivery_evidence_report(
+    authorization=Depends(require_permission("diagnostics.export", "delivery_governance_evidence")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DeliveryEvidenceExportResponse:
+    return {"export_package": asdict(service.export_delivery_evidence_report())}
 
 
 @router.post("/verification-report/record", response_model=VerificationSnapshotRecordResponse)
