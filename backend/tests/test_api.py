@@ -1682,6 +1682,19 @@ def test_governance_approval_assignment_records_audit_and_event() -> None:
     assert audit_record["evidence"]["assignee_id"] == "quality-reviewer-01"
     assert audit_record["evidence"]["approval_role"] == "quality-reviewer"
     assert audit_record["data_platform"] == "DB MARIAM"
+    history_response = client.get("/api/audit/governance-assignment-history")
+    assert history_response.status_code == 200
+    history = history_response.json()["history_report"]
+    assert history["title"] == "Governance Reviewer Queue Assignment History"
+    assert history["status"] == "ready"
+    assert history["assignment_count"] >= 1
+    assignment = next(
+        item for item in history["assignments"] if item["target_id"] == "artifact-review-target-01"
+    )
+    assert assignment["audit_id"] == audit_record["audit_id"]
+    assert assignment["reviewer_id"] == "quality-reviewer-01"
+    assert assignment["reviewer_queue"] == "quality-reviewer"
+    assert assignment["data_platform"] == "DB MARIAM"
 
     events_response = client.get("/api/runtime/events")
     assert "artifact-review-target-01" in [
@@ -1772,6 +1785,14 @@ def test_governance_reviewer_workload_reports_assignments_and_escalations() -> N
     assert escalation["action"] == "governance.escalate_reviewer_workload"
     assert escalation["decision"] == "escalated"
     assert escalation["evidence"]["reviewer_id"] == "quality-reviewer-02"
+    history = client.get("/api/audit/governance-assignment-history").json()["history_report"]
+    history_escalation = next(
+        item for item in history["escalations"] if item["target_id"] == "artifact-workload-target-0"
+    )
+    assert history_escalation["audit_id"] == escalation["audit_id"]
+    assert history_escalation["reviewer_id"] == "quality-reviewer-02"
+    assert history_escalation["escalation_level"] == "governance-lead-review"
+    assert history_escalation["data_platform"] == "DB MARIAM"
 
     escalated_report = client.get("/api/audit/reviewer-workload").json()["workload_report"]
     escalated_reviewer = next(
@@ -3082,8 +3103,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3278,7 +3299,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3305,6 +3326,8 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
         "capability_graph_records",
         "vector_index_records",
         "artifact_store_records",
+        "reviewer_queue_assignments",
+        "governance_sla_escalations",
     }.issubset(set(readiness["expected_tables"]))
     assert all(check["status"] == "ready" for check in readiness["checks"])
 
@@ -3837,3 +3860,24 @@ def test_audit_schema_targets_db_mariam() -> None:
     assert "CREATE TABLE IF NOT EXISTS audit_log" in migration
     assert "decision TEXT NOT NULL" in migration
     assert "evidence JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+
+
+def test_governance_assignment_history_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0010_governance_assignment_history.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS reviewer_queue_assignments" in migration
+    assert "CREATE TABLE IF NOT EXISTS governance_sla_escalations" in migration
+    assert "audit_id UUID REFERENCES audit_log" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_reviewer_queue_assignments_reviewer_created" in migration
+    assert "idx_governance_sla_escalations_reviewer_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS reviewer_queue_assignments" in upgrade
+    assert "CREATE TABLE IF NOT EXISTS governance_sla_escalations" in upgrade

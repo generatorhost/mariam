@@ -610,6 +610,7 @@ class CommandCenterSummaryService:
                 "/api/artifacts/deliveries",
                 "/api/audit",
                 "/api/audit/reviewer-workload",
+                "/api/audit/governance-assignment-history",
                 "/api/runtime/events",
                 "/api/runtime/data-platform/docker-container-execution",
                 "/api/runtime/data-platform/live-write-smoke",
@@ -1143,10 +1144,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=86,
+                completion_percent=88,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down and dashboard filters for signed delivery SLA state and reviewer queue, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Persist reviewer queue assignments for delivery SLA escalation history.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, notification routing, reviewer workload reporting from DB MARIAM assignment history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down and dashboard filters for signed delivery SLA state and reviewer queue, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add persistent reviewer decision outcomes for approval lifecycle history.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -1271,6 +1272,8 @@ class CommandCenterSummaryService:
             "vector_index_records",
             "artifact_store_records",
             "audit_log",
+            "reviewer_queue_assignments",
+            "governance_sla_escalations",
         ]
         migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
         migration_files = sorted(migration_dir.glob("*.sql"))
@@ -2988,6 +2991,7 @@ class CommandCenterSummaryService:
             "/api/runtime/frontend/browser-screenshot-capture",
             "/api/runtime/api-error-contract",
             "/api/runtime/delivery-evidence-report",
+            "/api/audit/governance-assignment-history",
             "/api/runtime/verification-report",
             "/api/runtime/completion-report",
             "/api/runtime/implementation-roadmap",

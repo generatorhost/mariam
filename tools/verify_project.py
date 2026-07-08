@@ -170,6 +170,7 @@ def verify_api_smoke_flow() -> None:
         "/api/artifacts/deliveries",
         "/api/audit",
         "/api/audit/reviewer-workload",
+        "/api/audit/governance-assignment-history",
         "/api/runtime/events",
         "/api/plugins",
         "/api/runtime-objects",
@@ -715,6 +716,19 @@ def verify_api_smoke_flow() -> None:
         and any(item["reviewer_id"] == "quality-reviewer-01" for item in reviewer_workload["items"]),
         "Reviewer workload report did not include the assigned reviewer.",
     )
+    governance_assignment_history = request_json("/api/audit/governance-assignment-history")[
+        "history_report"
+    ]
+    assert_condition(
+        governance_assignment_history["assignment_count"] >= 1
+        and any(
+            item["target_id"] == "verification-artifact-review"
+            and item["reviewer_id"] == "quality-reviewer-01"
+            for item in governance_assignment_history["assignments"]
+        ),
+        "Governance assignment history did not persist the reviewer queue assignment.",
+    )
+    print("[verify] ok: governance assignment history")
     governance_sla = request_json("/api/audit/governance-sla")["sla_report"]
     assert_condition(
         governance_sla["status"] in {"ready", "escalation_required"}
@@ -742,6 +756,16 @@ def verify_api_smoke_flow() -> None:
         and escalation_record["evidence"]["reviewer_id"] == "quality-reviewer-01",
         "Reviewer workload escalation did not record the expected audit evidence.",
     )
+    escalated_history = request_json("/api/audit/governance-assignment-history")["history_report"]
+    assert_condition(
+        escalated_history["escalation_count"] >= 1
+        and any(
+            item["target_id"] == "verification-artifact-review"
+            and item["reviewer_id"] == "quality-reviewer-01"
+            for item in escalated_history["escalations"]
+        ),
+        "Governance assignment history did not persist the SLA escalation.",
+    )
     print("[verify] ok: reviewer workload escalation")
 
     plugin_manifest = json.loads((ROOT / "plugins" / "crm" / "manifest.json").read_text(encoding="utf-8"))
@@ -759,7 +783,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

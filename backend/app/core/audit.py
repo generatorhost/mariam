@@ -89,6 +89,46 @@ class GovernanceSLAReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class ReviewerQueueAssignmentRecord(BaseModel):
+    assignment_id: str
+    audit_id: str
+    assigned_by: str
+    reviewer_id: str
+    target_type: str
+    target_id: str
+    approval_role: str
+    reviewer_queue: str
+    status: str = "assigned"
+    reason: str
+    data_platform: str = "DB MARIAM"
+    created_at: datetime
+
+
+class GovernanceSLAEscalationRecord(BaseModel):
+    escalation_id: str
+    audit_id: str
+    escalated_by: str
+    reviewer_id: str
+    target_type: str
+    target_id: str
+    escalation_level: str
+    status: str = "escalated"
+    reason: str
+    data_platform: str = "DB MARIAM"
+    created_at: datetime
+
+
+class GovernanceAssignmentHistoryReport(BaseModel):
+    title: str
+    status: str
+    generated_at: datetime
+    assignment_count: int
+    escalation_count: int
+    assignments: list[ReviewerQueueAssignmentRecord]
+    escalations: list[GovernanceSLAEscalationRecord]
+    data_platform: str = "DB MARIAM"
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str
