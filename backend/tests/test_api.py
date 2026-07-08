@@ -1245,6 +1245,38 @@ def test_artifact_can_be_rejected_with_governance_reason() -> None:
     ]
 
 
+def test_governance_approval_assignment_records_audit_and_event() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-01",
+            "target_type": "artifact",
+            "target_id": "artifact-review-target-01",
+            "approval_role": "quality-reviewer",
+            "reason": "Assign quality review before client delivery.",
+            "evidence": {"assignment_source": "test"},
+        },
+    )
+
+    assert response.status_code == 200
+    audit_record = response.json()["audit_record"]
+    assert audit_record["action"] == "governance.assign_approval"
+    assert audit_record["decision"] == "assigned"
+    assert audit_record["evidence"]["assignee_id"] == "quality-reviewer-01"
+    assert audit_record["evidence"]["approval_role"] == "quality-reviewer"
+    assert audit_record["data_platform"] == "DB MARIAM"
+
+    events_response = client.get("/api/runtime/events")
+    assert "artifact-review-target-01" in [
+        event["payload"].get("target_id")
+        for event in events_response.json()["events"]
+        if event["name"] == "governance.approval_assigned"
+    ]
+
+
 def test_rejected_artifact_can_request_revision_and_return_to_approval() -> None:
     client = TestClient(create_app())
     mission_id = client.post(
@@ -2454,8 +2486,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2472,7 +2504,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

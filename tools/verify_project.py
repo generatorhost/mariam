@@ -242,10 +242,30 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: completion report export")
 
+    approval_assignment = request_json(
+        "/api/audit/approval-assignments",
+        "POST",
+        {
+            "assigned_by": "project-verifier",
+            "assignee_id": "quality-reviewer-01",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "approval_role": "quality-reviewer",
+            "reason": "Verify approval assignment governance flow.",
+            "evidence": {"verification": "approval-assigned"},
+        },
+    )["audit_record"]
+    assert_condition(
+        approval_assignment["decision"] == "assigned"
+        and approval_assignment["evidence"]["assignee_id"] == "quality-reviewer-01",
+        "Approval assignment did not record the expected audit evidence.",
+    )
+    print("[verify] ok: approval assignment")
+
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

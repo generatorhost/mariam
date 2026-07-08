@@ -557,6 +557,16 @@ class CommandCenterSummaryService:
                     verification_signal="Smoke verification rejects premature delivery packaging, tests revision loop, and confirms the valid path.",
                 ),
                 UsageGuideStep(
+                    action="Assign approval",
+                    frontend_control="Assign Approval",
+                    api_endpoint="POST /api/audit/approval-assignments",
+                    backend_handler="assign_approval",
+                    service_effect="Assigns an approval role to a reviewer and records the assignment as governed audit evidence.",
+                    data_platform_effect="Stores assignment evidence in the audit log and emits a governance approval assignment event.",
+                    result="The user sees the assigned reviewer, approval role, and audit id.",
+                    verification_signal="verify_project.py posts an approval assignment and checks the assignment decision.",
+                ),
+                UsageGuideStep(
                     action="Register and govern plugin",
                     frontend_control="Register CRM Plugin / Validate / Enable / Impact / Approve / Disable",
                     api_endpoint="POST /api/plugins and governed plugin lifecycle endpoints",
@@ -623,10 +633,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=66,
+                completion_percent=68,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add human identity, approval assignment, and notification routing.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add human identity and notification routing.",
             ),
             CompletionArea(
                 name="Verification automation",

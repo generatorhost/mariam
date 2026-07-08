@@ -564,6 +564,18 @@ async function recordAuditDecision() {
   });
 }
 
+async function assignApproval() {
+  return apiRequest('/api/audit/approval-assignments', {
+    assigned_by: 'command-center-governance',
+    assignee_id: 'quality-reviewer-01',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    approval_role: 'quality-reviewer',
+    reason: 'Assign quality review before client delivery.',
+    evidence: { assignment_source: 'command-center' },
+  });
+}
+
 function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [dnaPackage, setDnaPackage] = useState(null);
@@ -2860,6 +2872,7 @@ function RuntimeObjectPanel({ onActionComplete }) {
 
 function AuditPanel({ onActionComplete }) {
   const [auditRecord, setAuditRecord] = useState(null);
+  const [assignmentRecord, setAssignmentRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -2877,6 +2890,20 @@ function AuditPanel({ onActionComplete }) {
     }
   }
 
+  async function handleApprovalAssignment() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await assignApproval();
+      setAssignmentRecord(body.audit_record);
+      setStatus('ready');
+      onActionComplete();
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -2885,6 +2912,9 @@ function AuditPanel({ onActionComplete }) {
       </div>
       <button onClick={handleAudit} disabled={status === 'loading'}>
         {status === 'loading' ? 'Recording...' : 'Record Audit Decision'}
+      </button>
+      <button onClick={handleApprovalAssignment} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Assigning...' : 'Assign Approval'}
       </button>
       {error && <p className="error">{error}</p>}
       {auditRecord && (
@@ -2898,6 +2928,19 @@ function AuditPanel({ onActionComplete }) {
           <p>
             Actor <strong>{auditRecord.actor_id}</strong> wrote evidence to{' '}
             <strong>{auditRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+      {assignmentRecord && (
+        <div className="mission-result">
+          <h3>Approval Assigned</h3>
+          <p>
+            <strong>{assignmentRecord.evidence.approval_role}</strong> assigned to{' '}
+            <strong>{assignmentRecord.evidence.assignee_id}</strong>.
+          </p>
+          <p>
+            Audit <strong>{assignmentRecord.audit_id}</strong> recorded in{' '}
+            <strong>{assignmentRecord.data_platform}</strong>.
           </p>
         </div>
       )}

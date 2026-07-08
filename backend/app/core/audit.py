@@ -13,6 +13,16 @@ class AuditRecordRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class ApprovalAssignmentRequest(BaseModel):
+    assigned_by: str = Field(default="governance-lead", min_length=2)
+    assignee_id: str = Field(min_length=2)
+    target_type: str = Field(min_length=2)
+    target_id: str = Field(min_length=2)
+    approval_role: str = Field(default="governance-reviewer", min_length=2)
+    reason: str = Field(min_length=3)
+    evidence: dict = Field(default_factory=dict)
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str
