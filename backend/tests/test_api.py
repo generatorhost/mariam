@@ -3429,6 +3429,25 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/ArtifactLineageExportResponse"
     )
+    data_record_store_response_refs = {
+        ("get", "/api/runtime/data-platform/communication-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/communication-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/document-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/document-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/workflow-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/workflow-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/capability-graph-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/capability-graph-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/vector-index-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/vector-index-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/artifact-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/artifact-store/export"): "DataRecordStoreExportResponse",
+    }
+    for (method, path), schema_name in data_record_store_response_refs.items():
+        assert (
+            openapi["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+            == f"#/components/schemas/{schema_name}"
+        )
     assert (
         openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
@@ -3543,6 +3562,8 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "MetricsStoreExportResponse" in openapi["components"]["schemas"]
     assert "ArtifactLineageReadStatusResponse" in openapi["components"]["schemas"]
     assert "ArtifactLineageExportResponse" in openapi["components"]["schemas"]
+    assert "DataRecordStoreReadStatusResponse" in openapi["components"]["schemas"]
+    assert "DataRecordStoreExportResponse" in openapi["components"]["schemas"]
     assert "DeliveryEvidenceExportResponse" in openapi["components"]["schemas"]
     live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
         "properties"
@@ -3584,7 +3605,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3791,6 +3812,12 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "/api/runtime/frontend/browser-screenshot-capture" in contract["required_endpoints"]
     assert "/api/runtime/frontend/visual-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/communication-store/export" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/document-store/export" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/workflow-store/export" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/capability-graph-store/export" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/vector-index-store/export" in contract["required_endpoints"]
+    assert "/api/runtime/data-platform/artifact-store/export" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-capture.json" in contract["required_artifacts"]
     assert (
@@ -3927,7 +3954,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -4206,6 +4233,14 @@ def test_data_platform_evidence_store_read_apis_return_recent_records() -> None:
     audit_archive_response = client.get("/api/runtime/data-platform/audit-event-archive")
     metrics_store_response = client.get("/api/runtime/data-platform/metrics-store")
     lineage_response = client.get("/api/runtime/data-platform/artifact-lineage")
+    data_record_store_responses = {
+        "communication-store": client.get("/api/runtime/data-platform/communication-store"),
+        "document-store": client.get("/api/runtime/data-platform/document-store"),
+        "workflow-store": client.get("/api/runtime/data-platform/workflow-store"),
+        "capability-graph-store": client.get("/api/runtime/data-platform/capability-graph-store"),
+        "vector-index-store": client.get("/api/runtime/data-platform/vector-index-store"),
+        "artifact-store": client.get("/api/runtime/data-platform/artifact-store"),
+    }
 
     assert smoke_response.status_code == 200
     assert smoke["status"] == "ready"
@@ -4213,6 +4248,7 @@ def test_data_platform_evidence_store_read_apis_return_recent_records() -> None:
     assert audit_archive_response.status_code == 200
     assert metrics_store_response.status_code == 200
     assert lineage_response.status_code == 200
+    assert all(response.status_code == 200 for response in data_record_store_responses.values())
     logs_status = logs_response.json()
     audit_archive_status = audit_archive_response.json()
     metrics_store_status = metrics_store_response.json()
@@ -4276,6 +4312,24 @@ def test_data_platform_evidence_store_read_apis_return_recent_records() -> None:
     assert lineage_record["mission_id"] == smoke["mission_id"]
     assert lineage_record["lineage_metadata"]["verification"] == "repository-write-smoke"
     assert all(check["status"] == "ready" for check in lineage_status["checks"])
+    data_record_store_checks = {
+        "communication-store": ("communication_record_id", "record_id", "communication_records"),
+        "document-store": ("document_record_id", "document_id", "document_records"),
+        "workflow-store": ("workflow_record_id", "workflow_id", "workflow_records"),
+        "capability-graph-store": ("capability_graph_record_id", "capability_id", "capability_graph_records"),
+        "vector-index-store": ("vector_index_record_id", "vector_id", "vector_index_records"),
+        "artifact-store": ("artifact_store_record_id", "store_id", "artifact_store_records"),
+    }
+    for store_name, (smoke_key, record_key, table_name) in data_record_store_checks.items():
+        status = data_record_store_responses[store_name].json()
+        assert status["title"] == f"DB MARIAM {store_name.title()} Read API"
+        assert status["status"] == "ready"
+        assert status["data_platform"] == "DB MARIAM"
+        assert status["store_name"] == store_name
+        assert status["table_name"] == table_name
+        assert status["record_count"] >= 1
+        assert smoke[smoke_key] in [record[record_key] for record in status["records"]]
+        assert all(check["status"] == "ready" for check in status["checks"])
 
 
 def test_data_platform_evidence_stores_can_be_exported_for_review() -> None:
@@ -4288,6 +4342,14 @@ def test_data_platform_evidence_stores_can_be_exported_for_review() -> None:
     metrics_export_response = client.post("/api/runtime/data-platform/metrics-store/export")
     logs_export_response = client.post("/api/runtime/data-platform/logs-store/export")
     lineage_export_response = client.post("/api/runtime/data-platform/artifact-lineage/export")
+    data_record_store_export_responses = {
+        "communication-store": client.post("/api/runtime/data-platform/communication-store/export"),
+        "document-store": client.post("/api/runtime/data-platform/document-store/export"),
+        "workflow-store": client.post("/api/runtime/data-platform/workflow-store/export"),
+        "capability-graph-store": client.post("/api/runtime/data-platform/capability-graph-store/export"),
+        "vector-index-store": client.post("/api/runtime/data-platform/vector-index-store/export"),
+        "artifact-store": client.post("/api/runtime/data-platform/artifact-store/export"),
+    }
 
     assert smoke_response.status_code == 200
     assert smoke["status"] == "ready"
@@ -4295,6 +4357,7 @@ def test_data_platform_evidence_stores_can_be_exported_for_review() -> None:
     assert metrics_export_response.status_code == 200
     assert logs_export_response.status_code == 200
     assert lineage_export_response.status_code == 200
+    assert all(response.status_code == 200 for response in data_record_store_export_responses.values())
     audit_export = audit_export_response.json()["export_package"]
     metrics_export = metrics_export_response.json()["export_package"]
     logs_export = logs_export_response.json()["export_package"]
@@ -4343,6 +4406,27 @@ def test_data_platform_evidence_stores_can_be_exported_for_review() -> None:
     assert smoke["artifact_lineage_record_id"] in [
         record["lineage_id"] for record in lineage_export["artifact_lineage"]["records"]
     ]
+    data_record_store_export_checks = {
+        "communication-store": ("communication_record_id", "record_id", "communication_records"),
+        "document-store": ("document_record_id", "document_id", "document_records"),
+        "workflow-store": ("workflow_record_id", "workflow_id", "workflow_records"),
+        "capability-graph-store": ("capability_graph_record_id", "capability_id", "capability_graph_records"),
+        "vector-index-store": ("vector_index_record_id", "vector_id", "vector_index_records"),
+        "artifact-store": ("artifact_store_record_id", "store_id", "artifact_store_records"),
+    }
+    for store_name, (smoke_key, record_key, table_name) in data_record_store_export_checks.items():
+        export_package = data_record_store_export_responses[store_name].json()["export_package"]
+        assert export_package["export_id"].startswith(f"{store_name}-export-")
+        assert export_package["status"] == "ready_for_review"
+        assert export_package["format"] == "json"
+        assert export_package["data_platform"] == "DB MARIAM"
+        assert export_package["package_manifest"]["store_name"] == store_name
+        assert export_package["package_manifest"]["table_name"] == table_name
+        assert export_package["package_manifest"]["record_count"] >= 1
+        assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+        assert export_package["package_manifest"]["contains_secrets"] is False
+        assert export_package["store"]["status"] == "ready"
+        assert smoke[smoke_key] in [record[record_key] for record in export_package["store"]["records"]]
 
 
 def test_mission_list_reads_saved_mission_history() -> None:

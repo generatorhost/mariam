@@ -24,6 +24,9 @@ class CommunicationRecordRepository(Protocol):
     def exists(self, record_id: str, status: str = "recorded") -> bool:
         pass
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        pass
+
 
 class DocumentRecordRepository(Protocol):
     def ensure_schema(self) -> None:
@@ -33,6 +36,9 @@ class DocumentRecordRepository(Protocol):
         pass
 
     def exists(self, document_id: str, artifact_id: str) -> bool:
+        pass
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         pass
 
 
@@ -46,6 +52,9 @@ class WorkflowRecordRepository(Protocol):
     def exists(self, workflow_id: str, status: str = "active") -> bool:
         pass
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        pass
+
 
 class CapabilityGraphRecordRepository(Protocol):
     def ensure_schema(self) -> None:
@@ -55,6 +64,9 @@ class CapabilityGraphRecordRepository(Protocol):
         pass
 
     def exists(self, capability_id: str, status: str = "available") -> bool:
+        pass
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         pass
 
 
@@ -68,6 +80,9 @@ class VectorIndexRecordRepository(Protocol):
     def exists(self, vector_id: str, artifact_id: str) -> bool:
         pass
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        pass
+
 
 class ArtifactStoreRecordRepository(Protocol):
     def ensure_schema(self) -> None:
@@ -77,6 +92,9 @@ class ArtifactStoreRecordRepository(Protocol):
         pass
 
     def exists(self, store_id: str, artifact_id: str, status: str = "stored") -> bool:
+        pass
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         pass
 
 
@@ -203,6 +221,30 @@ class CursorCommunicationRecordRepository:
         )
         return self._cursor.fetchone() is not None
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                record_id,
+                channel,
+                direction,
+                participant,
+                subject,
+                message,
+                status,
+                data_platform,
+                metadata,
+                created_at
+            FROM communication_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
+
 
 class CursorDocumentRecordRepository:
     def __init__(self, cursor) -> None:
@@ -268,6 +310,29 @@ class CursorDocumentRecordRepository:
         )
         return self._cursor.fetchone() is not None
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                document_id,
+                artifact_id,
+                title,
+                document_type,
+                storage_uri,
+                status,
+                data_platform,
+                metadata,
+                created_at
+            FROM document_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
+
 
 class CursorWorkflowRecordRepository:
     def __init__(self, cursor) -> None:
@@ -329,6 +394,28 @@ class CursorWorkflowRecordRepository:
             (workflow_id, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                workflow_id,
+                plugin_id,
+                name,
+                status,
+                steps,
+                data_platform,
+                metadata,
+                created_at
+            FROM workflow_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
 
 
 class CursorCapabilityGraphRecordRepository:
@@ -395,6 +482,29 @@ class CursorCapabilityGraphRecordRepository:
         )
         return self._cursor.fetchone() is not None
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                capability_id,
+                name,
+                capability_type,
+                status,
+                nodes,
+                edges,
+                data_platform,
+                metadata,
+                created_at
+            FROM capability_graph_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
+
 
 class CursorVectorIndexRecordRepository:
     def __init__(self, cursor) -> None:
@@ -459,6 +569,29 @@ class CursorVectorIndexRecordRepository:
             (vector_id, artifact_id, "DB MARIAM"),
         )
         return self._cursor.fetchone() is not None
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                vector_id,
+                artifact_id,
+                namespace,
+                embedding_model,
+                dimensions,
+                status,
+                vector_metadata,
+                data_platform,
+                created_at
+            FROM vector_index_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
 
 
 class CursorArtifactStoreRecordRepository:
@@ -527,6 +660,30 @@ class CursorArtifactStoreRecordRepository:
             (store_id, artifact_id, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                store_id,
+                artifact_id,
+                storage_provider,
+                storage_uri,
+                checksum,
+                content_type,
+                status,
+                metadata,
+                data_platform,
+                created_at
+            FROM artifact_store_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
 
 
 class CursorAuditEventArchiveRecordRepository:

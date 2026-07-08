@@ -242,6 +242,22 @@ class ArtifactLineageExportResponse(BaseModel):
     export_package: dict[str, Any]
 
 
+class DataRecordStoreReadStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    store_name: str
+    table_name: str
+    record_count: int
+    records: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
+class DataRecordStoreExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 class AuditEventArchiveReadStatusResponse(BaseModel):
     title: str
     status: str
@@ -651,6 +667,96 @@ def export_command_center_data_platform_artifact_lineage(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> ArtifactLineageExportResponse:
     return {"export_package": asdict(service.export_artifact_lineage())}
+
+
+@router.get("/data-platform/communication-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_communication_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.communication_store_read_status())
+
+
+@router.post("/data-platform/communication-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_communication_store(
+    authorization=Depends(require_permission("diagnostics.export", "communication_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_communication_store())}
+
+
+@router.get("/data-platform/document-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_document_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.document_store_read_status())
+
+
+@router.post("/data-platform/document-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_document_store(
+    authorization=Depends(require_permission("diagnostics.export", "document_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_document_store())}
+
+
+@router.get("/data-platform/workflow-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_workflow_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.workflow_store_read_status())
+
+
+@router.post("/data-platform/workflow-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_workflow_store(
+    authorization=Depends(require_permission("diagnostics.export", "workflow_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_workflow_store())}
+
+
+@router.get("/data-platform/capability-graph-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_capability_graph_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.capability_graph_store_read_status())
+
+
+@router.post("/data-platform/capability-graph-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_capability_graph_store(
+    authorization=Depends(require_permission("diagnostics.export", "capability_graph_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_capability_graph_store())}
+
+
+@router.get("/data-platform/vector-index-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_vector_index_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.vector_index_store_read_status())
+
+
+@router.post("/data-platform/vector-index-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_vector_index_store(
+    authorization=Depends(require_permission("diagnostics.export", "vector_index_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_vector_index_store())}
+
+
+@router.get("/data-platform/artifact-store", response_model=DataRecordStoreReadStatusResponse)
+def command_center_data_platform_artifact_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreReadStatusResponse:
+    return asdict(service.artifact_store_read_status())
+
+
+@router.post("/data-platform/artifact-store/export", response_model=DataRecordStoreExportResponse)
+def export_command_center_data_platform_artifact_store(
+    authorization=Depends(require_permission("diagnostics.export", "artifact_store")),
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> DataRecordStoreExportResponse:
+    return {"export_package": asdict(service.export_artifact_store())}
 
 
 @router.get("/frontend/regression-snapshot", response_model=FrontendRegressionSnapshotResponse)

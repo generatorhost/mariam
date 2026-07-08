@@ -300,6 +300,30 @@ class ArtifactLineageExportPackage:
 
 
 @dataclass
+class DataRecordStoreReadStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    store_name: str
+    table_name: str
+    record_count: int
+    records: list[dict[str, object]]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
+class DataRecordStoreExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    store: DataRecordStoreReadStatus
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
 class SeedDataStatus:
     title: str
     status: str
@@ -1338,7 +1362,7 @@ class CommandCenterSummaryService:
                 name="Backend API foundation",
                 completion_percent=96,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline, plugin settings, plugin dashboard, plugin workspace, plugin chat, and plugin lifecycle mutation endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline, plugin settings, plugin dashboard, plugin workspace, plugin chat, and plugin lifecycle mutation endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, DB MARIAM store read/export endpoints, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
                 next_step="Add typed API response models for runtime object lifecycle mutation endpoints.",
             ),
             CompletionArea(
@@ -1350,10 +1374,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=95,
+                completion_percent=96,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for audit event archive, metrics store, logs store, and artifact lineage evidence.",
-                next_step="Add export packages for communication, document, workflow, capability graph, vector index, and artifact store evidence.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage evidence.",
+                next_step="Add export packages for backup and restore drill evidence across all DB MARIAM stores.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -2893,6 +2917,168 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def _data_record_store_read_status(
+        self,
+        store_name: str,
+        table_name: str,
+        repository_factory,
+    ) -> DataRecordStoreReadStatus:
+        settings = get_settings()
+        records: list[dict[str, object]] = []
+        database_error = ""
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+
+            with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+                with connection.cursor() as cursor:
+                    repository = repository_factory(cursor)
+                    records = [
+                        self._serialize_database_row(row)
+                        for row in repository.list_recent(limit=10)
+                    ]
+        except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
+            database_error = str(error)
+
+        check_name = store_name.replace("-", "_")
+        checks = [
+            DataPlatformCheck(
+                name=f"{check_name}_read_repository",
+                status="ready" if records else "blocked",
+                detail=(
+                    f"{len(records)} recent {store_name} records were read from DB MARIAM."
+                    if records
+                    else f"{store_name} read failed or returned no records: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name=f"{check_name}_database_name",
+                status="ready" if "db_mariam" in settings.database_url else "blocked",
+                detail=f"{store_name} read API targets the db_mariam database configured for DB MARIAM.",
+            ),
+        ]
+        return DataRecordStoreReadStatus(
+            title=f"DB MARIAM {store_name.title()} Read API",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            store_name=store_name,
+            table_name=table_name,
+            record_count=len(records),
+            records=records,
+            checks=checks,
+        )
+
+    def _export_data_record_store(
+        self,
+        store_name: str,
+        table_name: str,
+        repository_factory,
+    ) -> DataRecordStoreExportPackage:
+        store_status = self._data_record_store_read_status(store_name, table_name, repository_factory)
+        return DataRecordStoreExportPackage(
+            export_id=f"{store_name}-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": store_status.title,
+                "store_name": store_status.store_name,
+                "table_name": store_status.table_name,
+                "store_status": store_status.status,
+                "record_count": store_status.record_count,
+                "check_count": len(store_status.checks),
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": store_status.data_platform,
+            },
+            store=store_status,
+        )
+
+    def communication_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "communication-store",
+            "communication_records",
+            CursorCommunicationRecordRepository,
+        )
+
+    def export_communication_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "communication-store",
+            "communication_records",
+            CursorCommunicationRecordRepository,
+        )
+
+    def document_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "document-store",
+            "document_records",
+            CursorDocumentRecordRepository,
+        )
+
+    def export_document_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "document-store",
+            "document_records",
+            CursorDocumentRecordRepository,
+        )
+
+    def workflow_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "workflow-store",
+            "workflow_records",
+            CursorWorkflowRecordRepository,
+        )
+
+    def export_workflow_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "workflow-store",
+            "workflow_records",
+            CursorWorkflowRecordRepository,
+        )
+
+    def capability_graph_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "capability-graph-store",
+            "capability_graph_records",
+            CursorCapabilityGraphRecordRepository,
+        )
+
+    def export_capability_graph_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "capability-graph-store",
+            "capability_graph_records",
+            CursorCapabilityGraphRecordRepository,
+        )
+
+    def vector_index_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "vector-index-store",
+            "vector_index_records",
+            CursorVectorIndexRecordRepository,
+        )
+
+    def export_vector_index_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "vector-index-store",
+            "vector_index_records",
+            CursorVectorIndexRecordRepository,
+        )
+
+    def artifact_store_read_status(self) -> DataRecordStoreReadStatus:
+        return self._data_record_store_read_status(
+            "artifact-store",
+            "artifact_store_records",
+            CursorArtifactStoreRecordRepository,
+        )
+
+    def export_artifact_store(self) -> DataRecordStoreExportPackage:
+        return self._export_data_record_store(
+            "artifact-store",
+            "artifact_store_records",
+            CursorArtifactStoreRecordRepository,
+        )
+
     def logs_store_read_status(self) -> LogsStoreReadStatus:
         settings = get_settings()
         records: list[dict[str, object]] = []
@@ -3742,6 +3928,18 @@ class CommandCenterSummaryService:
             "/api/runtime/data-platform/metrics-store/export",
             "/api/runtime/data-platform/artifact-lineage",
             "/api/runtime/data-platform/artifact-lineage/export",
+            "/api/runtime/data-platform/communication-store",
+            "/api/runtime/data-platform/communication-store/export",
+            "/api/runtime/data-platform/document-store",
+            "/api/runtime/data-platform/document-store/export",
+            "/api/runtime/data-platform/workflow-store",
+            "/api/runtime/data-platform/workflow-store/export",
+            "/api/runtime/data-platform/capability-graph-store",
+            "/api/runtime/data-platform/capability-graph-store/export",
+            "/api/runtime/data-platform/vector-index-store",
+            "/api/runtime/data-platform/vector-index-store/export",
+            "/api/runtime/data-platform/artifact-store",
+            "/api/runtime/data-platform/artifact-store/export",
             "/api/audit/reviewer-workload",
             "/api/audit/reviewer-workload/export",
             "/api/audit/governance-sla",
@@ -3889,6 +4087,34 @@ class CommandCenterSummaryService:
             "POST /api/runtime/data-platform/live-write-smoke": ["/api/runtime/data-platform/live-write-smoke"],
             "POST /api/runtime/data-platform/live-repository-write-smoke": [
                 "/api/runtime/data-platform/live-repository-write-smoke"
+            ],
+            "POST /api/runtime/data-platform/logs-store/export": ["/api/runtime/data-platform/logs-store/export"],
+            "POST /api/runtime/data-platform/audit-event-archive/export": [
+                "/api/runtime/data-platform/audit-event-archive/export"
+            ],
+            "POST /api/runtime/data-platform/metrics-store/export": [
+                "/api/runtime/data-platform/metrics-store/export"
+            ],
+            "POST /api/runtime/data-platform/artifact-lineage/export": [
+                "/api/runtime/data-platform/artifact-lineage/export"
+            ],
+            "POST /api/runtime/data-platform/communication-store/export": [
+                "/api/runtime/data-platform/communication-store/export"
+            ],
+            "POST /api/runtime/data-platform/document-store/export": [
+                "/api/runtime/data-platform/document-store/export"
+            ],
+            "POST /api/runtime/data-platform/workflow-store/export": [
+                "/api/runtime/data-platform/workflow-store/export"
+            ],
+            "POST /api/runtime/data-platform/capability-graph-store/export": [
+                "/api/runtime/data-platform/capability-graph-store/export"
+            ],
+            "POST /api/runtime/data-platform/vector-index-store/export": [
+                "/api/runtime/data-platform/vector-index-store/export"
+            ],
+            "POST /api/runtime/data-platform/artifact-store/export": [
+                "/api/runtime/data-platform/artifact-store/export"
             ],
             "POST /api/runtime/events": ["/api/runtime/events", '"POST"'],
             "POST /api/audit/approval-assignments": ["/api/audit/approval-assignments"],

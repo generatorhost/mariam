@@ -293,7 +293,15 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/runtime/data-platform/readiness/export"),
         ("POST", "/api/runtime/data-platform/migration-runner/export"),
         ("POST", "/api/runtime/data-platform/logs-store/export"),
+        ("POST", "/api/runtime/data-platform/audit-event-archive/export"),
+        ("POST", "/api/runtime/data-platform/metrics-store/export"),
         ("POST", "/api/runtime/data-platform/artifact-lineage/export"),
+        ("POST", "/api/runtime/data-platform/communication-store/export"),
+        ("POST", "/api/runtime/data-platform/document-store/export"),
+        ("POST", "/api/runtime/data-platform/workflow-store/export"),
+        ("POST", "/api/runtime/data-platform/capability-graph-store/export"),
+        ("POST", "/api/runtime/data-platform/vector-index-store/export"),
+        ("POST", "/api/runtime/data-platform/artifact-store/export"),
         ("POST", "/api/runtime/data-platform/live-write-smoke"),
         ("POST", "/api/runtime/data-platform/live-repository-write-smoke"),
         ("POST", "/api/runtime/events"),
@@ -388,6 +396,12 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/audit-event-archive",
         "/api/runtime/data-platform/metrics-store",
         "/api/runtime/data-platform/artifact-lineage",
+        "/api/runtime/data-platform/communication-store",
+        "/api/runtime/data-platform/document-store",
+        "/api/runtime/data-platform/workflow-store",
+        "/api/runtime/data-platform/capability-graph-store",
+        "/api/runtime/data-platform/vector-index-store",
+        "/api/runtime/data-platform/artifact-store",
         "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/frontend/browser-screenshot-plan",
@@ -721,6 +735,12 @@ def verify_api_smoke_flow() -> None:
     audit_event_archive_read = request_json("/api/runtime/data-platform/audit-event-archive")
     metrics_store_read = request_json("/api/runtime/data-platform/metrics-store")
     artifact_lineage_read = request_json("/api/runtime/data-platform/artifact-lineage")
+    communication_store_read = request_json("/api/runtime/data-platform/communication-store")
+    document_store_read = request_json("/api/runtime/data-platform/document-store")
+    workflow_store_read = request_json("/api/runtime/data-platform/workflow-store")
+    capability_graph_store_read = request_json("/api/runtime/data-platform/capability-graph-store")
+    vector_index_store_read = request_json("/api/runtime/data-platform/vector-index-store")
+    artifact_store_read = request_json("/api/runtime/data-platform/artifact-store")
     logs_store_export = request_json(
         "/api/runtime/data-platform/logs-store/export",
         "POST",
@@ -741,6 +761,106 @@ def verify_api_smoke_flow() -> None:
         "POST",
         {},
     )["export_package"]
+    communication_store_export = request_json(
+        "/api/runtime/data-platform/communication-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    document_store_export = request_json(
+        "/api/runtime/data-platform/document-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    workflow_store_export = request_json(
+        "/api/runtime/data-platform/workflow-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    capability_graph_store_export = request_json(
+        "/api/runtime/data-platform/capability-graph-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    vector_index_store_export = request_json(
+        "/api/runtime/data-platform/vector-index-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    artifact_store_export = request_json(
+        "/api/runtime/data-platform/artifact-store/export",
+        "POST",
+        {},
+    )["export_package"]
+    for store_name, read_payload, export_payload, smoke_key, record_key, table_name in [
+        (
+            "communication-store",
+            communication_store_read,
+            communication_store_export,
+            "communication_record_id",
+            "record_id",
+            "communication_records",
+        ),
+        (
+            "document-store",
+            document_store_read,
+            document_store_export,
+            "document_record_id",
+            "document_id",
+            "document_records",
+        ),
+        (
+            "workflow-store",
+            workflow_store_read,
+            workflow_store_export,
+            "workflow_record_id",
+            "workflow_id",
+            "workflow_records",
+        ),
+        (
+            "capability-graph-store",
+            capability_graph_store_read,
+            capability_graph_store_export,
+            "capability_graph_record_id",
+            "capability_id",
+            "capability_graph_records",
+        ),
+        (
+            "vector-index-store",
+            vector_index_store_read,
+            vector_index_store_export,
+            "vector_index_record_id",
+            "vector_id",
+            "vector_index_records",
+        ),
+        (
+            "artifact-store",
+            artifact_store_read,
+            artifact_store_export,
+            "artifact_store_record_id",
+            "store_id",
+            "artifact_store_records",
+        ),
+    ]:
+        assert_condition(
+            read_payload["status"] == "ready"
+            and read_payload["data_platform"] == "DB MARIAM"
+            and read_payload["store_name"] == store_name
+            and read_payload["table_name"] == table_name
+            and read_payload["record_count"] >= 1
+            and live_repository_write_smoke[smoke_key]
+            in [record[record_key] for record in read_payload["records"]],
+            f"DB MARIAM {store_name} read API did not return repository smoke evidence.",
+        )
+        assert_condition(
+            export_payload["status"] == "ready_for_review"
+            and export_payload["data_platform"] == "DB MARIAM"
+            and export_payload["package_manifest"]["contains_secrets"] is False
+            and export_payload["package_manifest"]["table_name"] == table_name
+            and export_payload["package_manifest"]["record_count"] == read_payload["record_count"]
+            and live_repository_write_smoke[smoke_key]
+            in [record[record_key] for record in export_payload["store"]["records"]],
+            f"DB MARIAM {store_name} export package did not preserve repository smoke evidence.",
+        )
     assert_condition(
         logs_store_read["status"] == "ready"
         and logs_store_read["data_platform"] == "DB MARIAM"
@@ -807,7 +927,7 @@ def verify_api_smoke_flow() -> None:
         in [record["lineage_id"] for record in artifact_lineage_export["artifact_lineage"]["records"]],
         "Artifact lineage export package did not preserve DB MARIAM lineage evidence.",
     )
-    print("[verify] ok: DB MARIAM audit archive, metrics store, logs store, artifact lineage, and evidence exports")
+    print("[verify] ok: DB MARIAM evidence stores and review-package exports")
 
     frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
     assert_condition(
@@ -1110,6 +1230,18 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/data-platform/metrics-store/export" in verification_automation["required_endpoints"]
         and "/api/runtime/data-platform/artifact-lineage/export"
         in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/communication-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/document-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/workflow-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/capability-graph-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/vector-index-store/export"
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/data-platform/artifact-store/export"
+        in verification_automation["required_endpoints"]
         and "/api/audit/reviewer-workload/export" in verification_automation["required_endpoints"]
         and "/api/audit/governance-sla/export" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
@@ -1321,6 +1453,28 @@ def verify_api_smoke_flow() -> None:
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/PluginWorkspaceResponse",
         "Governed runtime endpoints did not publish typed response models.",
+    )
+    data_record_store_response_refs = {
+        ("get", "/api/runtime/data-platform/communication-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/communication-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/document-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/document-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/workflow-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/workflow-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/capability-graph-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/capability-graph-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/vector-index-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/vector-index-store/export"): "DataRecordStoreExportResponse",
+        ("get", "/api/runtime/data-platform/artifact-store"): "DataRecordStoreReadStatusResponse",
+        ("post", "/api/runtime/data-platform/artifact-store/export"): "DataRecordStoreExportResponse",
+    }
+    assert_condition(
+        all(
+            openapi["paths"][path][method]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+            == f"#/components/schemas/{schema_name}"
+            for (method, path), schema_name in data_record_store_response_refs.items()
+        ),
+        "DB MARIAM data record store endpoints did not publish typed response models.",
     )
     plugin_response_refs = {
         ("post", "/api/plugins"): "PluginMutationResponse",
@@ -1754,7 +1908,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
