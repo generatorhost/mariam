@@ -223,6 +223,86 @@ def test_request_scoped_permission_dependency_blocks_mutating_endpoint() -> None
     assert "Permission mission.create denied" in response.json()["detail"]
 
 
+def test_request_scoped_permission_dependency_records_granted_audit_evidence() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/missions",
+        headers={"x-mariam-request-id": "audit-granted-request"},
+        json={
+            "plugin_id": "crm",
+            "user_request": "Create a mission that records endpoint authorization evidence.",
+            "requested_by": "command-center-operator",
+        },
+    )
+
+    assert response.status_code == 200
+    audit_records = client.get("/api/audit").json()["audit_records"]
+    authorization_records = [
+        record
+        for record in audit_records
+        if record["action"] == "authorization.permission_enforced"
+        and record["target_type"] == "mission"
+        and record["target_id"] == "/api/missions"
+    ]
+    assert authorization_records
+    record = authorization_records[-1]
+    assert record["decision"] == "granted"
+    assert record["actor_id"] == "command-center-operator"
+    assert record["evidence"]["permission"] == "mission.create"
+    assert record["evidence"]["method"] == "POST"
+    assert record["evidence"]["path"] == "/api/missions"
+    assert record["evidence"]["request_id"] == "audit-granted-request"
+    assert record["evidence"]["authorization_dependency"] is True
+    assert record["evidence"]["data_platform"] == "DB MARIAM"
+
+
+def test_request_scoped_permission_dependency_records_denied_audit_evidence() -> None:
+    class ReadOnlyAuthService(AuthService):
+        def current_session(self) -> UserSession:
+            return UserSession(
+                session_id="read-only-session",
+                user_id="read-only-operator",
+                display_name="Read Only Operator",
+                roles=["viewer"],
+                permissions=["runtime.read"],
+            )
+
+    app = create_app()
+    app.dependency_overrides[get_auth_service] = lambda: ReadOnlyAuthService()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/missions",
+        headers={
+            "x-mariam-request-id": "audit-denied-request",
+            "x-mariam-actor-id": "read-only-operator",
+        },
+        json={
+            "plugin_id": "crm",
+            "user_request": "This denied mission should still record authorization evidence.",
+            "requested_by": "read-only-operator",
+        },
+    )
+
+    assert response.status_code == 403
+    audit_records = client.get("/api/audit").json()["audit_records"]
+    authorization_records = [
+        record
+        for record in audit_records
+        if record["action"] == "authorization.permission_enforced"
+        and record["decision"] == "denied"
+    ]
+    assert authorization_records
+    record = authorization_records[-1]
+    assert record["actor_id"] == "read-only-operator"
+    assert record["target_type"] == "mission"
+    assert record["evidence"]["permission"] == "mission.create"
+    assert record["evidence"]["request_id"] == "audit-denied-request"
+    assert record["evidence"]["authorization_dependency"] is True
+    assert "Permission mission.create denied" in record["evidence"]["error"]
+
+
 def test_auth_human_identity_enforcement_allows_current_session_user() -> None:
     client = TestClient(create_app())
 
@@ -2828,7 +2908,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2937,7 +3017,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

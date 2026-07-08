@@ -207,6 +207,36 @@ def verify_api_smoke_flow() -> None:
         assert_condition(error.code == 403, "Denied permission should return HTTP 403.")
     print("[verify] ok: permission enforcement")
 
+    authorization_audit_mission = request_json(
+        "/api/missions",
+        "POST",
+        {
+            "plugin_id": "crm",
+            "user_request": "Verify endpoint authorization audit evidence.",
+            "requested_by": "command-center-operator",
+        },
+    )["mission"]
+    authorization_audit_records = request_json("/api/audit")["audit_records"]
+    authorization_audit_record = next(
+        (
+            record
+            for record in reversed(authorization_audit_records)
+            if record["action"] == "authorization.permission_enforced"
+            and record["target_type"] == "mission"
+            and record["target_id"] == "/api/missions"
+            and record["evidence"].get("path") == "/api/missions"
+        ),
+        None,
+    )
+    assert_condition(
+        authorization_audit_record is not None
+        and authorization_audit_record["decision"] == "granted"
+        and authorization_audit_record["evidence"]["permission"] == "mission.create"
+        and authorization_audit_record["evidence"]["authorization_dependency"] is True,
+        "Authorization dependency did not record endpoint-level audit evidence.",
+    )
+    print("[verify] ok: authorization dependency audit evidence")
+
     unauthorized_mission = urllib.request.Request(
         f"{API_BASE_URL}/api/missions",
         data=json.dumps(
@@ -563,7 +593,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from fastapi import Depends, HTTPException, Request
 
+from app.core.audit import AuditRecordRequest
 from app.core.auth import PermissionEnforcementRequest, PermissionEnforcementResult
 from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
@@ -179,25 +180,57 @@ def require_permission(permission: str, target_type: str):
     def dependency(
         http_request: Request,
         service: AuthService = Depends(get_auth_service),
+        audit_service: AuditService = Depends(get_audit_service),
     ) -> PermissionEnforcementResult:
         target_id = next(iter(http_request.path_params.values()), http_request.url.path)
+        actor_id = http_request.headers.get("x-mariam-actor-id", "command-center-operator")
+        request_id = http_request.headers.get("x-mariam-request-id", "local-command-center-request")
+        evidence = {
+            "method": http_request.method,
+            "path": http_request.url.path,
+            "request_id": request_id,
+            "permission": permission,
+            "authorization_dependency": True,
+            "data_platform": "DB MARIAM",
+        }
         try:
-            return service.enforce_permission(
+            result = service.enforce_permission(
                 PermissionEnforcementRequest(
                     permission=permission,
-                    actor_id=http_request.headers.get("x-mariam-actor-id", "command-center-operator"),
+                    actor_id=actor_id,
                     target_type=target_type,
                     target_id=str(target_id),
                     reason=f"Authorize {http_request.method} {http_request.url.path}.",
-                    evidence={
-                        "method": http_request.method,
-                        "path": http_request.url.path,
-                        "request_id": http_request.headers.get("x-mariam-request-id", "local-command-center-request"),
-                    },
+                    evidence=evidence,
                 )
             )
         except PermissionError as error:
+            audit_service.record(
+                AuditRecordRequest(
+                    actor_id=actor_id,
+                    action="authorization.permission_enforced",
+                    target_type=target_type,
+                    target_id=str(target_id),
+                    decision="denied",
+                    evidence={
+                        **evidence,
+                        "reason": f"Authorize {http_request.method} {http_request.url.path}.",
+                        "error": str(error),
+                    },
+                )
+            )
             raise HTTPException(status_code=403, detail=str(error)) from error
+        audit_service.record(
+            AuditRecordRequest(
+                actor_id=result.actor_id,
+                action="authorization.permission_enforced",
+                target_type=result.target_type,
+                target_id=result.target_id,
+                decision="granted",
+                evidence={**result.evidence, "reason": result.reason},
+            )
+        )
+        return result
 
     return dependency
 
