@@ -451,6 +451,7 @@ class VerificationAutomationContract:
     ci_artifact_retention: dict[str, object]
     ci_badge: dict[str, object]
     latest_run_status: dict[str, object]
+    local_history_comparison: dict[str, object]
     local_automation_status: str
     ci_status: str
     next_ci_step: str
@@ -623,6 +624,42 @@ class CommandCenterSummaryService:
             if record.action == "runtime.verification_report.record"
         ]
         return sorted(snapshots, key=lambda record: record.created_at, reverse=True)
+
+    def verification_history_comparison(self) -> dict[str, object]:
+        snapshots = self.list_verification_snapshots()
+        if len(snapshots) < 2:
+            return {
+                "status": "insufficient_history",
+                "snapshot_count": len(snapshots),
+                "latest_snapshot_id": snapshots[0].audit_id if snapshots else None,
+                "previous_snapshot_id": None,
+                "ready_checks_delta": 0,
+                "total_checks_delta": 0,
+                "verification_status_changed": False,
+                "message": "Record at least two local verification snapshots to compare runs.",
+            }
+        latest = snapshots[0]
+        previous = snapshots[1]
+        latest_ready = int(latest.evidence.get("ready_checks", 0))
+        previous_ready = int(previous.evidence.get("ready_checks", 0))
+        latest_total = int(latest.evidence.get("total_checks", 0))
+        previous_total = int(previous.evidence.get("total_checks", 0))
+        latest_status = str(latest.evidence.get("verification_status", "unknown"))
+        previous_status = str(previous.evidence.get("verification_status", "unknown"))
+        return {
+            "status": "changed" if latest_status != previous_status else "stable",
+            "snapshot_count": len(snapshots),
+            "latest_snapshot_id": latest.audit_id,
+            "previous_snapshot_id": previous.audit_id,
+            "latest_created_at": latest.created_at.isoformat(),
+            "previous_created_at": previous.created_at.isoformat(),
+            "latest_verification_status": latest_status,
+            "previous_verification_status": previous_status,
+            "ready_checks_delta": latest_ready - previous_ready,
+            "total_checks_delta": latest_total - previous_total,
+            "verification_status_changed": latest_status != previous_status,
+            "message": "Latest two local verification snapshots were compared.",
+        }
 
     def diagnostics(self) -> CommandCenterDiagnostics:
         verification_report = self.verification_report()
@@ -1049,10 +1086,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=82,
+                completion_percent=84,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
-                next_step="Add verification history comparison between the latest two local runs.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
+                next_step="Add persisted verification run records for local CLI executions.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2821,6 +2858,12 @@ class CommandCenterSummaryService:
             and "actions/workflows/verify.yml/runs" in latest_run_status["api_url"]
             and latest_run_status["polling_status"] == "configured"
         )
+        local_history_comparison = self.verification_history_comparison()
+        local_history_comparison_ready = local_history_comparison["status"] in {
+            "stable",
+            "changed",
+            "insufficient_history",
+        }
         ci_status = (
             "ready"
             if (
@@ -2920,6 +2963,11 @@ class CommandCenterSummaryService:
                     else "Latest CI run polling metadata is not configured."
                 ),
             ),
+            DataPlatformCheck(
+                name="local_verification_history_comparison_ready",
+                status="ready" if local_history_comparison_ready else "blocked",
+                detail=str(local_history_comparison["message"]),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -2937,9 +2985,10 @@ class CommandCenterSummaryService:
             "ci_artifact_retention": ci_artifact_retention,
             "ci_badge": ci_badge,
             "latest_run_status": latest_run_status,
+            "local_history_comparison": local_history_comparison,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add verification history comparison between the latest two local runs.",
+            "next_ci_step": "Add persisted verification run records for local CLI executions.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -2955,6 +3004,7 @@ class CommandCenterSummaryService:
             ci_artifact_retention=ci_artifact_retention,
             ci_badge=ci_badge,
             latest_run_status=latest_run_status,
+            local_history_comparison=local_history_comparison,
             local_automation_status=local_automation_status,
             ci_status=ci_status,
             next_ci_step=str(payload["next_ci_step"]),

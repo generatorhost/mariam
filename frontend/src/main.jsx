@@ -3185,6 +3185,16 @@ function VerificationAutomationPanel({ refreshVersion }) {
               <p>{contract.latest_run_status.api_url}</p>
             </div>
           )}
+          {contract.local_history_comparison && (
+            <div className="mission-result">
+              <strong>Local verification history comparison</strong>
+              <span>{contract.local_history_comparison.status}</span>
+              <p>
+                Snapshots {contract.local_history_comparison.snapshot_count} / ready checks delta{' '}
+                {contract.local_history_comparison.ready_checks_delta}
+              </p>
+            </div>
+          )}
           <div className="terms">
             {contract.required_commands.map((command) => (
               <span key={command}>{command}</span>
