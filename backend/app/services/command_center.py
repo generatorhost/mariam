@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.events import InMemoryEventBus
@@ -43,6 +44,17 @@ class CommandCenterVerificationReport:
     summary: dict[str, int | str]
     smoke_flow: str
     required_endpoints: list[str]
+
+
+@dataclass
+class CommandCenterDiagnostics:
+    status: str
+    generated_at: str
+    verification_report: CommandCenterVerificationReport
+    readiness_checks: list[ReadinessCheck]
+    recent_audit_records: list[dict[str, object]]
+    recent_events: list[dict[str, object]]
+    data_platform: str = "DB MARIAM"
 
 
 class CommandCenterSummaryService:
@@ -205,3 +217,45 @@ class CommandCenterSummaryService:
             if record.action == "runtime.verification_report.record"
         ]
         return sorted(snapshots, key=lambda record: record.created_at, reverse=True)
+
+    def diagnostics(self) -> CommandCenterDiagnostics:
+        verification_report = self.verification_report()
+        readiness = self.readiness()
+        recent_audit_records = [
+            {
+                "audit_id": record.audit_id,
+                "actor_id": record.actor_id,
+                "action": record.action,
+                "target_type": record.target_type,
+                "target_id": record.target_id,
+                "decision": record.decision,
+                "created_at": record.created_at.isoformat(),
+            }
+            for record in sorted(
+                self._audit_service.list(),
+                key=lambda record: record.created_at,
+                reverse=True,
+            )[:5]
+        ]
+        recent_events = [
+            {
+                "event_id": event.event_id,
+                "name": event.name,
+                "source": event.source,
+                "created_at": event.created_at.isoformat(),
+                "payload": event.payload,
+            }
+            for event in sorted(
+                self._event_bus.list_events(),
+                key=lambda event: event.created_at,
+                reverse=True,
+            )[:5]
+        ]
+        return CommandCenterDiagnostics(
+            status=verification_report.status,
+            generated_at=datetime.now(UTC).isoformat(),
+            verification_report=verification_report,
+            readiness_checks=readiness.checks,
+            recent_audit_records=recent_audit_records,
+            recent_events=recent_events,
+        )

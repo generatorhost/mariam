@@ -74,6 +74,10 @@ async function loadVerificationSnapshots() {
   return body.snapshots || [];
 }
 
+async function loadRuntimeDiagnostics() {
+  return apiGet('/api/runtime/diagnostics');
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1742,6 +1746,79 @@ function VerificationReportPanel({ refreshVersion }) {
   );
 }
 
+function RuntimeDiagnosticsPanel({ refreshVersion }) {
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshDiagnostics = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setDiagnostics(await loadRuntimeDiagnostics());
+      setStatus('ready');
+    } catch (diagnosticsError) {
+      setStatus('error');
+      setError(diagnosticsError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDiagnostics();
+  }, [refreshDiagnostics, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Runtime Diagnostics</h2>
+        <p>Inspect recent audit and runtime activity tied to system verification.</p>
+      </div>
+      <button onClick={refreshDiagnostics} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Diagnostics'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {diagnostics && (
+        <>
+          <div className="mission-result">
+            <strong>{diagnostics.status}</strong>
+            <span>{diagnostics.data_platform}</span>
+            <p>{new Date(diagnostics.generated_at).toLocaleString()}</p>
+          </div>
+          <div className="mission-history">
+            {diagnostics.recent_audit_records.length ? (
+              diagnostics.recent_audit_records.map((record) => (
+                <article key={record.audit_id}>
+                  <strong>{record.decision}</strong>
+                  <span>{record.action}</span>
+                  <p>{record.target_type} / {record.target_id}</p>
+                </article>
+              ))
+            ) : (
+              <p>No recent audit records found.</p>
+            )}
+          </div>
+          <div className="activity-feed">
+            <h3>Diagnostic Runtime Events</h3>
+            {diagnostics.recent_events.length ? (
+              <ol>
+                {diagnostics.recent_events.map((event) => (
+                  <li key={event.event_id}>
+                    <strong>{event.name}</strong>
+                    <span>{event.source}</span>
+                    <time>{new Date(event.created_at).toLocaleString()}</time>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>No recent runtime events found.</p>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -2070,6 +2147,7 @@ function App() {
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <SystemReadinessPanel refreshVersion={refreshVersion} />
         <VerificationReportPanel refreshVersion={refreshVersion} />
+        <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}

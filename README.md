@@ -89,6 +89,14 @@ Recorded verification snapshots can be reviewed through:
 GET /api/runtime/verification-report/snapshots
 ```
 
+Runtime diagnostics can be reviewed through:
+
+```http
+GET /api/runtime/diagnostics
+```
+
+It combines verification status, readiness checks, recent audit records, and recent runtime events for operational inspection.
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

@@ -95,6 +95,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/readiness",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
+        "/api/runtime/diagnostics",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",

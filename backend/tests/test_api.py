@@ -2264,6 +2264,30 @@ def test_runtime_verification_snapshot_history_lists_snapshots() -> None:
     assert snapshots[0]["evidence"]["verification_status"] == "passed"
 
 
+def test_runtime_diagnostics_reports_verification_readiness_and_activity() -> None:
+    client = TestClient(create_app())
+    snapshot_response = client.post(
+        "/api/runtime/verification-report/record",
+        json={
+            "actor_id": "diagnostics-verifier",
+            "evidence": {"source": "diagnostics-test"},
+        },
+    )
+    audit_id = snapshot_response.json()["audit_record"]["audit_id"]
+
+    response = client.get("/api/runtime/diagnostics")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "passed"
+    assert body["data_platform"] == "DB MARIAM"
+    assert body["verification_report"]["readiness_status"] == "ready"
+    assert body["verification_report"]["ready_checks"] == body["verification_report"]["total_checks"]
+    assert any(check["name"] == "artifact_delivery_pipeline" for check in body["readiness_checks"])
+    assert audit_id in [record["audit_id"] for record in body["recent_audit_records"]]
+    assert "audit.recorded" in [event["name"] for event in body["recent_events"]]
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

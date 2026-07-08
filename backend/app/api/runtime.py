@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
@@ -57,6 +59,13 @@ def list_command_center_verification_snapshots(
             for snapshot in service.list_verification_snapshots()
         ]
     }
+
+
+@router.get("/diagnostics")
+def command_center_diagnostics(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.diagnostics())
 
 
 @router.get("/events")
