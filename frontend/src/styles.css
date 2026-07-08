@@ -187,6 +187,45 @@ p {
   border-color: var(--green);
 }
 
+.app-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.app-card {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.app-card strong,
+.app-card span {
+  display: block;
+}
+
+.app-card strong {
+  color: var(--green);
+}
+
+.app-card span,
+.app-card p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.app-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.app-card .mission-actions a {
+  font-size: 13px;
+}
+
 .status-grid {
   border-top: 1px solid var(--border);
   display: grid;

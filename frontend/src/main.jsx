@@ -28,6 +28,19 @@ const commandCenterNav = [
   { label: 'Governance', href: '#governance' },
 ];
 
+const pluginWorkspaceApps = [
+  {
+    name: 'CRM Workspace',
+    status: 'Ready for governance',
+    chief: 'CRM Chief Agent',
+    route: '/plugins/crm',
+    settings: '/plugins/crm/settings',
+    dataBoundary: 'plugin_crm',
+    swarm: ['Lead Analyst', 'Pipeline Reviewer', 'Client Follow-up Agent'],
+    workflows: ['Lead follow-up', 'Client report', 'Delivery approval'],
+  },
+];
+
 const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
 
 async function apiRequest(path, body, options = {}) {
@@ -2709,6 +2722,38 @@ function PluginPanel({ onActionComplete }) {
   );
 }
 
+function PluginWorkspacePanel() {
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Plugin Workspaces</h2>
+        <p>Open Plugin-managed Business Units as simple app cards with dashboard, settings, Chief, swarm, and data boundaries.</p>
+      </div>
+      <div className="app-grid">
+        {pluginWorkspaceApps.map((plugin) => (
+          <article className="app-card" key={plugin.name}>
+            <div>
+              <strong>{plugin.name}</strong>
+              <span>{plugin.status}</span>
+            </div>
+            <p>{plugin.chief} owns the {plugin.dataBoundary} private schema boundary.</p>
+            <div className="app-meta">
+              <span>Dashboard: {plugin.route}</span>
+              <span>Settings: {plugin.settings}</span>
+              <span>Swarm: {plugin.swarm.join(', ')}</span>
+              <span>Workflows: {plugin.workflows.join(', ')}</span>
+            </div>
+            <div className="mission-actions">
+              <a href="#missions">Open</a>
+              <a href="#data-platform">Data Boundary</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RuntimeObjectPanel({ onActionComplete }) {
   const [runtimeObject, setRuntimeObject] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -2880,6 +2925,7 @@ function App() {
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         <section id="plugins" className="workspace-section">
+          <PluginWorkspacePanel />
           <PluginPanel onActionComplete={refreshCommandCenterSummary} />
           <PluginHistoryPanel
             refreshVersion={refreshVersion}
