@@ -6,10 +6,10 @@
   "scripts": {
     "backend:test": "cd backend && pytest",
     "frontend:dev": "cd frontend && npm run dev",
-    "compose:up": "docker compose up --build"
+    "compose:up": "docker compose up --build",
+    "verify": "py -3.11 tools/verify_project.py"
   },
   "workspaces": [
     "frontend"
   ]
 }
-

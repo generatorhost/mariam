@@ -49,6 +49,16 @@ pip install -r requirements.txt
 pytest
 ```
 
+## Verify Everything
+
+Run the project verification command from the repository root:
+
+```bash
+npm run verify
+```
+
+This runs backend tests, builds the frontend, checks core API endpoints, and executes the mission to artifact to quality review to delivery confirmation smoke flow.
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:
