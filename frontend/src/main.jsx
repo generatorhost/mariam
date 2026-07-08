@@ -793,6 +793,24 @@ async function loadGovernanceSLA() {
   return body.sla_report;
 }
 
+async function loadGovernanceHistory() {
+  const body = await apiGet('/api/audit/governance-assignment-history');
+  return body.history_report;
+}
+
+async function recordReviewerDecision(assignmentId = null) {
+  return apiRequest('/api/audit/reviewer-decisions', {
+    decided_by: 'quality-reviewer-01',
+    reviewer_id: 'quality-reviewer-01',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    assignment_id: assignmentId,
+    decision: 'approved',
+    reason: 'Reviewer approved the Command Center artifact after governance checks.',
+    evidence: { decision_source: 'command-center-governance-panel' },
+  });
+}
+
 async function escalateReviewerWorkload() {
   return apiRequest('/api/audit/escalations', {
     escalated_by: 'command-center-governance',
@@ -4084,9 +4102,51 @@ function AuditPanel({ onActionComplete }) {
   const [notificationRecord, setNotificationRecord] = useState(null);
   const [workloadReport, setWorkloadReport] = useState(null);
   const [slaReport, setSlaReport] = useState(null);
+  const [governanceHistory, setGovernanceHistory] = useState(null);
+  const [reviewerDecisionRecord, setReviewerDecisionRecord] = useState(null);
+  const [decisionReviewerFilter, setDecisionReviewerFilter] = useState(() => (
+    readCommandCenterPreference('governanceDecisionReviewerFilter', 'all')
+  ));
+  const [decisionOutcomeFilter, setDecisionOutcomeFilter] = useState(() => (
+    readCommandCenterPreference('governanceDecisionOutcomeFilter', 'all')
+  ));
   const [escalationRecord, setEscalationRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    writeCommandCenterPreference('governanceDecisionReviewerFilter', decisionReviewerFilter);
+  }, [decisionReviewerFilter]);
+
+  useEffect(() => {
+    writeCommandCenterPreference('governanceDecisionOutcomeFilter', decisionOutcomeFilter);
+  }, [decisionOutcomeFilter]);
+
+  const decisionReviewerOptions = useMemo(() => {
+    const reviewers = governanceHistory?.decisions?.map((decision) => decision.reviewer_id) || [];
+    return ['all', ...Array.from(new Set(reviewers)).sort()];
+  }, [governanceHistory]);
+
+  const decisionOutcomeOptions = useMemo(() => {
+    const outcomes = governanceHistory?.decisions?.map((decision) => decision.decision) || [];
+    return ['all', ...Array.from(new Set(outcomes)).sort()];
+  }, [governanceHistory]);
+
+  useEffect(() => {
+    if (!decisionReviewerOptions.includes(decisionReviewerFilter)) {
+      setDecisionReviewerFilter('all');
+    }
+    if (!decisionOutcomeOptions.includes(decisionOutcomeFilter)) {
+      setDecisionOutcomeFilter('all');
+    }
+  }, [decisionOutcomeFilter, decisionOutcomeOptions, decisionReviewerFilter, decisionReviewerOptions]);
+
+  const filteredReviewerDecisions = useMemo(() => (
+    (governanceHistory?.decisions || []).filter((decision) => (
+      (decisionReviewerFilter === 'all' || decision.reviewer_id === decisionReviewerFilter)
+      && (decisionOutcomeFilter === 'all' || decision.decision === decisionOutcomeFilter)
+    ))
+  ), [decisionOutcomeFilter, decisionReviewerFilter, governanceHistory]);
 
   const refreshReviewerWorkload = useCallback(async () => {
     setStatus('loading');
@@ -4094,6 +4154,7 @@ function AuditPanel({ onActionComplete }) {
     try {
       setWorkloadReport(await loadReviewerWorkload());
       setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
       setStatus('ready');
     } catch (auditError) {
       setStatus('error');
@@ -4110,6 +4171,7 @@ function AuditPanel({ onActionComplete }) {
     setError(null);
     try {
       setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
       setStatus('ready');
     } catch (auditError) {
       setStatus('error');
@@ -4139,6 +4201,7 @@ function AuditPanel({ onActionComplete }) {
       setAssignmentRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
       setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -4155,6 +4218,7 @@ function AuditPanel({ onActionComplete }) {
       setNotificationRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
       setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -4171,6 +4235,7 @@ function AuditPanel({ onActionComplete }) {
       setEscalationRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
       setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -4178,6 +4243,24 @@ function AuditPanel({ onActionComplete }) {
       setError(createPanelError(auditError, 'Escalate Reviewer Workload', handleReviewerEscalation));
     }
   }, [onActionComplete]);
+
+  const handleReviewerDecision = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const latestAssignmentId = governanceHistory?.assignments?.[0]?.assignment_id || null;
+      const body = await recordReviewerDecision(latestAssignmentId);
+      setReviewerDecisionRecord(body.audit_record);
+      setWorkloadReport(await loadReviewerWorkload());
+      setSlaReport(await loadGovernanceSLA());
+      setGovernanceHistory(await loadGovernanceHistory());
+      setStatus('ready');
+      onActionComplete();
+    } catch (auditError) {
+      setStatus('error');
+      setError(createPanelError(auditError, 'Record Reviewer Decision', handleReviewerDecision));
+    }
+  }, [governanceHistory, onActionComplete]);
 
   return (
     <section className="panel mission-panel">
@@ -4193,6 +4276,9 @@ function AuditPanel({ onActionComplete }) {
       </button>
       <button onClick={handleNotificationRouting} disabled={status === 'loading'}>
         {status === 'loading' ? 'Routing...' : 'Route Notification'}
+      </button>
+      <button onClick={handleReviewerDecision} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Recording...' : 'Record Reviewer Decision'}
       </button>
       <button onClick={refreshReviewerWorkload} disabled={status === 'loading'}>
         {status === 'loading' ? 'Refreshing...' : 'Refresh Reviewer Workload'}
@@ -4245,6 +4331,20 @@ function AuditPanel({ onActionComplete }) {
           </p>
         </div>
       )}
+      {reviewerDecisionRecord && (
+        <div className="mission-result">
+          <h3>Reviewer Decision Recorded</h3>
+          <p>
+            <strong>{reviewerDecisionRecord.evidence.reviewer_id}</strong> recorded{' '}
+            <strong>{reviewerDecisionRecord.decision}</strong> for{' '}
+            <strong>{reviewerDecisionRecord.target_type}</strong>.
+          </p>
+          <p>
+            Audit <strong>{reviewerDecisionRecord.audit_id}</strong> recorded in{' '}
+            <strong>{reviewerDecisionRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
       {workloadReport && (
         <>
           <div className="mission-result">
@@ -4289,6 +4389,68 @@ function AuditPanel({ onActionComplete }) {
             <strong>{escalationRecord.data_platform}</strong>.
           </p>
         </div>
+      )}
+      {governanceHistory && (
+        <>
+          <div className="mission-result">
+            <h3>Reviewer Decision Outcomes</h3>
+            <p>
+              <strong>{governanceHistory.decision_count}</strong> decisions /{' '}
+              <strong>{governanceHistory.assignment_count}</strong> assignments /{' '}
+              <strong>{governanceHistory.escalation_count}</strong> escalations in{' '}
+              <strong>{governanceHistory.data_platform}</strong>.
+            </p>
+          </div>
+          <div className="filter-grid" aria-label="Governance reviewer decision filters">
+            <label>
+              Reviewer
+              <select
+                value={decisionReviewerFilter}
+                onChange={(event) => {
+                  setDecisionReviewerFilter(event.target.value);
+                }}
+                aria-label="Filter reviewer decisions by reviewer"
+              >
+                {decisionReviewerOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Decision
+              <select
+                value={decisionOutcomeFilter}
+                onChange={(event) => {
+                  setDecisionOutcomeFilter(event.target.value);
+                }}
+                aria-label="Filter reviewer decisions by outcome"
+              >
+                {decisionOutcomeOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <strong>{filteredReviewerDecisions.length}</strong>
+              <span>Filtered Decisions</span>
+            </div>
+          </div>
+          <div className="mission-history compact-history">
+            {filteredReviewerDecisions.length ? (
+              filteredReviewerDecisions.slice(0, 6).map((decision) => (
+                <article key={decision.decision_id}>
+                  <strong>{decision.decision}</strong>
+                  <span>{decision.reviewer_id}</span>
+                  <p>
+                    {decision.target_type}:{decision.target_id} / {decision.reason}
+                  </p>
+                </article>
+              ))
+            ) : (
+              <p>No reviewer decisions match the selected filters.</p>
+            )}
+          </div>
+        </>
       )}
       {slaReport && (
         <>
