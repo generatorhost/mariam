@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.dependencies import get_command_center_summary_service, get_event_bus, require_permission
-from app.core.errors import api_error_contract
+from app.core.errors import api_error_contract, api_error_openapi_response_examples
 from app.core.events import InMemoryEventBus
 from app.services.command_center import CommandCenterSummaryService
 
@@ -34,7 +34,7 @@ def command_center_readiness(
     }
 
 
-@router.get("/api-error-contract")
+@router.get("/api-error-contract", responses=api_error_openapi_response_examples())
 def command_center_api_error_contract() -> dict:
     return api_error_contract()
 

@@ -40,12 +40,98 @@ def api_error_contract() -> dict[str, Any]:
         ],
         "compatibility_rule": "Existing clients may continue reading detail while new clients use error.",
         "governance_rule": "Every governed API error must expose request traceability without secrets.",
+        "openapi_response_examples": api_error_openapi_response_examples(),
         "acceptance_criteria": [
             "403 permission errors include a structured error object.",
             "404 not found errors include a structured error object.",
             "422 validation errors include a structured error object.",
+            "OpenAPI documents 403, 404, and 422 structured error examples.",
             "No response includes secrets or credentials.",
         ],
+    }
+
+
+def api_error_openapi_response_examples() -> dict[int, dict[str, Any]]:
+    return {
+        403: {
+            "description": "Permission denied by Mariam governance.",
+            "content": {
+                "application/json": {
+                    "example": _example_error_payload(
+                        status_code=403,
+                        code="http_403",
+                        message="Actor command-center-operator is not allowed to perform this action.",
+                        path="/api/runtime/data-platform/live-write-smoke",
+                        method="POST",
+                    )
+                }
+            },
+        },
+        404: {
+            "description": "Requested Mariam runtime object was not found.",
+            "content": {
+                "application/json": {
+                    "example": _example_error_payload(
+                        status_code=404,
+                        code="http_404",
+                        message="Not Found",
+                        path="/api/runtime/not-found",
+                        method="GET",
+                    )
+                }
+            },
+        },
+        422: {
+            "description": "Request validation failed.",
+            "content": {
+                "application/json": {
+                    "example": _example_error_payload(
+                        status_code=422,
+                        code="validation_failed",
+                        message="Request failed.",
+                        path="/api/missions",
+                        method="POST",
+                        detail=[
+                            {
+                                "type": "missing",
+                                "loc": ["body", "user_request"],
+                                "msg": "Field required",
+                                "input": {},
+                            }
+                        ],
+                    )
+                }
+            },
+        },
+    }
+
+
+def _example_error_payload(
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    path: str,
+    method: str,
+    detail: Any | None = None,
+) -> dict[str, Any]:
+    return {
+        "detail": message if detail is None else detail,
+        "error": {
+            "error_id": "api-error-example",
+            "code": code,
+            "message": message,
+            "status_code": status_code,
+            "path": path,
+            "method": method,
+            "request_id": "openapi-example-request",
+            "data_platform": DATA_PLATFORM,
+            "traceability": {
+                "contract_version": ERROR_CONTRACT_VERSION,
+                "source": "mariam-api-error-handler",
+                "governed": path.startswith("/api/"),
+            },
+        },
     }
 
 

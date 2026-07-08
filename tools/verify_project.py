@@ -495,8 +495,21 @@ def verify_api_smoke_flow() -> None:
         api_error_contract["status"] == "ready"
         and api_error_contract["data_platform"] == "DB MARIAM"
         and "error.request_id" in api_error_contract["required_fields"]
-        and "governed_endpoints" in api_error_contract["applies_to"],
+        and "governed_endpoints" in api_error_contract["applies_to"]
+        and {"403", "404", "422"}.issubset(set(api_error_contract["openapi_response_examples"].keys())),
         "API error contract did not expose required governed error fields.",
+    )
+    openapi = request_json("/openapi.json")
+    api_error_operation = openapi["paths"]["/api/runtime/api-error-contract"]["get"]
+    assert_condition(
+        all(
+            api_error_operation["responses"][status_code]["content"]["application/json"]["example"]["error"][
+                "data_platform"
+            ]
+            == "DB MARIAM"
+            for status_code in ["403", "404", "422"]
+        ),
+        "OpenAPI did not document structured API error response examples.",
     )
     print("[verify] ok: api error contract")
 
@@ -653,7 +666,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

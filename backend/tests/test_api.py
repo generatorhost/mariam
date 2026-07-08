@@ -83,6 +83,26 @@ def test_api_error_contract_is_exposed_for_governed_endpoints() -> None:
     assert contract["data_platform"] == "DB MARIAM"
     assert "error.request_id" in contract["required_fields"]
     assert "governed_endpoints" in contract["applies_to"]
+    assert set(contract["openapi_response_examples"].keys()) == {"403", "404", "422"}
+    assert (
+        contract["openapi_response_examples"]["403"]["content"]["application/json"]["example"]["error"]["data_platform"]
+        == "DB MARIAM"
+    )
+
+
+def test_openapi_documents_structured_api_error_examples() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    operation = response.json()["paths"]["/api/runtime/api-error-contract"]["get"]
+    for status_code in ["403", "404", "422"]:
+        example = operation["responses"][status_code]["content"]["application/json"]["example"]
+        assert example["error"]["status_code"] == int(status_code)
+        assert example["error"]["request_id"] == "openapi-example-request"
+        assert example["error"]["data_platform"] == "DB MARIAM"
+        assert example["error"]["traceability"]["contract_version"] == "v1"
 
 
 def test_api_not_found_errors_follow_structured_contract() -> None:
@@ -2973,7 +2993,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3114,7 +3134,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
