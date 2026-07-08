@@ -2288,6 +2288,22 @@ def test_runtime_diagnostics_reports_verification_readiness_and_activity() -> No
     assert "audit.recorded" in [event["name"] for event in body["recent_events"]]
 
 
+def test_runtime_diagnostics_can_be_exported_as_review_package() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/diagnostics/export")
+
+    assert response.status_code == 200
+    export_package = response.json()["export_package"]
+    assert export_package["export_id"].startswith("diagnostics-export-")
+    assert export_package["status"] == "ready_for_review"
+    assert export_package["format"] == "json"
+    assert export_package["data_platform"] == "DB MARIAM"
+    assert export_package["package_manifest"]["title"] == "Mariam Runtime Diagnostics Export"
+    assert export_package["package_manifest"]["requires_governance_review_before_external_delivery"] is True
+    assert export_package["diagnostics"]["verification_report"]["readiness_status"] == "ready"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

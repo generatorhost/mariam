@@ -97,6 +97,12 @@ GET /api/runtime/diagnostics
 
 It combines verification status, readiness checks, recent audit records, and recent runtime events for operational inspection.
 
+Runtime diagnostics can be exported as a JSON review package through:
+
+```http
+POST /api/runtime/diagnostics/export
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

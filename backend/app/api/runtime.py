@@ -68,6 +68,13 @@ def command_center_diagnostics(
     return asdict(service.diagnostics())
 
 
+@router.post("/diagnostics/export")
+def export_command_center_diagnostics(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return {"export_package": asdict(service.export_diagnostics())}
+
+
 @router.get("/events")
 def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
     return {"events": [event.__dict__ for event in event_bus.list_events()]}

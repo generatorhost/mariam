@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.events import InMemoryEventBus
@@ -54,6 +55,17 @@ class CommandCenterDiagnostics:
     readiness_checks: list[ReadinessCheck]
     recent_audit_records: list[dict[str, object]]
     recent_events: list[dict[str, object]]
+    data_platform: str = "DB MARIAM"
+
+
+@dataclass
+class DiagnosticsExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    diagnostics: CommandCenterDiagnostics
     data_platform: str = "DB MARIAM"
 
 
@@ -258,4 +270,22 @@ class CommandCenterSummaryService:
             readiness_checks=readiness.checks,
             recent_audit_records=recent_audit_records,
             recent_events=recent_events,
+        )
+
+    def export_diagnostics(self) -> DiagnosticsExportPackage:
+        diagnostics = self.diagnostics()
+        return DiagnosticsExportPackage(
+            export_id=f"diagnostics-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": "Mariam Runtime Diagnostics Export",
+                "verification_status": diagnostics.status,
+                "readiness_checks": len(diagnostics.readiness_checks),
+                "recent_audit_records": len(diagnostics.recent_audit_records),
+                "recent_events": len(diagnostics.recent_events),
+                "requires_governance_review_before_external_delivery": True,
+            },
+            diagnostics=diagnostics,
         )

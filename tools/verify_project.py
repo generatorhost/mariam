@@ -128,6 +128,13 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: verification snapshot audit")
 
+    diagnostics_export = request_json("/api/runtime/diagnostics/export", "POST", {})["export_package"]
+    assert_condition(
+        diagnostics_export["status"] == "ready_for_review",
+        "Diagnostics export package was not ready for review.",
+    )
+    print("[verify] ok: diagnostics export")
+
     print("[verify] checking mission to delivery flow")
     mission = request_json(
         "/api/missions",

@@ -78,6 +78,10 @@ async function loadRuntimeDiagnostics() {
   return apiGet('/api/runtime/diagnostics');
 }
 
+async function exportRuntimeDiagnostics() {
+  return apiRequest('/api/runtime/diagnostics/export', {});
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1748,6 +1752,7 @@ function VerificationReportPanel({ refreshVersion }) {
 
 function RuntimeDiagnosticsPanel({ refreshVersion }) {
   const [diagnostics, setDiagnostics] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1767,6 +1772,19 @@ function RuntimeDiagnosticsPanel({ refreshVersion }) {
     refreshDiagnostics();
   }, [refreshDiagnostics, refreshVersion]);
 
+  async function handleDiagnosticsExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportRuntimeDiagnostics();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (diagnosticsError) {
+      setStatus('error');
+      setError(diagnosticsError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1776,7 +1794,17 @@ function RuntimeDiagnosticsPanel({ refreshVersion }) {
       <button onClick={refreshDiagnostics} disabled={status === 'loading'}>
         {status === 'loading' ? 'Loading...' : 'Refresh Diagnostics'}
       </button>
+      <button onClick={handleDiagnosticsExport} disabled={status === 'loading' || !diagnostics}>
+        Export Diagnostics
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>Diagnostics Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>{exportPackage.status} / {exportPackage.format}</p>
+        </div>
+      )}
       {diagnostics && (
         <>
           <div className="mission-result">
