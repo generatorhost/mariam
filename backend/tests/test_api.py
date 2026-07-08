@@ -3333,8 +3333,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Verification automation"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3487,6 +3487,11 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["quality_gates"]["endpoint_coverage_gate"] == "ready"
     assert contract["quality_gates"]["artifact_coverage_gate"] == "ready"
     assert contract["quality_gates"]["artifact_freshness_gate"] == "ready"
+    assert contract["quality_gates"]["mutation_gate"] == "ready"
+    assert contract["quality_gates"]["mutation_gate_coverage_ratio"] == 1
+    assert contract["quality_gates"]["missing_mutation_gates"] == []
+    assert "POST /api/audit/reviewer-decisions" in contract["quality_gates"]["mutation_gate_covered_endpoints"]
+    assert "POST /api/artifacts/{artifact_id}/package-delivery" in contract["quality_gates"]["mutation_gate_covered_endpoints"]
     assert contract["artifact_freshness"]["status"] == "ready"
     assert contract["artifact_freshness"]["max_age_hours"] == 24
     assert contract["artifact_freshness"]["stale_artifacts"] == []
@@ -3531,6 +3536,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "endpoint_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "artifact_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "artifact_freshness_quality_gate" in [check["name"] for check in contract["checks"]]
+    assert "mutation_level_write_endpoint_gate" in [check["name"] for check in contract["checks"]]
     assert "governance_export_interaction_smoke_included" in [
         check["name"] for check in contract["checks"]
     ]
@@ -3575,7 +3581,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

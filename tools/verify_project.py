@@ -661,6 +661,9 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["quality_gates"]["endpoint_coverage_gate"] == "ready"
         and verification_automation["quality_gates"]["artifact_coverage_gate"] == "ready"
         and verification_automation["quality_gates"]["artifact_freshness_gate"] == "ready"
+        and verification_automation["quality_gates"]["mutation_gate"] == "ready"
+        and verification_automation["quality_gates"]["mutation_gate_coverage_ratio"] == 1
+        and verification_automation["quality_gates"]["missing_mutation_gates"] == []
         and verification_automation["artifact_freshness"]["status"] == "ready"
         and verification_automation["artifact_freshness"]["stale_artifacts"] == []
         and any(
@@ -693,6 +696,13 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/delivery-evidence-report" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
+    )
+    assert_condition(
+        any(
+            check["name"] == "mutation_level_write_endpoint_gate" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        ),
+        "Verification automation did not expose the mutation-level write endpoint gate.",
     )
     print("[verify] ok: verification automation contract")
 
@@ -1004,7 +1014,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

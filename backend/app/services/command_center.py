@@ -1194,10 +1194,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=90,
+                completion_percent=91,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add mutation-level verification gates for each governed write endpoint.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add API schema regression snapshots for governed write request and response models.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3378,6 +3378,50 @@ class CommandCenterSummaryService:
             )
             if not fresh:
                 stale_artifacts.append(artifact)
+        governed_write_endpoint_gates = {
+            "POST /api/auth/permissions/enforce": ["/api/auth/permissions/enforce"],
+            "POST /api/auth/human-identity/enforce": ["/api/auth/human-identity/enforce"],
+            "POST /api/runtime/verification-report/record": ["/api/runtime/verification-report/record"],
+            "POST /api/runtime/diagnostics/export": ["/api/runtime/diagnostics/export"],
+            "POST /api/runtime/usage-guide/export": ["/api/runtime/usage-guide/export"],
+            "POST /api/runtime/completion-report/export": ["/api/runtime/completion-report/export"],
+            "POST /api/runtime/implementation-roadmap/export": ["/api/runtime/implementation-roadmap/export"],
+            "POST /api/runtime/data-platform/readiness/export": ["/api/runtime/data-platform/readiness/export"],
+            "POST /api/runtime/data-platform/migration-runner/export": ["/api/runtime/data-platform/migration-runner/export"],
+            "POST /api/runtime/data-platform/live-write-smoke": ["/api/runtime/data-platform/live-write-smoke"],
+            "POST /api/runtime/data-platform/live-repository-write-smoke": [
+                "/api/runtime/data-platform/live-repository-write-smoke"
+            ],
+            "POST /api/audit/approval-assignments": ["/api/audit/approval-assignments"],
+            "POST /api/audit/notifications/route": ["/api/audit/notifications/route"],
+            "POST /api/audit/reviewer-decisions": ["/api/audit/reviewer-decisions"],
+            "POST /api/audit/governance-decision-evidence/export": [
+                "/api/audit/governance-decision-evidence/export"
+            ],
+            "POST /api/audit/escalations": ["/api/audit/escalations"],
+            "POST /api/plugins": ['"/api/plugins"', '"POST", plugin_manifest'],
+            "POST /api/missions": ['"/api/missions"', '"POST"'],
+            "POST /api/artifacts/{artifact_id}/approve": ["/approve", "approved_by"],
+            "POST /api/artifacts/{artifact_id}/reject": ["/reject", "rejected_by"],
+            "POST /api/artifacts/{artifact_id}/request-revision": ["/request-revision", "revision_request"],
+            "POST /api/artifacts/{artifact_id}/quality-review": ["/quality-review", "reviewed_by"],
+            "POST /api/artifacts/{artifact_id}/package-delivery": ["/package-delivery", "packaged_by"],
+            "POST /api/artifacts/deliveries/{delivery_id}/confirm": ["/confirm", "client_reference"],
+        }
+        mutation_covered_endpoints = [
+            endpoint
+            for endpoint, evidence_fragments in governed_write_endpoint_gates.items()
+            if all(fragment in verification_text for fragment in evidence_fragments)
+        ]
+        missing_mutation_gates = [
+            endpoint
+            for endpoint, evidence_fragments in governed_write_endpoint_gates.items()
+            if not all(fragment in verification_text for fragment in evidence_fragments)
+        ]
+        mutation_coverage_ratio = round(
+            len(mutation_covered_endpoints) / len(governed_write_endpoint_gates),
+            3,
+        )
         quality_gates = {
             "minimum_backend_tests": minimum_backend_tests,
             "backend_test_count": backend_test_count,
@@ -3391,6 +3435,11 @@ class CommandCenterSummaryService:
             "artifact_coverage_ratio": artifact_coverage_ratio,
             "artifact_coverage_gate": "ready" if not missing_required_artifact_checks else "blocked",
             "artifact_freshness_gate": "ready" if not stale_artifacts else "blocked",
+            "governed_write_endpoint_count": len(governed_write_endpoint_gates),
+            "mutation_gate_covered_endpoints": mutation_covered_endpoints,
+            "missing_mutation_gates": missing_mutation_gates,
+            "mutation_gate_coverage_ratio": mutation_coverage_ratio,
+            "mutation_gate": "ready" if not missing_mutation_gates else "blocked",
         }
         artifact_freshness = {
             "status": "ready" if not stale_artifacts else "blocked",
@@ -3669,6 +3718,15 @@ class CommandCenterSummaryService:
                     f"All required verification artifacts are fresh within {max_artifact_age_hours} hours."
                     if not stale_artifacts
                     else f"Stale or missing artifacts: {', '.join(stale_artifacts)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="mutation_level_write_endpoint_gate",
+                status=str(quality_gates["mutation_gate"]),
+                detail=(
+                    f"{mutation_coverage_ratio:.0%} governed write endpoint mutations are exercised by verify_project.py."
+                    if not missing_mutation_gates
+                    else f"Missing mutation gates: {', '.join(missing_mutation_gates)}."
                 ),
             ),
         ]
