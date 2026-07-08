@@ -1,4 +1,5 @@
 import json
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -280,6 +281,18 @@ class DockerPersistenceStatus:
     compose_file: str
     postgres_store_count: int
     database_url_masked: str
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
+class LiveDatabaseSmokeStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    docker_available: bool
+    compose_config_valid: bool
+    smoke_command: str
     checks: list[DataPlatformCheck]
 
 
@@ -626,10 +639,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=68,
+                completion_percent=70,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, and Docker Postgres persistence profile checks are exposed by API.",
-                next_step="Add live Docker database smoke verification.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, and live DB smoke readiness.",
+                next_step="Add live Docker database container execution verification.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1169,3 +1182,67 @@ class CommandCenterSummaryService:
             database_url_masked=self._mask_database_url(database_url),
             checks=checks,
         )
+
+    def live_database_smoke_status(self) -> LiveDatabaseSmokeStatus:
+        root = Path(__file__).resolve().parents[3]
+        compose_file = root / "docker-compose.yml"
+        migrations_dir = root / "database" / "migrations"
+        docker_version = self._run_readonly_command(["docker", "--version"], root)
+        compose_config = self._run_readonly_command(["docker", "compose", "config", "--quiet"], root)
+        docker_available = docker_version["returncode"] == 0
+        compose_config_valid = compose_config["returncode"] == 0
+        migration_files = sorted(migrations_dir.glob("*.sql")) if migrations_dir.exists() else []
+        checks = [
+            DataPlatformCheck(
+                name="docker_command_available",
+                status="ready" if docker_available else "blocked",
+                detail=docker_version["detail"],
+            ),
+            DataPlatformCheck(
+                name="docker_compose_config",
+                status="ready" if compose_config_valid else "blocked",
+                detail=compose_config["detail"],
+            ),
+            DataPlatformCheck(
+                name="postgres_service_declared",
+                status="ready"
+                if compose_file.exists() and "postgres:" in compose_file.read_text(encoding="utf-8")
+                else "blocked",
+                detail="docker-compose.yml declares the postgres service.",
+            ),
+            DataPlatformCheck(
+                name="migration_files_available",
+                status="ready" if len(migration_files) >= 1 else "blocked",
+                detail=f"{len(migration_files)} DB MARIAM migration files are available for Docker startup.",
+            ),
+            DataPlatformCheck(
+                name="smoke_command_documented",
+                status="ready",
+                detail="Use docker compose up -d postgres && docker compose exec postgres pg_isready -d db_mariam for live DB smoke.",
+            ),
+        ]
+        return LiveDatabaseSmokeStatus(
+            title="DB MARIAM Live Database Smoke Readiness",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            docker_available=docker_available,
+            compose_config_valid=compose_config_valid,
+            smoke_command="docker compose up -d postgres && docker compose exec postgres pg_isready -d db_mariam",
+            checks=checks,
+        )
+
+    def _run_readonly_command(self, command: list[str], cwd: Path) -> dict[str, object]:
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=cwd,
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=10,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired) as error:
+            return {"returncode": 1, "detail": str(error)}
+        detail = (completed.stdout or completed.stderr or "command completed").strip()
+        return {"returncode": completed.returncode, "detail": detail}

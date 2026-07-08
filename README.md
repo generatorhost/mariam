@@ -115,6 +115,12 @@ Docker persistence verifies the local Docker profile uses DB MARIAM Postgres-bac
 GET /api/runtime/data-platform/docker-persistence
 ```
 
+Live DB smoke readiness verifies Docker and Compose configuration before running a DB MARIAM Postgres smoke test:
+
+```http
+GET /api/runtime/data-platform/live-db-smoke
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

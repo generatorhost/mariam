@@ -144,6 +144,10 @@ async function loadDockerPersistence() {
   return apiGet('/api/runtime/data-platform/docker-persistence');
 }
 
+async function loadLiveDbSmoke() {
+  return apiGet('/api/runtime/data-platform/live-db-smoke');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2254,6 +2258,63 @@ function DockerPersistencePanel({ refreshVersion }) {
   );
 }
 
+function LiveDbSmokePanel({ refreshVersion }) {
+  const [smokeStatus, setSmokeStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshLiveDbSmoke = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setSmokeStatus(await loadLiveDbSmoke());
+      setStatus('ready');
+    } catch (smokeError) {
+      setStatus('error');
+      setError(smokeError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshLiveDbSmoke();
+  }, [refreshLiveDbSmoke, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Live DB Smoke</h2>
+        <p>Verify Docker and Compose readiness before running the DB MARIAM Postgres smoke command.</p>
+      </div>
+      <button onClick={refreshLiveDbSmoke} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Live DB Smoke'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {smokeStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{smokeStatus.status}</strong>
+            <span>{smokeStatus.data_platform}</span>
+            <p>{smokeStatus.smoke_command}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{String(smokeStatus.docker_available)}</strong><span>Docker</span></div>
+            <div><strong>{String(smokeStatus.compose_config_valid)}</strong><span>Compose Config</span></div>
+          </div>
+          <div className="mission-history">
+            {smokeStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -3118,6 +3179,7 @@ function App() {
           <BackupReadinessPanel refreshVersion={refreshVersion} />
           <PluginSchemaIsolationPanel refreshVersion={refreshVersion} />
           <DockerPersistencePanel refreshVersion={refreshVersion} />
+          <LiveDbSmokePanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
           <VerificationReportPanel refreshVersion={refreshVersion} />

@@ -100,6 +100,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/backup-readiness",
         "/api/runtime/data-platform/plugin-schema-isolation",
         "/api/runtime/data-platform/docker-persistence",
+        "/api/runtime/data-platform/live-db-smoke",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -223,6 +224,13 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: docker persistence profile")
 
+    live_db_smoke = request_json("/api/runtime/data-platform/live-db-smoke")
+    assert_condition(
+        live_db_smoke["status"] == "ready" and live_db_smoke["compose_config_valid"] is True,
+        "DB MARIAM live DB smoke readiness did not pass.",
+    )
+    print("[verify] ok: live DB smoke readiness")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -277,7 +285,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
