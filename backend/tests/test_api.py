@@ -3103,7 +3103,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3133,6 +3133,9 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
     assert "Filter delivery SLA by state" in snapshot["controls_checked"]
     assert "Filter delivery SLA by reviewer queue" in snapshot["controls_checked"]
+    assert "mariam.commandCenter.preferences.v1" in snapshot["controls_checked"]
+    assert "deliverySlaStateFilter" in snapshot["controls_checked"]
+    assert "deliveryReviewerQueueFilter" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
     assert snapshot["missing_keyboard_traversal_targets"] == []
@@ -3142,6 +3145,9 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
         "keyboard_traversal_targets"
     ]
     assert "data-active={activeSection === item.href.slice(1) ? 'true' : undefined}" in snapshot[
+        "keyboard_traversal_targets"
+    ]
+    assert "writeCommandCenterPreference('activeSection', sectionId)" in snapshot[
         "keyboard_traversal_targets"
     ]
     assert 'id="workspace" tabIndex="-1"' in snapshot["keyboard_traversal_targets"]
@@ -3299,7 +3305,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

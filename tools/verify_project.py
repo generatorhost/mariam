@@ -493,7 +493,12 @@ def verify_api_smoke_flow() -> None:
         and "Refresh Screenshot Plan" in frontend_regression["controls_checked"]
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
-        and "Refresh Verification Automation" in frontend_regression["controls_checked"],
+        and "Refresh Verification Automation" in frontend_regression["controls_checked"]
+        and "mariam.commandCenter.preferences.v1" in frontend_regression["controls_checked"]
+        and "deliverySlaStateFilter" in frontend_regression["controls_checked"]
+        and "deliveryReviewerQueueFilter" in frontend_regression["controls_checked"]
+        and "writeCommandCenterPreference('activeSection', sectionId)"
+        in frontend_regression["keyboard_traversal_targets"],
         "Frontend regression snapshot did not pass.",
     )
     print("[verify] ok: frontend regression snapshot")
@@ -783,7 +788,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

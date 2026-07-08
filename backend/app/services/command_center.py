@@ -1130,10 +1130,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=86,
+                completion_percent=88,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add persisted Command Center UI preferences for section and filter state.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section and delivery SLA filter preferences, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add frontend API error banners with retry context for failed panel actions.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2507,6 +2507,9 @@ class CommandCenterSummaryService:
             "Refresh Verification Automation",
             "Filter delivery SLA by state",
             "Filter delivery SLA by reviewer queue",
+            "mariam.commandCenter.preferences.v1",
+            "deliverySlaStateFilter",
+            "deliveryReviewerQueueFilter",
             "Export Diagnostics",
             "Export Completion Report",
             "Export Roadmap",
@@ -2518,6 +2521,7 @@ class CommandCenterSummaryService:
             'aria-label="Command Center sections"',
             'aria-current={activeSection === item.href.slice(1) ? \'page\' : undefined}',
             'data-active={activeSection === item.href.slice(1) ? \'true\' : undefined}',
+            "writeCommandCenterPreference('activeSection', sectionId)",
             'id="workspace" tabIndex="-1"',
             'id="status" tabIndex="-1"',
             'id="data-platform" className="workspace-section" tabIndex="-1"',
@@ -2570,6 +2574,18 @@ class CommandCenterSummaryService:
                     if not missing_keyboard_targets
                     else f"Missing keyboard traversal targets: {', '.join(missing_keyboard_targets)}."
                 ),
+            ),
+            DataPlatformCheck(
+                name="frontend_preferences_persisted",
+                status=(
+                    "ready"
+                    if "mariam.commandCenter.preferences.v1" in source_text
+                    and "deliverySlaStateFilter" in source_text
+                    and "deliveryReviewerQueueFilter" in source_text
+                    and "writeCommandCenterPreference('activeSection', sectionId)" in source_text
+                    else "blocked"
+                ),
+                detail="Command Center persists active section and delivery SLA filter preferences in localStorage.",
             ),
         ]
         status = "ready" if all(check.status == "ready" for check in checks) else "blocked"

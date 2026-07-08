@@ -60,6 +60,33 @@ const responsiveStates = [
 ];
 
 const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
+const commandCenterPreferenceStorageKey = 'mariam.commandCenter.preferences.v1';
+
+function readCommandCenterPreferences() {
+  try {
+    const rawPreferences = window.localStorage.getItem(commandCenterPreferenceStorageKey);
+    return rawPreferences ? JSON.parse(rawPreferences) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeCommandCenterPreference(key, value) {
+  try {
+    const preferences = readCommandCenterPreferences();
+    window.localStorage.setItem(
+      commandCenterPreferenceStorageKey,
+      JSON.stringify({ ...preferences, [key]: value }),
+    );
+  } catch {
+    // Preferences are an enhancement; unavailable storage must not block operations.
+  }
+}
+
+function readCommandCenterPreference(key, fallback) {
+  const preferences = readCommandCenterPreferences();
+  return typeof preferences[key] === 'string' ? preferences[key] : fallback;
+}
 
 async function apiRequest(path, body, options = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -1503,8 +1530,31 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [qualityReview, setQualityReview] = useState(null);
   const [deliveryPackage, setDeliveryPackage] = useState(null);
   const [deliveryEvidenceReport, setDeliveryEvidenceReport] = useState(null);
-  const [slaStateFilter, setSlaStateFilter] = useState('all');
-  const [reviewerQueueFilter, setReviewerQueueFilter] = useState('all');
+  const [slaStateFilter, setSlaStateFilter] = useState(() => (
+    readCommandCenterPreference('deliverySlaStateFilter', 'all')
+  ));
+  const [reviewerQueueFilter, setReviewerQueueFilter] = useState(() => (
+    readCommandCenterPreference('deliveryReviewerQueueFilter', 'all')
+  ));
+
+  useEffect(() => {
+    writeCommandCenterPreference('deliverySlaStateFilter', slaStateFilter);
+  }, [slaStateFilter]);
+
+  useEffect(() => {
+    writeCommandCenterPreference('deliveryReviewerQueueFilter', reviewerQueueFilter);
+  }, [reviewerQueueFilter]);
+
+  useEffect(() => {
+    const stateOptions = deliveryEvidenceReport?.sla_filters?.sla_state_options || ['all'];
+    const queueOptions = deliveryEvidenceReport?.sla_filters?.reviewer_queue_options || ['all'];
+    if (!stateOptions.includes(slaStateFilter)) {
+      setSlaStateFilter('all');
+    }
+    if (!queueOptions.includes(reviewerQueueFilter)) {
+      setReviewerQueueFilter('all');
+    }
+  }, [deliveryEvidenceReport, reviewerQueueFilter, slaStateFilter]);
 
   const filteredSlaDrilldownItems = useMemo(() => {
     const items = deliveryEvidenceReport?.sla_drilldown_items || [];
@@ -1791,7 +1841,9 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                   SLA State
                   <select
                     value={slaStateFilter}
-                    onChange={(event) => setSlaStateFilter(event.target.value)}
+                    onChange={(event) => {
+                      setSlaStateFilter(event.target.value);
+                    }}
                     aria-label="Filter delivery SLA by state"
                   >
                     {(deliveryEvidenceReport.sla_filters?.sla_state_options || ['all']).map((option) => (
@@ -1803,7 +1855,9 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                   Reviewer Queue
                   <select
                     value={reviewerQueueFilter}
-                    onChange={(event) => setReviewerQueueFilter(event.target.value)}
+                    onChange={(event) => {
+                      setReviewerQueueFilter(event.target.value);
+                    }}
                     aria-label="Filter delivery SLA by reviewer queue"
                   >
                     {(deliveryEvidenceReport.sla_filters?.reviewer_queue_options || ['all']).map((option) => (
@@ -4222,19 +4276,38 @@ function CommandCenterNavigation({ activeSection, onNavigate }) {
 
 function App() {
   const [refreshVersion, setRefreshVersion] = useState(0);
-  const [activeSection, setActiveSection] = useState('status');
+  const [activeSection, setActiveSection] = useState(() => {
+    const savedSection = readCommandCenterPreference('activeSection', 'status');
+    const sectionIds = commandCenterNav.map((item) => item.href.slice(1));
+    return sectionIds.includes(savedSection) ? savedSection : 'status';
+  });
+  const persistActiveSection = useCallback((sectionId) => {
+    setActiveSection(sectionId);
+    writeCommandCenterPreference('activeSection', sectionId);
+  }, []);
   const refreshCommandCenterSummary = useCallback(() => {
     setRefreshVersion((current) => current + 1);
   }, []);
 
   useEffect(() => {
     const sectionIds = commandCenterNav.map((item) => item.href.slice(1));
+    let restoringSavedSection = true;
     const updateActiveSection = () => {
       const hashSection = window.location.hash.replace('#', '');
       if (sectionIds.includes(hashSection)) {
-        setActiveSection(hashSection);
+        restoringSavedSection = false;
+        persistActiveSection(hashSection);
         return;
       }
+      const savedSection = readCommandCenterPreference('activeSection', 'status');
+      if (restoringSavedSection && sectionIds.includes(savedSection) && savedSection !== 'status') {
+        window.history.replaceState(null, '', `#${savedSection}`);
+        document.getElementById(savedSection)?.scrollIntoView({ block: 'start' });
+        persistActiveSection(savedSection);
+        restoringSavedSection = false;
+        return;
+      }
+      restoringSavedSection = false;
       const nextActiveSection = sectionIds.reduce((current, sectionId) => {
         const section = document.getElementById(sectionId);
         if (!section) {
@@ -4243,16 +4316,16 @@ function App() {
         const top = section.getBoundingClientRect().top;
         return top <= 140 ? sectionId : current;
       }, sectionIds[0]);
-      setActiveSection(nextActiveSection);
+      persistActiveSection(nextActiveSection);
     };
-    updateActiveSection();
+    window.requestAnimationFrame(updateActiveSection);
     window.addEventListener('hashchange', updateActiveSection);
     window.addEventListener('scroll', updateActiveSection, { passive: true });
     return () => {
       window.removeEventListener('hashchange', updateActiveSection);
       window.removeEventListener('scroll', updateActiveSection);
     };
-  }, []);
+  }, [persistActiveSection]);
 
   return (
     <main className="shell">
@@ -4266,7 +4339,7 @@ function App() {
         </div>
         <CommandCenterNavigation
           activeSection={activeSection}
-          onNavigate={setActiveSection}
+          onNavigate={persistActiveSection}
         />
       </aside>
       <section className="workspace" id="workspace" tabIndex="-1">
