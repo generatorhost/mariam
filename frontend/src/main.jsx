@@ -78,6 +78,10 @@ async function loadSeedDataStatus() {
   return apiGet('/api/runtime/data-platform/seed-data');
 }
 
+async function loadBackupReadiness() {
+  return apiGet('/api/runtime/data-platform/backup-readiness');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1920,6 +1924,59 @@ function SeedDataPanel({ refreshVersion }) {
   );
 }
 
+function BackupReadinessPanel({ refreshVersion }) {
+  const [backupStatus, setBackupStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshBackupReadiness = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setBackupStatus(await loadBackupReadiness());
+      setStatus('ready');
+    } catch (backupError) {
+      setStatus('error');
+      setError(backupError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshBackupReadiness();
+  }, [refreshBackupReadiness, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Backup Readiness</h2>
+        <p>Verify DB MARIAM backup policy, restore approval, encryption, and audit gates.</p>
+      </div>
+      <button onClick={refreshBackupReadiness} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Backup Readiness'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {backupStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{backupStatus.status}</strong>
+            <span>{backupStatus.policy_id}</span>
+            <p>{backupStatus.scope_count} storage areas / secrets: {String(backupStatus.contains_secrets)}</p>
+          </div>
+          <div className="mission-history">
+            {backupStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -2677,6 +2734,7 @@ function App() {
         <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
         <MigrationRunnerPanel refreshVersion={refreshVersion} />
         <SeedDataPanel refreshVersion={refreshVersion} />
+        <BackupReadinessPanel refreshVersion={refreshVersion} />
         <VerificationReportPanel refreshVersion={refreshVersion} />
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <UsageGuidePanel refreshVersion={refreshVersion} />

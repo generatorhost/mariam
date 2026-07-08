@@ -1,0 +1,40 @@
+{
+  "policy_id": "db-mariam-backup-policy-v1",
+  "data_platform": "DB MARIAM",
+  "version": "0.1.0",
+  "status": "ready_for_review",
+  "scope": [
+    "Runtime DB",
+    "Mission DB",
+    "Audit DB",
+    "Governance DB",
+    "CRM DB",
+    "Scraping DB",
+    "Opportunity DB",
+    "Communication DB",
+    "Document DB",
+    "DNA Registry DB",
+    "Capability Graph DB",
+    "Workflow DB",
+    "Object Storage",
+    "Vector Store",
+    "Logs Store",
+    "Metrics Store",
+    "Artifact Store"
+  ],
+  "rules": {
+    "contains_secrets": false,
+    "no_plaintext_credentials": true,
+    "encryption_required": true,
+    "restore_test_required": true,
+    "audit_required": true,
+    "human_approval_required_for_restore": true
+  },
+  "retention": {
+    "local_development": "manual-review-only",
+    "production_daily": "30 days",
+    "production_weekly": "12 weeks",
+    "production_monthly": "12 months"
+  },
+  "notes": "This policy is readiness metadata only. It does not include backup payloads, runtime data, passwords, tokens, keys, or database dumps."
+}

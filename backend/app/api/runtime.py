@@ -68,6 +68,13 @@ def command_center_data_platform_seed_data(
     return asdict(service.seed_data_status())
 
 
+@router.get("/data-platform/backup-readiness")
+def command_center_data_platform_backup_readiness(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.backup_readiness_status())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

@@ -241,6 +241,20 @@ class SeedDataStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class BackupReadinessStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    policy_id: str
+    policy_file: str
+    scope_count: int
+    retention: dict[str, str]
+    contains_secrets: bool
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -574,10 +588,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=62,
+                completion_percent=64,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, and non-secret seed data status are exposed by API.",
-                next_step="Add backup checks and per-plugin schema isolation.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, and backup readiness policy checks are exposed by API.",
+                next_step="Add per-plugin schema isolation.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -902,6 +916,65 @@ class CommandCenterSummaryService:
             seed_file=str(seed_file),
             item_count=len(items),
             target_tables=target_tables,
+            contains_secrets=contains_secrets,
+            checks=checks,
+        )
+
+    def backup_readiness_status(self) -> BackupReadinessStatus:
+        policy_file = Path(__file__).resolve().parents[3] / "database" / "backups" / "backup_policy.json"
+        policy_payload = json.loads(policy_file.read_text(encoding="utf-8")) if policy_file.exists() else {}
+        rules = dict(policy_payload.get("rules", {}))
+        retention = dict(policy_payload.get("retention", {}))
+        scope = list(policy_payload.get("scope", []))
+        contains_secrets = bool(rules.get("contains_secrets", True))
+        checks = [
+            DataPlatformCheck(
+                name="backup_policy_present",
+                status="ready" if policy_file.exists() else "blocked",
+                detail=f"Backup policy path: {policy_file}.",
+            ),
+            DataPlatformCheck(
+                name="backup_data_platform",
+                status="ready" if policy_payload.get("data_platform") == "DB MARIAM" else "blocked",
+                detail="Backup policy is scoped to DB MARIAM.",
+            ),
+            DataPlatformCheck(
+                name="backup_scope",
+                status="ready" if len(scope) >= 10 else "blocked",
+                detail=f"{len(scope)} DB MARIAM storage areas are covered by the backup policy.",
+            ),
+            DataPlatformCheck(
+                name="backup_no_secrets",
+                status="ready"
+                if contains_secrets is False and rules.get("no_plaintext_credentials") is True
+                else "blocked",
+                detail="Backup readiness metadata declares no secrets and no plaintext credentials.",
+            ),
+            DataPlatformCheck(
+                name="backup_restore_governance",
+                status="ready"
+                if rules.get("restore_test_required") is True
+                and rules.get("human_approval_required_for_restore") is True
+                else "blocked",
+                detail="Restore requires testing and human approval before production recovery.",
+            ),
+            DataPlatformCheck(
+                name="backup_encryption_audit",
+                status="ready"
+                if rules.get("encryption_required") is True and rules.get("audit_required") is True
+                else "blocked",
+                detail="Backup policy requires encryption and audit evidence.",
+            ),
+        ]
+        return BackupReadinessStatus(
+            title="DB MARIAM Backup Readiness",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            policy_id=str(policy_payload.get("policy_id", "")),
+            policy_file=str(policy_file),
+            scope_count=len(scope),
+            retention={str(key): str(value) for key, value in retention.items()},
             contains_secrets=contains_secrets,
             checks=checks,
         )

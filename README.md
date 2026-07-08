@@ -97,6 +97,12 @@ Seed data status verifies the initial non-secret DB MARIAM seed manifest before 
 GET /api/runtime/data-platform/seed-data
 ```
 
+Backup readiness verifies the DB MARIAM backup policy without exposing backup payloads or secrets:
+
+```http
+GET /api/runtime/data-platform/backup-readiness
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

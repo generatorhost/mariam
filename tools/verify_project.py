@@ -96,6 +96,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/readiness",
         "/api/runtime/data-platform/migration-runner",
         "/api/runtime/data-platform/seed-data",
+        "/api/runtime/data-platform/backup-readiness",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -186,6 +187,13 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: seed data status")
 
+    backup_readiness = request_json("/api/runtime/data-platform/backup-readiness")
+    assert_condition(
+        backup_readiness["status"] == "ready" and backup_readiness["contains_secrets"] is False,
+        "DB MARIAM backup readiness did not pass.",
+    )
+    print("[verify] ok: backup readiness")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -220,7 +228,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
