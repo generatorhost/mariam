@@ -2,7 +2,10 @@ from fastapi.testclient import TestClient
 import json
 from pathlib import Path
 
+from app.core.auth import UserSession
+from app.dependencies import get_auth_service
 from app.main import create_app
+from app.services.auth import AuthService
 
 
 def analyze_runtime_object_impact(client: TestClient, object_id: str, intended_action: str) -> None:
@@ -190,6 +193,34 @@ def test_auth_permission_enforcement_blocks_unknown_permission() -> None:
 
     assert response.status_code == 403
     assert "Permission system.destroy denied" in response.json()["detail"]
+
+
+def test_request_scoped_permission_dependency_blocks_mutating_endpoint() -> None:
+    class ReadOnlyAuthService(AuthService):
+        def current_session(self) -> UserSession:
+            return UserSession(
+                session_id="read-only-session",
+                user_id="read-only-operator",
+                display_name="Read Only Operator",
+                roles=["viewer"],
+                permissions=["runtime.read"],
+            )
+
+    app = create_app()
+    app.dependency_overrides[get_auth_service] = lambda: ReadOnlyAuthService()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "This mission should be blocked before creation.",
+            "requested_by": "read-only-operator",
+        },
+    )
+
+    assert response.status_code == 403
+    assert "Permission mission.create denied" in response.json()["detail"]
 
 
 def test_auth_human_identity_enforcement_allows_current_session_user() -> None:
@@ -2764,7 +2795,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2846,7 +2877,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

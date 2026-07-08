@@ -8,7 +8,7 @@ from app.core.artifacts import (
     ArtifactRevisionRequest,
     DeliveryConfirmationRequest,
 )
-from app.dependencies import get_artifact_service
+from app.dependencies import get_artifact_service, require_permission
 from app.services.artifacts import ArtifactService
 
 router = APIRouter(prefix="/api/artifacts", tags=["artifacts"])
@@ -43,6 +43,7 @@ def list_quality_reviews(service: ArtifactService = Depends(get_artifact_service
 def confirm_delivery_package(
     delivery_id: str,
     request: DeliveryConfirmationRequest,
+    authorization=Depends(require_permission("artifact.approve", "delivery_package")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -55,6 +56,7 @@ def confirm_delivery_package(
 @router.post("/from-mission/{mission_id}")
 def generate_artifact_from_mission(
     mission_id: str,
+    authorization=Depends(require_permission("artifact.approve", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -68,6 +70,7 @@ def generate_artifact_from_mission(
 def review_artifact_quality(
     artifact_id: str,
     request: ArtifactQualityReviewRequest,
+    authorization=Depends(require_permission("artifact.approve", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -81,6 +84,7 @@ def review_artifact_quality(
 def approve_artifact(
     artifact_id: str,
     request: ArtifactApprovalRequest,
+    authorization=Depends(require_permission("artifact.approve", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -94,6 +98,7 @@ def approve_artifact(
 def reject_artifact(
     artifact_id: str,
     request: ArtifactRejectionRequest,
+    authorization=Depends(require_permission("artifact.request_revision", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -107,6 +112,7 @@ def reject_artifact(
 def request_artifact_revision(
     artifact_id: str,
     request: ArtifactRevisionRequest,
+    authorization=Depends(require_permission("artifact.request_revision", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:
@@ -120,6 +126,7 @@ def request_artifact_revision(
 def package_artifact_delivery(
     artifact_id: str,
     request: ArtifactDeliveryRequest,
+    authorization=Depends(require_permission("artifact.approve", "artifact")),
     service: ArtifactService = Depends(get_artifact_service),
 ) -> dict:
     try:

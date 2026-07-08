@@ -11,7 +11,7 @@ from app.core.plugin_manifest import (
     PluginStateChangeRequest,
 )
 from app.core.missions import MissionRequest
-from app.dependencies import get_mission_service, get_runtime_registry
+from app.dependencies import get_mission_service, get_runtime_registry, require_permission
 from app.services.missions import MissionService
 from app.services.runtime import RuntimeRegistry
 
@@ -26,6 +26,7 @@ def list_plugins(registry: RuntimeRegistry = Depends(get_runtime_registry)) -> d
 @router.post("")
 def register_plugin(
     manifest: PluginManifest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     plugin = registry.register_plugin(manifest)
@@ -80,6 +81,7 @@ def get_plugin_workspace(
 def send_plugin_chat_request(
     plugin_id: str,
     request: PluginChatRequest,
+    authorization=Depends(require_permission("mission.create", "plugin_chat")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
     mission_service: MissionService = Depends(get_mission_service),
 ) -> dict:
@@ -120,6 +122,7 @@ def send_plugin_chat_request(
 def update_plugin_settings(
     plugin_id: str,
     request: PluginSettingsUpdateRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin_settings")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -132,6 +135,7 @@ def update_plugin_settings(
 def enable_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -145,6 +149,7 @@ def enable_plugin(
 def patch_plugin(
     plugin_id: str,
     request: PluginPatchRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -158,6 +163,7 @@ def patch_plugin(
 def validate_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -171,6 +177,7 @@ def validate_plugin(
 def disable_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -184,6 +191,7 @@ def disable_plugin(
 def soft_delete_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -197,6 +205,7 @@ def soft_delete_plugin(
 def restore_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -210,6 +219,7 @@ def restore_plugin(
 def analyze_plugin_impact(
     plugin_id: str,
     request: PluginImpactRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -223,6 +233,7 @@ def analyze_plugin_impact(
 def approve_plugin_change(
     plugin_id: str,
     request: PluginApprovalRequest,
+    authorization=Depends(require_permission("governance.assign_approval", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -236,6 +247,7 @@ def approve_plugin_change(
 def rollback_plugin(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -249,6 +261,7 @@ def rollback_plugin(
 def export_plugin_dna(
     plugin_id: str,
     request: PluginStateChangeRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:
@@ -261,6 +274,7 @@ def export_plugin_dna(
 @router.post("/import-dna")
 def import_plugin_dna(
     request: PluginDNAImportRequest,
+    authorization=Depends(require_permission("plugin.register", "plugin")),
     registry: RuntimeRegistry = Depends(get_runtime_registry),
 ) -> dict:
     try:

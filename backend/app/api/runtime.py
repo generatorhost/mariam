@@ -3,7 +3,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.dependencies import get_command_center_summary_service, get_event_bus
+from app.dependencies import get_command_center_summary_service, get_event_bus, require_permission
 from app.core.events import InMemoryEventBus
 from app.services.command_center import CommandCenterSummaryService
 
@@ -42,6 +42,7 @@ def command_center_data_platform_readiness(
 
 @router.post("/data-platform/readiness/export")
 def export_command_center_data_platform_readiness(
+    authorization=Depends(require_permission("diagnostics.export", "data_platform_readiness")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_data_platform_readiness())}
@@ -56,6 +57,7 @@ def command_center_data_platform_migration_runner(
 
 @router.post("/data-platform/migration-runner/export")
 def export_command_center_data_platform_migration_runner(
+    authorization=Depends(require_permission("diagnostics.export", "migration_runner")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_migration_runner_status())}
@@ -105,6 +107,7 @@ def command_center_data_platform_docker_container_execution(
 
 @router.post("/data-platform/live-write-smoke")
 def command_center_data_platform_live_write_smoke(
+    authorization=Depends(require_permission("data_platform.write", "data_platform_smoke")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return asdict(service.live_database_write_status())
@@ -141,6 +144,7 @@ def command_center_verification_automation(
 @router.post("/verification-report/record")
 def record_command_center_verification_report(
     request: VerificationSnapshotRequest,
+    authorization=Depends(require_permission("diagnostics.export", "runtime_verification_report")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     audit_record = service.record_verification_snapshot(request.actor_id, request.evidence)
@@ -189,6 +193,7 @@ def command_center_implementation_roadmap(
 
 @router.post("/implementation-roadmap/export")
 def export_command_center_implementation_roadmap(
+    authorization=Depends(require_permission("diagnostics.export", "implementation_roadmap")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_implementation_roadmap())}
@@ -196,6 +201,7 @@ def export_command_center_implementation_roadmap(
 
 @router.post("/completion-report/export")
 def export_command_center_completion_report(
+    authorization=Depends(require_permission("diagnostics.export", "completion_report")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_completion_report())}
@@ -203,6 +209,7 @@ def export_command_center_completion_report(
 
 @router.post("/usage-guide/export")
 def export_command_center_usage_guide(
+    authorization=Depends(require_permission("diagnostics.export", "usage_guide")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_usage_guide())}
@@ -210,6 +217,7 @@ def export_command_center_usage_guide(
 
 @router.post("/diagnostics/export")
 def export_command_center_diagnostics(
+    authorization=Depends(require_permission("diagnostics.export", "runtime_diagnostics")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> dict:
     return {"export_package": asdict(service.export_diagnostics())}
@@ -221,7 +229,11 @@ def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
 
 
 @router.post("/events")
-def publish_event(payload: dict, event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
+def publish_event(
+    payload: dict,
+    authorization=Depends(require_permission("runtime.event.publish", "runtime_event")),
+    event_bus: InMemoryEventBus = Depends(get_event_bus),
+) -> dict:
     event = event_bus.publish(
         name=str(payload.get("name", "runtime.event")),
         source=str(payload.get("source", "api")),

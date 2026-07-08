@@ -159,7 +159,7 @@ def verify_api_smoke_flow() -> None:
         "/api/auth/permissions/check",
         "POST",
         {
-            "actor_id": "project-verifier",
+            "actor_id": "command-center-operator",
             "permission": "governance.assign_approval",
         },
     )["permission_check"]
@@ -170,7 +170,7 @@ def verify_api_smoke_flow() -> None:
         "/api/auth/permissions/enforce",
         "POST",
         {
-            "actor_id": "project-verifier",
+            "actor_id": "command-center-operator",
             "permission": "governance.assign_approval",
             "target_type": "artifact",
             "target_id": "verification-artifact-review",
@@ -205,6 +205,29 @@ def verify_api_smoke_flow() -> None:
     except urllib.error.HTTPError as error:
         assert_condition(error.code == 403, "Denied permission should return HTTP 403.")
     print("[verify] ok: permission enforcement")
+
+    unauthorized_mission = urllib.request.Request(
+        f"{API_BASE_URL}/api/missions",
+        data=json.dumps(
+            {
+                "plugin_id": "crm",
+                "user_request": "This mission should be blocked by request-scoped authorization.",
+                "requested_by": "intruder",
+            }
+        ).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "x-mariam-actor-id": "intruder",
+            "x-mariam-request-id": "verification-unauthorized-mission",
+        },
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(unauthorized_mission, timeout=10)
+        raise AssertionError("Request-scoped authorization allowed an unauthorized mission.")
+    except urllib.error.HTTPError as error:
+        assert_condition(error.code == 403, "Unauthorized mission should return HTTP 403.")
+    print("[verify] ok: request-scoped authorization dependency")
 
     human_identity = request_json(
         "/api/auth/human-identity/enforce",
@@ -494,7 +517,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

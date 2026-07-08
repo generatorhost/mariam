@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.missions import MissionApprovalRequest, MissionRejectionRequest, MissionRequest
-from app.dependencies import get_mission_service
+from app.dependencies import get_mission_service, require_permission
 from app.services.missions import MissionService
 
 router = APIRouter(prefix="/api/missions", tags=["missions"])
@@ -15,6 +15,7 @@ def list_missions(service: MissionService = Depends(get_mission_service)) -> dic
 @router.post("")
 def create_mission(
     request: MissionRequest,
+    authorization=Depends(require_permission("mission.create", "mission")),
     service: MissionService = Depends(get_mission_service),
 ) -> dict:
     mission = service.create(request)
@@ -25,6 +26,7 @@ def create_mission(
 def approve_mission(
     mission_id: str,
     request: MissionApprovalRequest,
+    authorization=Depends(require_permission("governance.assign_approval", "mission")),
     service: MissionService = Depends(get_mission_service),
 ) -> dict:
     try:
@@ -38,6 +40,7 @@ def approve_mission(
 def reject_mission(
     mission_id: str,
     request: MissionRejectionRequest,
+    authorization=Depends(require_permission("governance.assign_approval", "mission")),
     service: MissionService = Depends(get_mission_service),
 ) -> dict:
     try:

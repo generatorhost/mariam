@@ -254,6 +254,8 @@ Backend permission enforcement blocks unauthorized side effects with HTTP 403 an
 POST /api/auth/permissions/enforce
 ```
 
+Mutating backend endpoints also use request-scoped authorization dependencies, so unauthorized request actors are blocked before mission, artifact, plugin, runtime object, audit, AI routing, DB write, export, or runtime event side effects execute.
+
 Human identity enforcement verifies the current command center operator before governed approval actions:
 
 ```http

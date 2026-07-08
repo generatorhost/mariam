@@ -8,7 +8,7 @@ from app.core.runtime_objects import (
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
 )
-from app.dependencies import get_runtime_object_service
+from app.dependencies import get_runtime_object_service, require_permission
 from app.services.runtime_objects import RuntimeObjectService
 
 router = APIRouter(prefix="/api/runtime-objects", tags=["runtime-objects"])
@@ -22,6 +22,7 @@ def list_runtime_objects(service: RuntimeObjectService = Depends(get_runtime_obj
 @router.post("")
 def create_runtime_object(
     request: RuntimeObjectRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     runtime_object = service.create(request)
@@ -31,6 +32,7 @@ def create_runtime_object(
 @router.post("/import-dna")
 def import_runtime_object_dna(
     request: RuntimeObjectDNAImportRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -44,6 +46,7 @@ def import_runtime_object_dna(
 def patch_runtime_object(
     object_id: str,
     request: RuntimeObjectPatchRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -57,6 +60,7 @@ def patch_runtime_object(
 def enable_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -70,6 +74,7 @@ def enable_runtime_object(
 def disable_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -83,6 +88,7 @@ def disable_runtime_object(
 def soft_delete_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -96,6 +102,7 @@ def soft_delete_runtime_object(
 def restore_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -109,6 +116,7 @@ def restore_runtime_object(
 def rollback_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -122,6 +130,7 @@ def rollback_runtime_object(
 def export_runtime_object_dna(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -135,6 +144,7 @@ def export_runtime_object_dna(
 def validate_runtime_object(
     object_id: str,
     request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -148,6 +158,7 @@ def validate_runtime_object(
 def analyze_runtime_object_impact(
     object_id: str,
     request: RuntimeObjectImpactRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:
@@ -161,6 +172,7 @@ def analyze_runtime_object_impact(
 def approve_runtime_object_change(
     object_id: str,
     request: RuntimeObjectApprovalRequest,
+    authorization=Depends(require_permission("governance.assign_approval", "runtime_object")),
     service: RuntimeObjectService = Depends(get_runtime_object_service),
 ) -> dict:
     try:

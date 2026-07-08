@@ -1,5 +1,8 @@
 from functools import lru_cache
 
+from fastapi import Depends, HTTPException, Request
+
+from app.core.auth import PermissionEnforcementRequest, PermissionEnforcementResult
 from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
 from app.repositories.audit import AuditRepository, InMemoryAuditRepository, PostgresAuditRepository
@@ -170,6 +173,33 @@ def get_ai_resource_manager() -> AIResourceManager:
 @lru_cache
 def get_auth_service() -> AuthService:
     return AuthService()
+
+
+def require_permission(permission: str, target_type: str):
+    def dependency(
+        http_request: Request,
+        service: AuthService = Depends(get_auth_service),
+    ) -> PermissionEnforcementResult:
+        target_id = next(iter(http_request.path_params.values()), http_request.url.path)
+        try:
+            return service.enforce_permission(
+                PermissionEnforcementRequest(
+                    permission=permission,
+                    actor_id=http_request.headers.get("x-mariam-actor-id", "command-center-operator"),
+                    target_type=target_type,
+                    target_id=str(target_id),
+                    reason=f"Authorize {http_request.method} {http_request.url.path}.",
+                    evidence={
+                        "method": http_request.method,
+                        "path": http_request.url.path,
+                        "request_id": http_request.headers.get("x-mariam-request-id", "local-command-center-request"),
+                    },
+                )
+            )
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
+
+    return dependency
 
 
 @lru_cache

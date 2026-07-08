@@ -44,7 +44,7 @@ class AuthService:
         return PermissionCheckResult(
             actor_id=request.actor_id,
             permission=request.permission,
-            allowed=request.permission in session.permissions,
+            allowed=request.permission in session.permissions and request.actor_id == session.user_id,
             roles=session.roles,
         )
 

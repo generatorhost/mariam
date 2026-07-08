@@ -88,6 +88,10 @@ def default_command_center_session() -> UserSession:
             "governance.assign_approval",
             "plugin.register",
             "runtime_object.register",
+            "ai_resource.route",
+            "audit.record",
+            "runtime.event.publish",
+            "data_platform.write",
             "diagnostics.export",
         ],
     )
