@@ -270,6 +270,19 @@ class PluginSchemaIsolationStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class DockerPersistenceStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    env_file: str
+    compose_file: str
+    postgres_store_count: int
+    database_url_masked: str
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -603,10 +616,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=66,
+                completion_percent=68,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, and per-plugin schema isolation checks are exposed by API.",
-                next_step="Add persistent Postgres-backed repository execution for local Docker.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, and Docker Postgres persistence profile checks are exposed by API.",
+                next_step="Add live Docker database smoke verification.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1076,5 +1089,73 @@ class CommandCenterSummaryService:
             shared_table_count=len(shared_tables),
             private_table_count=private_table_count,
             contains_secrets=contains_secrets,
+            checks=checks,
+        )
+
+    def docker_persistence_status(self) -> DockerPersistenceStatus:
+        root = Path(__file__).resolve().parents[3]
+        env_file = root / ".env.example"
+        compose_file = root / "docker-compose.yml"
+        env_values: dict[str, str] = {}
+        if env_file.exists():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if not line.strip() or line.strip().startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                env_values[key.strip()] = value.strip()
+        compose_text = compose_file.read_text(encoding="utf-8") if compose_file.exists() else ""
+        store_keys = [
+            "MARIAM_AUDIT_STORE",
+            "MARIAM_RUNTIME_OBJECT_STORE",
+            "MARIAM_EVENT_STORE",
+            "MARIAM_PLUGIN_STORE",
+            "MARIAM_MISSION_STORE",
+            "MARIAM_AI_RESOURCE_ROUTE_STORE",
+        ]
+        postgres_store_count = sum(1 for key in store_keys if env_values.get(key) == "postgres")
+        database_url = env_values.get("MARIAM_DATABASE_URL", "")
+        checks = [
+            DataPlatformCheck(
+                name="docker_env_file_present",
+                status="ready" if env_file.exists() else "blocked",
+                detail=f"Docker env profile path: {env_file}.",
+            ),
+            DataPlatformCheck(
+                name="docker_compose_present",
+                status="ready" if compose_file.exists() else "blocked",
+                detail=f"Docker compose path: {compose_file}.",
+            ),
+            DataPlatformCheck(
+                name="docker_database_url",
+                status="ready" if "postgres:5432/db_mariam" in database_url else "blocked",
+                detail="Docker backend targets the DB MARIAM Postgres service.",
+            ),
+            DataPlatformCheck(
+                name="docker_postgres_stores",
+                status="ready" if postgres_store_count == len(store_keys) else "blocked",
+                detail=f"{postgres_store_count} of {len(store_keys)} repository stores are configured for Postgres.",
+            ),
+            DataPlatformCheck(
+                name="docker_migration_mount",
+                status="ready"
+                if "./database/migrations:/docker-entrypoint-initdb.d:ro" in compose_text
+                else "blocked",
+                detail="Postgres container mounts DB MARIAM migrations read-only.",
+            ),
+            DataPlatformCheck(
+                name="docker_backend_env_file",
+                status="ready" if ".env.example" in compose_text and "env_file:" in compose_text else "blocked",
+                detail="Backend service loads the Docker DB MARIAM environment profile.",
+            ),
+        ]
+        return DockerPersistenceStatus(
+            title="DB MARIAM Docker Persistence Profile",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            env_file=str(env_file),
+            compose_file=str(compose_file),
+            postgres_store_count=postgres_store_count,
+            database_url_masked=self._mask_database_url(database_url),
             checks=checks,
         )

@@ -109,6 +109,12 @@ Plugin schema isolation verifies shared platform tables and private Plugin-manag
 GET /api/runtime/data-platform/plugin-schema-isolation
 ```
 
+Docker persistence verifies the local Docker profile uses DB MARIAM Postgres-backed repository stores:
+
+```http
+GET /api/runtime/data-platform/docker-persistence
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

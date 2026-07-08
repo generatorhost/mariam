@@ -2454,7 +2454,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2472,7 +2472,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -2598,6 +2598,22 @@ def test_data_platform_plugin_schema_isolation_reports_crm_boundary() -> None:
     assert status["plugin_schema_count"] >= 1
     assert status["shared_table_count"] >= 3
     assert status["private_table_count"] >= 5
+    assert all(check["status"] == "ready" for check in status["checks"])
+
+
+def test_data_platform_docker_persistence_reports_postgres_profile() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/data-platform/docker-persistence")
+
+    assert response.status_code == 200
+    status = response.json()
+    assert status["title"] == "DB MARIAM Docker Persistence Profile"
+    assert status["status"] == "ready"
+    assert status["data_platform"] == "DB MARIAM"
+    assert status["postgres_store_count"] == 6
+    assert "***" in status["database_url_masked"]
+    assert "mariam:mariam" not in status["database_url_masked"]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 

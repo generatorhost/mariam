@@ -109,6 +109,10 @@ async function loadPluginSchemaIsolation() {
   return apiGet('/api/runtime/data-platform/plugin-schema-isolation');
 }
 
+async function loadDockerPersistence() {
+  return apiGet('/api/runtime/data-platform/docker-persistence');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2096,6 +2100,59 @@ function PluginSchemaIsolationPanel({ refreshVersion }) {
   );
 }
 
+function DockerPersistencePanel({ refreshVersion }) {
+  const [dockerStatus, setDockerStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshDockerPersistence = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setDockerStatus(await loadDockerPersistence());
+      setStatus('ready');
+    } catch (dockerError) {
+      setStatus('error');
+      setError(dockerError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDockerPersistence();
+  }, [refreshDockerPersistence, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Docker Persistence</h2>
+        <p>Verify local Docker uses DB MARIAM Postgres stores and read-only migration startup.</p>
+      </div>
+      <button onClick={refreshDockerPersistence} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Docker Persistence'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {dockerStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{dockerStatus.status}</strong>
+            <span>{dockerStatus.data_platform}</span>
+            <p>{dockerStatus.postgres_store_count} Postgres stores / {dockerStatus.database_url_masked}</p>
+          </div>
+          <div className="mission-history">
+            {dockerStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -2905,6 +2962,7 @@ function App() {
           <SeedDataPanel refreshVersion={refreshVersion} />
           <BackupReadinessPanel refreshVersion={refreshVersion} />
           <PluginSchemaIsolationPanel refreshVersion={refreshVersion} />
+          <DockerPersistencePanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
           <VerificationReportPanel refreshVersion={refreshVersion} />

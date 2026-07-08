@@ -82,6 +82,13 @@ def command_center_data_platform_plugin_schema_isolation(
     return asdict(service.plugin_schema_isolation_status())
 
 
+@router.get("/data-platform/docker-persistence")
+def command_center_data_platform_docker_persistence(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.docker_persistence_status())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
