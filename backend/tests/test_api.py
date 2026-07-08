@@ -3245,6 +3245,13 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "DockerContainerExecutionStatusResponse" in openapi["components"]["schemas"]
     assert "LiveDatabaseWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LiveRepositoryWriteStatusResponse" in openapi["components"]["schemas"]
+    live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
+        "properties"
+    ]
+    assert "logs_store_record_id" in live_repository_properties
+    assert "artifact_lineage_record_id" in live_repository_properties
+    assert "logs_store_record_written" in live_repository_properties
+    assert "artifact_lineage_record_written" in live_repository_properties
     assert "VerificationReportResponse" in openapi["components"]["schemas"]
     assert "DiagnosticsResponse" in openapi["components"]["schemas"]
     assert "UsageGuideResponse" in openapi["components"]["schemas"]
@@ -3278,7 +3285,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3506,7 +3513,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3535,6 +3542,8 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
         "artifact_store_records",
         "audit_event_archive_records",
         "metrics_store_records",
+        "logs_store_records",
+        "artifact_lineage_records",
         "reviewer_queue_assignments",
         "governance_sla_escalations",
         "reviewer_decision_outcomes",
@@ -3739,6 +3748,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["artifact_store_record_written"] is True
     assert status["audit_event_archive_record_written"] is True
     assert status["metrics_store_record_written"] is True
+    assert status["logs_store_record_written"] is True
+    assert status["artifact_lineage_record_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
@@ -3754,6 +3765,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["artifact_store_record_id"]
     assert status["audit_event_archive_record_id"]
     assert status["metrics_store_record_id"]
+    assert status["logs_store_record_id"]
+    assert status["artifact_lineage_record_id"]
     assert "live_ai_resource_route_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_quality_review_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_communication_record_repository_write" in [check["name"] for check in status["checks"]]
@@ -3764,6 +3777,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert "live_artifact_store_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_audit_event_archive_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_metrics_store_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_logs_store_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_artifact_lineage_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
@@ -4027,6 +4042,29 @@ def test_audit_archive_and_metrics_store_schema_targets_db_mariam() -> None:
     assert "event_id UUID REFERENCES runtime_events" in upgrade
 
 
+def test_logs_store_and_artifact_lineage_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0013_logs_store_artifact_lineage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS logs_store_records" in migration
+    assert "CREATE TABLE IF NOT EXISTS artifact_lineage_records" in migration
+    assert "context JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "lineage_metadata JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_logs_store_records_source_created" in migration
+    assert "idx_artifact_lineage_records_artifact_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS logs_store_records" in upgrade
+    assert "CREATE TABLE IF NOT EXISTS artifact_lineage_records" in upgrade
+    assert "artifact_id UUID REFERENCES artifacts" in upgrade
+
+
 def test_data_record_repositories_are_explicit_abstractions() -> None:
     root = Path(__file__).resolve().parents[2]
     backend_root = root / "backend"
@@ -4046,6 +4084,8 @@ def test_data_record_repositories_are_explicit_abstractions() -> None:
     assert "class ArtifactStoreRecordRepository" in repository_source
     assert "class AuditEventArchiveRecordRepository" in repository_source
     assert "class MetricsStoreRecordRepository" in repository_source
+    assert "class LogsStoreRecordRepository" in repository_source
+    assert "class ArtifactLineageRecordRepository" in repository_source
     assert "class CursorCommunicationRecordRepository" in repository_source
     assert "class CursorDocumentRecordRepository" in repository_source
     assert "class CursorWorkflowRecordRepository" in repository_source
@@ -4054,6 +4094,8 @@ def test_data_record_repositories_are_explicit_abstractions() -> None:
     assert "class CursorArtifactStoreRecordRepository" in repository_source
     assert "class CursorAuditEventArchiveRecordRepository" in repository_source
     assert "class CursorMetricsStoreRecordRepository" in repository_source
+    assert "class CursorLogsStoreRecordRepository" in repository_source
+    assert "class CursorArtifactLineageRecordRepository" in repository_source
     assert "class CommunicationRecord" in core_source
     assert "class DocumentRecord" in core_source
     assert "class WorkflowRecord" in core_source
@@ -4062,6 +4104,8 @@ def test_data_record_repositories_are_explicit_abstractions() -> None:
     assert "class ArtifactStoreRecord" in core_source
     assert "class AuditEventArchiveRecord" in core_source
     assert "class MetricsStoreRecord" in core_source
+    assert "class LogsStoreRecord" in core_source
+    assert "class ArtifactLineageRecord" in core_source
     assert "CursorCommunicationRecordRepository(cursor)" in command_center_source
     assert "CursorDocumentRecordRepository(cursor)" in command_center_source
     assert "CursorWorkflowRecordRepository(cursor)" in command_center_source
@@ -4070,6 +4114,8 @@ def test_data_record_repositories_are_explicit_abstractions() -> None:
     assert "CursorArtifactStoreRecordRepository(cursor)" in command_center_source
     assert "CursorAuditEventArchiveRecordRepository(cursor)" in command_center_source
     assert "CursorMetricsStoreRecordRepository(cursor)" in command_center_source
+    assert "CursorLogsStoreRecordRepository(cursor)" in command_center_source
+    assert "CursorArtifactLineageRecordRepository(cursor)" in command_center_source
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:

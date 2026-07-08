@@ -162,6 +162,8 @@ class LiveRepositoryWriteStatusResponse(BaseModel):
     artifact_store_record_id: str
     audit_event_archive_record_id: str
     metrics_store_record_id: str
+    logs_store_record_id: str
+    artifact_lineage_record_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
@@ -177,6 +179,8 @@ class LiveRepositoryWriteStatusResponse(BaseModel):
     artifact_store_record_written: bool
     audit_event_archive_record_written: bool
     metrics_store_record_written: bool
+    logs_store_record_written: bool
+    artifact_lineage_record_written: bool
     checks: list[RuntimeCheckResponse]
 
 

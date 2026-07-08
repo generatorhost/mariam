@@ -478,8 +478,10 @@ def verify_api_smoke_flow() -> None:
         and live_repository_write_smoke["artifact_store_record_written"] is True
         and live_repository_write_smoke["audit_event_archive_record_written"] is True
         and live_repository_write_smoke["metrics_store_record_written"] is True
+        and live_repository_write_smoke["logs_store_record_written"] is True
+        and live_repository_write_smoke["artifact_lineage_record_written"] is True
         and live_repository_write_smoke["data_platform"] == "DB MARIAM",
-        "DB MARIAM live repository write smoke did not write mission/artifact/delivery/plugin/runtime object/AI route/quality review/communication/document/workflow/capability graph/vector index/artifact store/audit archive/metrics store records.",
+        "DB MARIAM live repository write smoke did not write mission/artifact/delivery/plugin/runtime object/AI route/quality review/communication/document/workflow/capability graph/vector index/artifact store/audit archive/metrics/logs/artifact lineage records.",
     )
     print("[verify] ok: live repository write smoke")
 
@@ -761,6 +763,17 @@ def verify_api_smoke_flow() -> None:
         "Governed runtime endpoints did not publish typed response models.",
     )
     print("[verify] ok: governed runtime typed response models")
+    live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
+        "properties"
+    ]
+    assert_condition(
+        "logs_store_record_id" in live_repository_properties
+        and "artifact_lineage_record_id" in live_repository_properties
+        and "logs_store_record_written" in live_repository_properties
+        and "artifact_lineage_record_written" in live_repository_properties,
+        "Live repository write response model does not expose logs store and artifact lineage fields.",
+    )
+    print("[verify] ok: live repository write response fields")
 
     completion_report_export = request_json("/api/runtime/completion-report/export", "POST", {})[
         "export_package"
@@ -944,7 +957,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

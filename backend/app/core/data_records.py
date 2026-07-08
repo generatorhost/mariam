@@ -101,3 +101,28 @@ class MetricsStoreRecord(BaseModel):
     status: str = "recorded"
     data_platform: str = "DB MARIAM"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class LogsStoreRecord(BaseModel):
+    log_id: str
+    source: str
+    severity: str
+    message: str
+    correlation_id: str
+    context: dict[str, object] = Field(default_factory=dict)
+    status: str = "recorded"
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ArtifactLineageRecord(BaseModel):
+    lineage_id: str
+    artifact_id: str
+    mission_id: str
+    parent_artifact_id: str | None = None
+    transformation: str
+    produced_by: str
+    lineage_metadata: dict[str, object] = Field(default_factory=dict)
+    status: str = "recorded"
+    data_platform: str = "DB MARIAM"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

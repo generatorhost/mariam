@@ -3,9 +3,11 @@ from typing import Protocol
 from app.core.data_records import (
     ArtifactStoreRecord,
     AuditEventArchiveRecord,
+    ArtifactLineageRecord,
     CapabilityGraphRecord,
     CommunicationRecord,
     DocumentRecord,
+    LogsStoreRecord,
     MetricsStoreRecord,
     VectorIndexRecord,
     WorkflowRecord,
@@ -97,6 +99,28 @@ class MetricsStoreRecordRepository(Protocol):
         pass
 
     def exists(self, metric_id: str, metric_name: str, status: str = "recorded") -> bool:
+        pass
+
+
+class LogsStoreRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: LogsStoreRecord) -> LogsStoreRecord:
+        pass
+
+    def exists(self, log_id: str, correlation_id: str, status: str = "recorded") -> bool:
+        pass
+
+
+class ArtifactLineageRecordRepository(Protocol):
+    def ensure_schema(self) -> None:
+        pass
+
+    def save(self, record: ArtifactLineageRecord) -> ArtifactLineageRecord:
+        pass
+
+    def exists(self, lineage_id: str, artifact_id: str, status: str = "recorded") -> bool:
         pass
 
 
@@ -628,5 +652,138 @@ class CursorMetricsStoreRecordRepository:
             WHERE metric_id = %s AND metric_name = %s AND data_platform = %s AND status = %s
             """,
             (metric_id, metric_name, "DB MARIAM", status),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorLogsStoreRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS logs_store_records (
+                log_id UUID PRIMARY KEY,
+                source TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                message TEXT NOT NULL,
+                correlation_id UUID NOT NULL,
+                context JSONB NOT NULL DEFAULT '{}'::jsonb,
+                status TEXT NOT NULL,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: LogsStoreRecord) -> LogsStoreRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO logs_store_records (
+                log_id,
+                source,
+                severity,
+                message,
+                correlation_id,
+                context,
+                status,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.log_id,
+                record.source,
+                record.severity,
+                record.message,
+                record.correlation_id,
+                Jsonb(record.context),
+                record.status,
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, log_id: str, correlation_id: str, status: str = "recorded") -> bool:
+        self._cursor.execute(
+            """
+            SELECT log_id
+            FROM logs_store_records
+            WHERE log_id = %s AND correlation_id = %s AND data_platform = %s AND status = %s
+            """,
+            (log_id, correlation_id, "DB MARIAM", status),
+        )
+        return self._cursor.fetchone() is not None
+
+
+class CursorArtifactLineageRecordRepository:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    def ensure_schema(self) -> None:
+        self._cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS artifact_lineage_records (
+                lineage_id UUID PRIMARY KEY,
+                artifact_id UUID REFERENCES artifacts (artifact_id) ON DELETE SET NULL,
+                mission_id UUID REFERENCES missions (mission_id) ON DELETE SET NULL,
+                parent_artifact_id UUID REFERENCES artifacts (artifact_id) ON DELETE SET NULL,
+                transformation TEXT NOT NULL,
+                produced_by TEXT NOT NULL,
+                lineage_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                status TEXT NOT NULL,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+    def save(self, record: ArtifactLineageRecord) -> ArtifactLineageRecord:
+        from psycopg.types.json import Jsonb
+
+        self._cursor.execute(
+            """
+            INSERT INTO artifact_lineage_records (
+                lineage_id,
+                artifact_id,
+                mission_id,
+                parent_artifact_id,
+                transformation,
+                produced_by,
+                lineage_metadata,
+                status,
+                data_platform,
+                created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record.lineage_id,
+                record.artifact_id,
+                record.mission_id,
+                record.parent_artifact_id,
+                record.transformation,
+                record.produced_by,
+                Jsonb(record.lineage_metadata),
+                record.status,
+                record.data_platform,
+                record.created_at,
+            ),
+        )
+        return record
+
+    def exists(self, lineage_id: str, artifact_id: str, status: str = "recorded") -> bool:
+        self._cursor.execute(
+            """
+            SELECT lineage_id
+            FROM artifact_lineage_records
+            WHERE lineage_id = %s AND artifact_id = %s AND data_platform = %s AND status = %s
+            """,
+            (lineage_id, artifact_id, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
