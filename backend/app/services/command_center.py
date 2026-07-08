@@ -806,10 +806,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=76,
+                completion_percent=78,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, and a GitHub Actions verification workflow.",
-                next_step="Capture binary browser regression screenshots in CI artifacts.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts.",
+                next_step="Add CI artifact retention links to the Command Center verification report.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2246,7 +2246,13 @@ class CommandCenterSummaryService:
         ]
         missing_files = [str(path.relative_to(root)) for path in expected_files if not path.exists()]
         ci_workflow_ready = ci_workflow_file.exists() and "npm run verify" in ci_workflow_text
-        ci_status = "ready" if ci_workflow_ready else "planned"
+        ci_artifact_upload_ready = (
+            "actions/upload-artifact@v4" in ci_workflow_text
+            and "artifacts/frontend-regression/*.json" in ci_workflow_text
+            and "artifacts/frontend-regression/*.png" in ci_workflow_text
+            and "if-no-files-found: error" in ci_workflow_text
+        )
+        ci_status = "ready" if ci_workflow_ready and ci_artifact_upload_ready else "planned"
         checks = [
             DataPlatformCheck(
                 name="verification_entrypoint_present",
@@ -2299,6 +2305,15 @@ class CommandCenterSummaryService:
                     else "CI workflow is not present yet or does not run npm run verify."
                 ),
             ),
+            DataPlatformCheck(
+                name="ci_frontend_artifact_upload",
+                status="ready" if ci_artifact_upload_ready else "blocked",
+                detail=(
+                    "GitHub Actions uploads frontend regression JSON and PNG artifacts."
+                    if ci_artifact_upload_ready
+                    else "CI workflow does not publish frontend regression JSON and PNG artifacts."
+                ),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -2315,7 +2330,7 @@ class CommandCenterSummaryService:
             "required_artifacts": required_artifacts,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Publish captured browser screenshot artifacts from CI runs.",
+            "next_ci_step": "Add CI artifact retention links to the Command Center verification report.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

@@ -35,3 +35,12 @@ jobs:
 
       - name: Run Mariam verification
         run: npm run verify
+
+      - name: Upload frontend regression artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mariam-frontend-regression-artifacts
+          path: |
+            artifacts/frontend-regression/*.json
+            artifacts/frontend-regression/*.png
+          if-no-files-found: error

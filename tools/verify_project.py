@@ -485,6 +485,10 @@ def verify_api_smoke_flow() -> None:
         and "npm run verify" in verification_automation["required_commands"]
         and "py -3.11 tools/capture_frontend_screenshots.py"
         in verification_automation["required_commands"]
+        and any(
+            check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"],
@@ -615,7 +619,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

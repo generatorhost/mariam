@@ -2924,8 +2924,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Verification automation"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3013,6 +3013,10 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["ci_status"] == "ready"
     assert "npm run verify" in contract["required_commands"]
     assert "py -3.11 tools/capture_frontend_screenshots.py" in contract["required_commands"]
+    assert any(
+        check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
+        for check in contract["checks"]
+    )
     assert "/api/runtime/frontend/visual-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
@@ -3020,7 +3024,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "artifacts/frontend-regression/desktop-command-center.png" in contract["required_artifacts"]
     assert "artifacts/verification/verification-automation-contract.json" in contract["required_artifacts"]
     assert contract["artifact_path"].endswith("verification-automation-contract.json")
-    assert contract["next_ci_step"] == "Publish captured browser screenshot artifacts from CI runs."
+    assert contract["next_ci_step"] == "Add CI artifact retention links to the Command Center verification report."
     assert Path(contract["artifact_path"]).exists()
 
 
@@ -3036,7 +3040,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
