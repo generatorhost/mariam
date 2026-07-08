@@ -2412,6 +2412,25 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
+def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/data-platform/readiness")
+
+    assert response.status_code == 200
+    readiness = response.json()
+    assert readiness["title"] == "DB MARIAM Data Platform Readiness"
+    assert readiness["status"] == "ready"
+    assert readiness["database_name"] == "DB MARIAM"
+    assert "***" in readiness["database_url"]
+    assert "mariam:mariam" not in readiness["database_url"]
+    assert "0001_initial.sql" in readiness["migrations_found"]
+    assert {"missions", "artifacts", "delivery_packages", "audit_log"}.issubset(
+        set(readiness["expected_tables"])
+    )
+    assert all(check["status"] == "ready" for check in readiness["checks"])
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

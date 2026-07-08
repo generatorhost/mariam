@@ -58,6 +58,10 @@ async function loadSystemReadiness() {
   return apiGet('/api/runtime/readiness');
 }
 
+async function loadDataPlatformReadiness() {
+  return apiGet('/api/runtime/data-platform/readiness');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1680,6 +1684,65 @@ function SystemReadinessPanel({ refreshVersion }) {
   );
 }
 
+function DataPlatformReadinessPanel({ refreshVersion }) {
+  const [readiness, setReadiness] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshReadiness = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setReadiness(await loadDataPlatformReadiness());
+      setStatus('ready');
+    } catch (readinessError) {
+      setStatus('error');
+      setError(readinessError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshReadiness();
+  }, [refreshReadiness, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>DB MARIAM Readiness</h2>
+        <p>Verify database name, migrations, store modes, and expected tables.</p>
+      </div>
+      <button onClick={refreshReadiness} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh DB MARIAM Readiness'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {readiness && (
+        <>
+          <div className="mission-result">
+            <strong>{readiness.status}</strong>
+            <span>{readiness.database_name}</span>
+            <p>{readiness.database_url}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{readiness.migrations_found.length}</strong><span>Migrations</span></div>
+            <div><strong>{readiness.expected_tables.length}</strong><span>Expected Tables</span></div>
+            <div><strong>{readiness.store_modes.mission_store}</strong><span>Mission Store</span></div>
+            <div><strong>{readiness.store_modes.audit_store}</strong><span>Audit Store</span></div>
+          </div>
+          <div className="mission-history">
+            {readiness.checks.slice(0, 8).map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -2434,6 +2497,7 @@ function App() {
         </section>
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <SystemReadinessPanel refreshVersion={refreshVersion} />
+        <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
         <VerificationReportPanel refreshVersion={refreshVersion} />
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <UsageGuidePanel refreshVersion={refreshVersion} />

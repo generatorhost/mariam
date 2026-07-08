@@ -93,6 +93,7 @@ def verify_api_smoke_flow() -> None:
         "/api/health",
         "/api/runtime/summary",
         "/api/runtime/readiness",
+        "/api/runtime/data-platform/readiness",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -137,6 +138,14 @@ def verify_api_smoke_flow() -> None:
         "Diagnostics export package was not ready for review.",
     )
     print("[verify] ok: diagnostics export")
+
+    data_platform_readiness = request_json("/api/runtime/data-platform/readiness")
+    assert_condition(
+        data_platform_readiness["status"] == "ready"
+        and data_platform_readiness["database_name"] == "DB MARIAM",
+        "DB MARIAM data platform readiness did not pass.",
+    )
+    print("[verify] ok: data platform readiness")
 
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(

@@ -33,6 +33,13 @@ def command_center_readiness(
     }
 
 
+@router.get("/data-platform/readiness")
+def command_center_data_platform_readiness(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.data_platform_readiness())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

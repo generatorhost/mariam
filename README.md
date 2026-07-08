@@ -67,6 +67,12 @@ GET /api/runtime/readiness
 
 It reports readiness for runtime core, event bus, audit layer, mission layer, plugin registry, runtime objects, AI resource manager, and artifact delivery pipeline.
 
+DB MARIAM migration and repository boundary readiness can be reviewed through:
+
+```http
+GET /api/runtime/data-platform/readiness
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

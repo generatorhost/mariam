@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
+from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
 from app.core.events import InMemoryEventBus
 from app.services.ai_resources import AIResourceManager
@@ -166,6 +169,26 @@ class ImplementationRoadmapExportPackage:
     package_manifest: dict[str, object]
     roadmap: ImplementationRoadmap
     data_platform: str = "DB MARIAM"
+
+
+@dataclass
+class DataPlatformCheck:
+    name: str
+    status: str
+    detail: str
+
+
+@dataclass
+class DataPlatformReadiness:
+    title: str
+    status: str
+    database_name: str
+    database_url: str
+    generated_at: str
+    store_modes: dict[str, str]
+    migrations_found: list[str]
+    expected_tables: list[str]
+    checks: list[DataPlatformCheck]
 
 
 class CommandCenterSummaryService:
@@ -501,10 +524,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=55,
+                completion_percent=58,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries for core records with in-memory fallback for local development.",
-                next_step="Expand migrations, seed data, backup checks, and per-plugin schema isolation.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness is exposed by API, and local development still supports in-memory fallback.",
+                next_step="Add migration runner status, seed data, backup checks, and per-plugin schema isolation.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -608,3 +631,78 @@ class CommandCenterSummaryService:
             },
             roadmap=roadmap,
         )
+
+    def data_platform_readiness(self) -> DataPlatformReadiness:
+        settings = get_settings()
+        expected_tables = [
+            "runtime_objects",
+            "plugin_manifests",
+            "runtime_events",
+            "missions",
+            "mission_steps",
+            "artifacts",
+            "delivery_packages",
+            "artifact_quality_reviews",
+            "ai_resource_routes",
+            "audit_log",
+        ]
+        migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
+        migration_files = sorted(migration_dir.glob("*.sql"))
+        migration_text = "\n".join(
+            migration_file.read_text(encoding="utf-8") for migration_file in migration_files
+        )
+        table_checks = [
+            DataPlatformCheck(
+                name=f"table:{table_name}",
+                status="ready" if table_name in migration_text else "blocked",
+                detail=f"{table_name} is defined in DB MARIAM migrations."
+                if table_name in migration_text
+                else f"{table_name} is missing from DB MARIAM migrations.",
+            )
+            for table_name in expected_tables
+        ]
+        store_modes = {
+            "audit_store": settings.audit_store,
+            "runtime_object_store": settings.runtime_object_store,
+            "event_store": settings.event_store,
+            "plugin_store": settings.plugin_store,
+            "mission_store": settings.mission_store,
+            "ai_resource_route_store": settings.ai_resource_route_store,
+        }
+        checks = [
+            DataPlatformCheck(
+                name="database_name",
+                status="ready" if "db_mariam" in settings.database_url.lower() else "blocked",
+                detail="Database URL targets db_mariam.",
+            ),
+            DataPlatformCheck(
+                name="migration_files",
+                status="ready" if migration_files else "blocked",
+                detail=f"{len(migration_files)} migration files found.",
+            ),
+            DataPlatformCheck(
+                name="store_modes",
+                status="ready" if all(store_modes.values()) else "blocked",
+                detail="Repository store modes are configured for all DB MARIAM boundaries.",
+            ),
+            *table_checks,
+        ]
+        return DataPlatformReadiness(
+            title="DB MARIAM Data Platform Readiness",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            database_name="DB MARIAM",
+            database_url=self._mask_database_url(settings.database_url),
+            generated_at=datetime.now(UTC).isoformat(),
+            store_modes=store_modes,
+            migrations_found=[migration_file.name for migration_file in migration_files],
+            expected_tables=expected_tables,
+            checks=checks,
+        )
+
+    def _mask_database_url(self, database_url: str) -> str:
+        parsed = urlsplit(database_url)
+        if "@" not in parsed.netloc:
+            return database_url
+        credentials, host = parsed.netloc.rsplit("@", 1)
+        username = credentials.split(":", 1)[0]
+        return urlunsplit((parsed.scheme, f"{username}:***@{host}", parsed.path, parsed.query, parsed.fragment))
