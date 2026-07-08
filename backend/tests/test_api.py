@@ -1704,6 +1704,80 @@ def test_governance_approval_assignment_records_audit_and_event() -> None:
     ]
 
 
+def test_governance_reviewer_decision_outcome_persists_lifecycle_history() -> None:
+    client = TestClient(create_app())
+
+    assignment_response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-decision",
+            "target_type": "artifact",
+            "target_id": "artifact-decision-target-01",
+            "approval_role": "quality-reviewer",
+            "reason": "Assign review before recording decision.",
+            "evidence": {"assignment_source": "decision-test"},
+        },
+    )
+    assignment_audit = assignment_response.json()["audit_record"]
+    history_before = client.get("/api/audit/governance-assignment-history").json()["history_report"]
+    assignment = next(
+        item for item in history_before["assignments"] if item["audit_id"] == assignment_audit["audit_id"]
+    )
+
+    decision_response = client.post(
+        "/api/audit/reviewer-decisions",
+        json={
+            "decided_by": "quality-reviewer-decision",
+            "reviewer_id": "quality-reviewer-decision",
+            "target_type": "artifact",
+            "target_id": "artifact-decision-target-01",
+            "assignment_id": assignment["assignment_id"],
+            "decision": "approved",
+            "reason": "Artifact evidence is ready for delivery.",
+            "evidence": {"checklist": "complete"},
+        },
+    )
+
+    assert decision_response.status_code == 200
+    audit_record = decision_response.json()["audit_record"]
+    assert audit_record["action"] == "governance.record_reviewer_decision"
+    assert audit_record["decision"] == "approved"
+    assert audit_record["evidence"]["assignment_id"] == assignment["assignment_id"]
+    assert audit_record["data_platform"] == "DB MARIAM"
+
+    history = client.get("/api/audit/governance-assignment-history").json()["history_report"]
+    assert history["decision_count"] >= 1
+    decision = next(
+        item for item in history["decisions"] if item["target_id"] == "artifact-decision-target-01"
+    )
+    assert decision["audit_id"] == audit_record["audit_id"]
+    assert decision["assignment_id"] == assignment["assignment_id"]
+    assert decision["reviewer_id"] == "quality-reviewer-decision"
+    assert decision["decision"] == "approved"
+    assert decision["evidence"]["checklist"] == "complete"
+    assert decision["data_platform"] == "DB MARIAM"
+
+    workload = client.get("/api/audit/reviewer-workload").json()["workload_report"]
+    reviewer = next(
+        item for item in workload["items"] if item["reviewer_id"] == "quality-reviewer-decision"
+    )
+    assert reviewer["decision_count"] >= 1
+    assert reviewer["status"] == "ready"
+
+    sla = client.get("/api/audit/governance-sla").json()["sla_report"]
+    sla_item = next(item for item in sla["items"] if item["target_id"] == "artifact-decision-target-01")
+    assert sla_item["status"] == "decided"
+    assert sla_item["escalation_required"] is False
+
+    events_response = client.get("/api/runtime/events")
+    assert "artifact-decision-target-01" in [
+        event["payload"].get("target_id")
+        for event in events_response.json()["events"]
+        if event["name"] == "governance.reviewer_decision_recorded"
+    ]
+
+
 def test_governance_notification_routing_records_audit_and_event() -> None:
     client = TestClient(create_app())
 
@@ -3145,8 +3219,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3355,7 +3429,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3386,6 +3460,7 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
         "metrics_store_records",
         "reviewer_queue_assignments",
         "governance_sla_escalations",
+        "reviewer_decision_outcomes",
     }.issubset(set(readiness["expected_tables"]))
     assert all(check["status"] == "ready" for check in readiness["checks"])
 
@@ -3970,9 +4045,33 @@ def test_governance_assignment_history_schema_targets_db_mariam() -> None:
 
     assert "CREATE TABLE IF NOT EXISTS reviewer_queue_assignments" in migration
     assert "CREATE TABLE IF NOT EXISTS governance_sla_escalations" in migration
+    assert "CREATE TABLE IF NOT EXISTS reviewer_decision_outcomes" in migration
     assert "audit_id UUID REFERENCES audit_log" in migration
+    assert "assignment_id UUID REFERENCES reviewer_queue_assignments" in migration
+    assert "evidence JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
     assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
     assert "idx_reviewer_queue_assignments_reviewer_created" in migration
     assert "idx_governance_sla_escalations_reviewer_created" in migration
+    assert "idx_reviewer_decision_outcomes_reviewer_created" in migration
     assert "CREATE TABLE IF NOT EXISTS reviewer_queue_assignments" in upgrade
     assert "CREATE TABLE IF NOT EXISTS governance_sla_escalations" in upgrade
+
+
+def test_reviewer_decision_outcomes_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0012_reviewer_decision_outcomes.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS reviewer_decision_outcomes" in migration
+    assert "decision_id UUID PRIMARY KEY" in migration
+    assert "assignment_id UUID REFERENCES reviewer_queue_assignments" in migration
+    assert "evidence JSONB NOT NULL DEFAULT '{}'::jsonb" in migration
+    assert "idx_reviewer_decision_outcomes_target_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS reviewer_decision_outcomes" in upgrade
+    assert "idx_reviewer_decision_outcomes_reviewer_created" in upgrade

@@ -620,6 +620,7 @@ class CommandCenterSummaryService:
                 "/api/audit",
                 "/api/audit/reviewer-workload",
                 "/api/audit/governance-assignment-history",
+                "/api/audit/reviewer-decisions",
                 "/api/runtime/events",
                 "/api/runtime/data-platform/docker-container-execution",
                 "/api/runtime/data-platform/live-write-smoke",
@@ -839,6 +840,16 @@ class CommandCenterSummaryService:
                     data_platform_effect="Stores assignment evidence in the audit log and emits a governance approval assignment event.",
                     result="The user sees the assigned reviewer, approval role, and audit id.",
                     verification_signal="verify_project.py posts an approval assignment and checks the assignment decision.",
+                ),
+                UsageGuideStep(
+                    action="Record reviewer decision outcome",
+                    frontend_control="Governance Review Decision",
+                    api_endpoint="POST /api/audit/reviewer-decisions",
+                    backend_handler="record_reviewer_decision",
+                    service_effect="Persists the assigned reviewer's approval, rejection, or requested-changes outcome.",
+                    data_platform_effect="Stores the reviewer decision outcome in DB MARIAM and links it to audit, workload, SLA, and lifecycle history.",
+                    result="The user sees the reviewer decision attached to the target item and assignment history.",
+                    verification_signal="verify_project.py records a reviewer decision and checks history, workload, SLA, and runtime event evidence.",
                 ),
                 UsageGuideStep(
                     action="Route governance notification",
@@ -1153,10 +1164,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=88,
+                completion_percent=90,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, notification routing, reviewer workload reporting from DB MARIAM assignment history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down and dashboard filters for signed delivery SLA state and reviewer queue, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add persistent reviewer decision outcomes for approval lifecycle history.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down and dashboard filters for signed delivery SLA state and reviewer queue, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add governance decision outcome filters to the Command Center approval dashboard.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -1285,6 +1296,7 @@ class CommandCenterSummaryService:
             "audit_log",
             "reviewer_queue_assignments",
             "governance_sla_escalations",
+            "reviewer_decision_outcomes",
         ]
         migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
         migration_files = sorted(migration_dir.glob("*.sql"))

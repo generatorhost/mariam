@@ -211,6 +211,21 @@ CREATE TABLE IF NOT EXISTS governance_sla_escalations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS reviewer_decision_outcomes (
+    decision_id UUID PRIMARY KEY,
+    audit_id UUID REFERENCES audit_log (audit_id) ON DELETE CASCADE,
+    assignment_id UUID REFERENCES reviewer_queue_assignments (assignment_id) ON DELETE SET NULL,
+    decided_by TEXT NOT NULL,
+    reviewer_id TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS audit_event_archive_records (
     archive_id UUID PRIMARY KEY,
     audit_id UUID REFERENCES audit_log (audit_id) ON DELETE SET NULL,
@@ -282,6 +297,12 @@ CREATE INDEX IF NOT EXISTS idx_reviewer_queue_assignments_reviewer_created
 
 CREATE INDEX IF NOT EXISTS idx_governance_sla_escalations_reviewer_created
     ON governance_sla_escalations (reviewer_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_reviewer_decision_outcomes_reviewer_created
+    ON reviewer_decision_outcomes (reviewer_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_reviewer_decision_outcomes_target_created
+    ON reviewer_decision_outcomes (target_type, target_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_audit_event_archive_records_target_created
     ON audit_event_archive_records (target_type, target_id, created_at DESC);

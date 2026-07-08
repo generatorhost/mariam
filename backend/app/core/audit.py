@@ -44,9 +44,21 @@ class EscalationRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class ReviewerDecisionRequest(BaseModel):
+    decided_by: str = Field(default="governance-reviewer", min_length=2)
+    reviewer_id: str = Field(min_length=2)
+    target_type: str = Field(min_length=2)
+    target_id: str = Field(min_length=2)
+    assignment_id: str | None = None
+    decision: str = Field(pattern="^(approved|rejected|changes_requested)$")
+    reason: str = Field(min_length=3)
+    evidence: dict = Field(default_factory=dict)
+
+
 class ReviewerWorkloadItem(BaseModel):
     reviewer_id: str
     assigned_count: int
+    decision_count: int = 0
     routed_notifications: int
     escalation_count: int
     target_ids: list[str]
@@ -118,14 +130,31 @@ class GovernanceSLAEscalationRecord(BaseModel):
     created_at: datetime
 
 
+class ReviewerDecisionOutcomeRecord(BaseModel):
+    decision_id: str
+    audit_id: str
+    assignment_id: str | None = None
+    decided_by: str
+    reviewer_id: str
+    target_type: str
+    target_id: str
+    decision: str
+    reason: str
+    evidence: dict = Field(default_factory=dict)
+    data_platform: str = "DB MARIAM"
+    created_at: datetime
+
+
 class GovernanceAssignmentHistoryReport(BaseModel):
     title: str
     status: str
     generated_at: datetime
     assignment_count: int
     escalation_count: int
+    decision_count: int
     assignments: list[ReviewerQueueAssignmentRecord]
     escalations: list[GovernanceSLAEscalationRecord]
+    decisions: list[ReviewerDecisionOutcomeRecord]
     data_platform: str = "DB MARIAM"
 
 

@@ -5,6 +5,7 @@ from app.core.audit import (
     AuditRecordRequest,
     EscalationRequest,
     NotificationRoutingRequest,
+    ReviewerDecisionRequest,
 )
 from app.dependencies import get_audit_service, require_permission
 from app.services.audit import AuditService
@@ -55,6 +56,16 @@ def reviewer_workload(service: AuditService = Depends(get_audit_service)) -> dic
 @router.get("/governance-assignment-history")
 def governance_assignment_history(service: AuditService = Depends(get_audit_service)) -> dict:
     return {"history_report": service.governance_assignment_history().model_dump(mode="json")}
+
+
+@router.post("/reviewer-decisions")
+def record_reviewer_decision(
+    request: ReviewerDecisionRequest,
+    authorization=Depends(require_permission("governance.assign_approval", "reviewer_decision")),
+    service: AuditService = Depends(get_audit_service),
+) -> dict:
+    record = service.record_reviewer_decision(request)
+    return {"audit_record": record.model_dump(mode="json")}
 
 
 @router.get("/governance-sla")

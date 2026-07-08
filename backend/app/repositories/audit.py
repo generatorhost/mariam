@@ -5,6 +5,7 @@ from typing import Protocol
 from app.core.audit import (
     AuditRecord,
     GovernanceSLAEscalationRecord,
+    ReviewerDecisionOutcomeRecord,
     ReviewerQueueAssignmentRecord,
 )
 
@@ -34,12 +35,22 @@ class AuditRepository(Protocol):
     def list_governance_sla_escalations(self) -> list[GovernanceSLAEscalationRecord]:
         pass
 
+    def save_reviewer_decision_outcome(
+        self,
+        record: ReviewerDecisionOutcomeRecord,
+    ) -> ReviewerDecisionOutcomeRecord:
+        pass
+
+    def list_reviewer_decision_outcomes(self) -> list[ReviewerDecisionOutcomeRecord]:
+        pass
+
 
 class InMemoryAuditRepository:
     def __init__(self) -> None:
         self._records: list[AuditRecord] = []
         self._queue_assignments: list[ReviewerQueueAssignmentRecord] = []
         self._sla_escalations: list[GovernanceSLAEscalationRecord] = []
+        self._decision_outcomes: list[ReviewerDecisionOutcomeRecord] = []
 
     def save(self, record: AuditRecord) -> AuditRecord:
         self._records.append(record)
@@ -67,6 +78,16 @@ class InMemoryAuditRepository:
 
     def list_governance_sla_escalations(self) -> list[GovernanceSLAEscalationRecord]:
         return list(self._sla_escalations)
+
+    def save_reviewer_decision_outcome(
+        self,
+        record: ReviewerDecisionOutcomeRecord,
+    ) -> ReviewerDecisionOutcomeRecord:
+        self._decision_outcomes.append(record)
+        return record
+
+    def list_reviewer_decision_outcomes(self) -> list[ReviewerDecisionOutcomeRecord]:
+        return list(self._decision_outcomes)
 
 
 class PostgresAuditRepository:
@@ -104,6 +125,24 @@ class PostgresAuditRepository:
                 escalation_level TEXT NOT NULL,
                 status TEXT NOT NULL,
                 reason TEXT NOT NULL,
+                data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reviewer_decision_outcomes (
+                decision_id UUID PRIMARY KEY,
+                audit_id UUID REFERENCES audit_log (audit_id) ON DELETE CASCADE,
+                assignment_id UUID REFERENCES reviewer_queue_assignments (assignment_id) ON DELETE SET NULL,
+                decided_by TEXT NOT NULL,
+                reviewer_id TEXT NOT NULL,
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
                 data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT now()
             )
@@ -339,6 +378,96 @@ class PostgresAuditRepository:
                 escalation_level=row["escalation_level"],
                 status=row["status"],
                 reason=row["reason"],
+                data_platform=row["data_platform"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def save_reviewer_decision_outcome(
+        self,
+        record: ReviewerDecisionOutcomeRecord,
+    ) -> ReviewerDecisionOutcomeRecord:
+        import psycopg
+        from psycopg.types.json import Jsonb
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                self._ensure_governance_history_schema(cursor)
+                cursor.execute(
+                    """
+                    INSERT INTO reviewer_decision_outcomes (
+                        decision_id,
+                        audit_id,
+                        assignment_id,
+                        decided_by,
+                        reviewer_id,
+                        target_type,
+                        target_id,
+                        decision,
+                        reason,
+                        evidence,
+                        data_platform,
+                        created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        record.decision_id,
+                        record.audit_id,
+                        record.assignment_id,
+                        record.decided_by,
+                        record.reviewer_id,
+                        record.target_type,
+                        record.target_id,
+                        record.decision,
+                        record.reason,
+                        Jsonb(record.evidence),
+                        record.data_platform,
+                        record.created_at,
+                    ),
+                )
+        return record
+
+    def list_reviewer_decision_outcomes(self) -> list[ReviewerDecisionOutcomeRecord]:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        with psycopg.connect(self._database_url, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                self._ensure_governance_history_schema(cursor)
+                cursor.execute(
+                    """
+                    SELECT
+                        decision_id,
+                        audit_id,
+                        assignment_id,
+                        decided_by,
+                        reviewer_id,
+                        target_type,
+                        target_id,
+                        decision,
+                        reason,
+                        evidence,
+                        data_platform,
+                        created_at
+                    FROM reviewer_decision_outcomes
+                    ORDER BY created_at ASC
+                    """
+                )
+                rows = cursor.fetchall()
+        return [
+            ReviewerDecisionOutcomeRecord(
+                decision_id=str(row["decision_id"]),
+                audit_id=str(row["audit_id"]),
+                assignment_id=str(row["assignment_id"]) if row["assignment_id"] else None,
+                decided_by=row["decided_by"],
+                reviewer_id=row["reviewer_id"],
+                target_type=row["target_type"],
+                target_id=row["target_id"],
+                decision=row["decision"],
+                reason=row["reason"],
+                evidence=dict(row["evidence"]),
                 data_platform=row["data_platform"],
                 created_at=row["created_at"],
             )

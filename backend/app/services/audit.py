@@ -11,6 +11,8 @@ from app.core.audit import (
     GovernanceSLAItem,
     GovernanceSLAReport,
     NotificationRoutingRequest,
+    ReviewerDecisionOutcomeRecord,
+    ReviewerDecisionRequest,
     ReviewerQueueAssignmentRecord,
     ReviewerWorkloadItem,
     ReviewerWorkloadReport,
@@ -91,15 +93,64 @@ class AuditService:
     def governance_assignment_history(self) -> GovernanceAssignmentHistoryReport:
         assignments = self._repository.list_reviewer_queue_assignments()
         escalations = self._repository.list_governance_sla_escalations()
+        decisions = self._repository.list_reviewer_decision_outcomes()
         return GovernanceAssignmentHistoryReport(
             title="Governance Reviewer Queue Assignment History",
             status="ready",
             generated_at=datetime.now(UTC),
             assignment_count=len(assignments),
             escalation_count=len(escalations),
+            decision_count=len(decisions),
             assignments=assignments,
             escalations=escalations,
+            decisions=decisions,
         )
+
+    def record_reviewer_decision(self, request: ReviewerDecisionRequest) -> AuditRecord:
+        record = self.record(
+            AuditRecordRequest(
+                actor_id=request.decided_by,
+                action="governance.record_reviewer_decision",
+                target_type=request.target_type,
+                target_id=request.target_id,
+                decision=request.decision,
+                evidence={
+                    "reviewer_id": request.reviewer_id,
+                    "assignment_id": request.assignment_id,
+                    "reason": request.reason,
+                    "data_platform": "DB MARIAM",
+                    **request.evidence,
+                },
+            )
+        )
+        decision_record = ReviewerDecisionOutcomeRecord(
+            decision_id=str(uuid4()),
+            audit_id=record.audit_id,
+            assignment_id=request.assignment_id,
+            decided_by=request.decided_by,
+            reviewer_id=request.reviewer_id,
+            target_type=request.target_type,
+            target_id=request.target_id,
+            decision=request.decision,
+            reason=request.reason,
+            evidence={**request.evidence, "data_platform": "DB MARIAM"},
+            created_at=record.created_at,
+        )
+        self._repository.save_reviewer_decision_outcome(decision_record)
+        self._event_bus.publish(
+            "governance.reviewer_decision_recorded",
+            "audit-service",
+            {
+                "audit_id": record.audit_id,
+                "decision_id": decision_record.decision_id,
+                "assignment_id": request.assignment_id,
+                "reviewer_id": request.reviewer_id,
+                "target_type": request.target_type,
+                "target_id": request.target_id,
+                "decision": request.decision,
+            },
+        )
+        return record
 
     def route_notification(self, request: NotificationRoutingRequest) -> AuditRecord:
         record = self.record(
@@ -138,6 +189,7 @@ class AuditService:
         assignments: dict[str, dict[str, object]] = {}
         routed_notifications: dict[str, int] = {}
         escalations: dict[str, int] = {}
+        decisions: dict[str, int] = {}
         for assignment in self._repository.list_reviewer_queue_assignments():
             reviewer_id = assignment.reviewer_id
             reviewer_state = assignments.setdefault(
@@ -151,12 +203,15 @@ class AuditService:
         for escalation in self._repository.list_governance_sla_escalations():
             reviewer_id = escalation.reviewer_id
             escalations[reviewer_id] = escalations.get(reviewer_id, 0) + 1
+        for decision in self._repository.list_reviewer_decision_outcomes():
+            reviewer_id = decision.reviewer_id
+            decisions[reviewer_id] = decisions.get(reviewer_id, 0) + 1
         for record in self.list():
             if record.action == "governance.route_notification":
                 reviewer_id = str(record.evidence.get("recipient_id", "unassigned"))
                 routed_notifications[reviewer_id] = routed_notifications.get(reviewer_id, 0) + 1
 
-        reviewer_ids = sorted(set(assignments) | set(routed_notifications) | set(escalations))
+        reviewer_ids = sorted(set(assignments) | set(routed_notifications) | set(escalations) | set(decisions))
         items = []
         for reviewer_id in reviewer_ids:
             reviewer_state = assignments.get(reviewer_id, {"target_ids": set(), "assigned_count": 0})
@@ -165,13 +220,15 @@ class AuditService:
             target_ids = sorted(target_ids_raw) if isinstance(target_ids_raw, set) else []
             routed_count = routed_notifications.get(reviewer_id, 0)
             escalation_count = escalations.get(reviewer_id, 0)
-            status = "overloaded" if assigned_count >= 3 and routed_count < assigned_count else "ready"
+            decision_count = decisions.get(reviewer_id, 0)
+            status = "overloaded" if assigned_count >= 3 and decision_count < assigned_count else "ready"
             if escalation_count:
                 status = "escalated"
             items.append(
                 ReviewerWorkloadItem(
                     reviewer_id=reviewer_id,
                     assigned_count=assigned_count,
+                    decision_count=decision_count,
                     routed_notifications=routed_count,
                     escalation_count=escalation_count,
                     target_ids=target_ids,
@@ -202,6 +259,10 @@ class AuditService:
             (record.target_type, record.target_id)
             for record in self._repository.list_governance_sla_escalations()
         }
+        decided_targets = {
+            (record.target_type, record.target_id)
+            for record in self._repository.list_reviewer_decision_outcomes()
+        }
         items = []
         for assignment in self._repository.list_reviewer_queue_assignments():
             age_minutes = max(0, int((now - assignment.created_at).total_seconds() // 60))
@@ -209,7 +270,10 @@ class AuditService:
             escalation_required = age_minutes >= escalation_after_minutes or (
                 age_minutes >= sla_minutes and target not in routed_targets
             )
-            if target in escalated_targets:
+            if target in decided_targets:
+                status = "decided"
+                escalation_required = False
+            elif target in escalated_targets:
                 status = "escalated"
                 escalation_required = False
             elif age_minutes >= escalation_after_minutes:

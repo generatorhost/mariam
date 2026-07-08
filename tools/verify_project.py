@@ -756,22 +756,80 @@ def verify_api_smoke_flow() -> None:
     governance_assignment_history = request_json("/api/audit/governance-assignment-history")[
         "history_report"
     ]
+    verification_assignment = next(
+        (
+            item
+            for item in governance_assignment_history["assignments"]
+            if item["target_id"] == "verification-artifact-review"
+            and item["reviewer_id"] == "quality-reviewer-01"
+        ),
+        None,
+    )
     assert_condition(
         governance_assignment_history["assignment_count"] >= 1
-        and any(
-            item["target_id"] == "verification-artifact-review"
-            and item["reviewer_id"] == "quality-reviewer-01"
-            for item in governance_assignment_history["assignments"]
-        ),
+        and verification_assignment is not None,
         "Governance assignment history did not persist the reviewer queue assignment.",
     )
     print("[verify] ok: governance assignment history")
+
+    reviewer_decision = request_json(
+        "/api/audit/reviewer-decisions",
+        "POST",
+        {
+            "decided_by": "quality-reviewer-01",
+            "reviewer_id": "quality-reviewer-01",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "assignment_id": verification_assignment["assignment_id"],
+            "decision": "approved",
+            "reason": "Verify persistent reviewer decision outcome.",
+            "evidence": {"verification": "reviewer-decision-approved"},
+        },
+    )["audit_record"]
+    assert_condition(
+        reviewer_decision["decision"] == "approved"
+        and reviewer_decision["evidence"]["assignment_id"] == verification_assignment["assignment_id"],
+        "Reviewer decision outcome did not record the expected audit evidence.",
+    )
+    decision_history = request_json("/api/audit/governance-assignment-history")["history_report"]
+    assert_condition(
+        decision_history["decision_count"] >= 1
+        and any(
+            item["target_id"] == "verification-artifact-review"
+            and item["assignment_id"] == verification_assignment["assignment_id"]
+            and item["decision"] == "approved"
+            for item in decision_history["decisions"]
+        ),
+        "Governance history did not persist the reviewer decision outcome.",
+    )
+    decision_workload = request_json("/api/audit/reviewer-workload")["workload_report"]
+    assert_condition(
+        any(
+            item["reviewer_id"] == "quality-reviewer-01" and item["decision_count"] >= 1
+            for item in decision_workload["items"]
+        ),
+        "Reviewer workload did not include the persisted decision outcome.",
+    )
+    decision_events = request_json("/api/runtime/events")["events"]
+    assert_condition(
+        any(
+            event["name"] == "governance.reviewer_decision_recorded"
+            and event["payload"].get("target_id") == "verification-artifact-review"
+            for event in decision_events
+        ),
+        "Runtime events did not include reviewer decision outcome evidence.",
+    )
+    print("[verify] ok: reviewer decision outcome")
+
     governance_sla = request_json("/api/audit/governance-sla")["sla_report"]
     assert_condition(
         governance_sla["status"] in {"ready", "escalation_required"}
         and governance_sla["sla_minutes"] == 240
         and governance_sla["escalation_after_minutes"] == 480
-        and any(item["target_id"] == "verification-artifact-review" for item in governance_sla["items"]),
+        and any(
+            item["target_id"] == "verification-artifact-review" and item["status"] == "decided"
+            for item in governance_sla["items"]
+        ),
         "Governance SLA report did not expose assignment aging rules.",
     )
     print("[verify] ok: governance SLA aging")
@@ -820,7 +878,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
