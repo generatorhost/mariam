@@ -387,6 +387,8 @@ class FrontendRegressionSnapshot:
     missing_controls: list[str]
     viewport_contracts: list[str]
     missing_viewports: list[str]
+    keyboard_traversal_targets: list[str]
+    missing_keyboard_traversal_targets: list[str]
     checks: list[DataPlatformCheck]
 
 
@@ -1026,10 +1028,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=82,
+                completion_percent=84,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, and visual thumbnail previews for captured screenshot artifacts.",
-                next_step="Add accessible keyboard traversal checks for Command Center panels.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add active section highlighting for Command Center navigation.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2261,8 +2263,24 @@ class CommandCenterSummaryService:
             "Export Roadmap",
         ]
         viewport_contracts = ["Mobile", "Tablet", "Desktop"]
+        keyboard_traversal_targets = [
+            'className="skip-link"',
+            'href="#workspace"',
+            'aria-label="Command Center sections"',
+            'id="workspace" tabIndex="-1"',
+            'id="status" tabIndex="-1"',
+            'id="data-platform" className="workspace-section" tabIndex="-1"',
+            'id="verification" className="workspace-section" tabIndex="-1"',
+            'id="roadmap" className="workspace-section" tabIndex="-1"',
+            'id="missions" className="workspace-section" tabIndex="-1"',
+            'id="plugins" className="workspace-section" tabIndex="-1"',
+            'id="governance" className="workspace-section" tabIndex="-1"',
+        ]
         missing_controls = [control for control in controls_checked if control not in source_text]
         missing_viewports = [viewport for viewport in viewport_contracts if viewport not in source_text]
+        missing_keyboard_targets = [
+            target for target in keyboard_traversal_targets if target not in source_text
+        ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         checks = [
             DataPlatformCheck(
@@ -2293,6 +2311,15 @@ class CommandCenterSummaryService:
                 status="ready" if "DB MARIAM" in source_text else "blocked",
                 detail="Command Center visibly references DB MARIAM.",
             ),
+            DataPlatformCheck(
+                name="keyboard_traversal_targets_present",
+                status="ready" if not missing_keyboard_targets else "blocked",
+                detail=(
+                    "Command Center exposes skip-link, labelled navigation, and focusable panel targets."
+                    if not missing_keyboard_targets
+                    else f"Missing keyboard traversal targets: {', '.join(missing_keyboard_targets)}."
+                ),
+            ),
         ]
         status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
         generated_at = datetime.now(UTC).isoformat()
@@ -2307,6 +2334,8 @@ class CommandCenterSummaryService:
             "missing_controls": missing_controls,
             "viewport_contracts": viewport_contracts,
             "missing_viewports": missing_viewports,
+            "keyboard_traversal_targets": keyboard_traversal_targets,
+            "missing_keyboard_traversal_targets": missing_keyboard_targets,
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -2332,6 +2361,8 @@ class CommandCenterSummaryService:
             missing_controls=missing_controls,
             viewport_contracts=viewport_contracts,
             missing_viewports=missing_viewports,
+            keyboard_traversal_targets=keyboard_traversal_targets,
+            missing_keyboard_traversal_targets=missing_keyboard_targets,
             checks=checks,
         )
 

@@ -445,6 +445,10 @@ def verify_api_smoke_flow() -> None:
         frontend_regression["status"] == "ready"
         and frontend_regression["missing_controls"] == []
         and frontend_regression["missing_viewports"] == []
+        and frontend_regression["missing_keyboard_traversal_targets"] == []
+        and 'className="skip-link"' in frontend_regression["keyboard_traversal_targets"]
+        and 'aria-label="Command Center sections"'
+        in frontend_regression["keyboard_traversal_targets"]
         and "Refresh Actor Context" in frontend_regression["controls_checked"]
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
@@ -706,7 +710,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

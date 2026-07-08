@@ -41,6 +41,20 @@ a {
   text-decoration: none;
 }
 
+.skip-link {
+  background: var(--green);
+  color: #06100b;
+  font-weight: 700;
+  left: 16px;
+  position: fixed;
+  top: -60px;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
 .shell {
   min-height: 100vh;
   display: grid;

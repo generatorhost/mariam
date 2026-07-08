@@ -2808,12 +2808,21 @@ function FrontendRegressionSnapshotPanel({ refreshVersion }) {
             <div><strong>{snapshot.missing_controls.length}</strong><span>Missing Controls</span></div>
             <div><strong>{snapshot.viewport_contracts.length}</strong><span>Viewport Contracts</span></div>
             <div><strong>{snapshot.missing_viewports.length}</strong><span>Missing Viewports</span></div>
+            <div><strong>{snapshot.keyboard_traversal_targets?.length ?? 0}</strong><span>Keyboard Targets</span></div>
+            <div><strong>{snapshot.missing_keyboard_traversal_targets?.length ?? 0}</strong><span>Missing Keyboard</span></div>
           </div>
           <div className="terms">
             {snapshot.controls_checked.map((control) => (
               <span key={control}>{control}</span>
             ))}
           </div>
+          {snapshot.keyboard_traversal_targets?.length ? (
+            <div className="terms">
+              {snapshot.keyboard_traversal_targets.map((target) => (
+                <span key={target}>{target}</span>
+              ))}
+            </div>
+          ) : null}
           <div className="mission-history">
             {snapshot.checks.map((check) => (
               <article key={check.name}>
@@ -4144,6 +4153,9 @@ function App() {
 
   return (
     <main className="shell">
+      <a className="skip-link" href="#workspace">
+        Skip to Command Center workspace
+      </a>
       <aside className="sidebar">
         <div className="brand-block">
           <strong>Mariam</strong>
@@ -4151,7 +4163,7 @@ function App() {
         </div>
         <CommandCenterNavigation />
       </aside>
-      <section className="workspace">
+      <section className="workspace" id="workspace" tabIndex="-1">
         <header className="topbar">
           <div>
             <h1>Mariam AI Enterprise OS</h1>
@@ -4159,7 +4171,7 @@ function App() {
           </div>
           <a href="https://github.com/generatorhost/Mariam-Architecture-Library">Architecture Library</a>
         </header>
-        <section className="grid" id="status">
+        <section className="grid" id="status" tabIndex="-1">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
@@ -4171,12 +4183,12 @@ function App() {
             );
           })}
         </section>
-        <section id="runtime-status" className="workspace-section">
+        <section id="runtime-status" className="workspace-section" tabIndex="-1">
           <SystemStatusPanel refreshVersion={refreshVersion} />
           <AuthSessionPanel refreshVersion={refreshVersion} />
           <SystemReadinessPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="data-platform" className="workspace-section">
+        <section id="data-platform" className="workspace-section" tabIndex="-1">
           <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
           <MigrationRunnerPanel refreshVersion={refreshVersion} />
           <SeedDataPanel refreshVersion={refreshVersion} />
@@ -4188,7 +4200,7 @@ function App() {
           <LiveDatabaseWriteSmokePanel refreshVersion={refreshVersion} />
           <LiveRepositoryWriteSmokePanel refreshVersion={refreshVersion} />
         </section>
-        <section id="verification" className="workspace-section">
+        <section id="verification" className="workspace-section" tabIndex="-1">
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
           <FrontendVisualContractPanel refreshVersion={refreshVersion} />
           <FrontendBrowserScreenshotPlanPanel refreshVersion={refreshVersion} />
@@ -4198,10 +4210,10 @@ function App() {
           <UsageGuidePanel refreshVersion={refreshVersion} />
           <CompletionReportPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="roadmap" className="workspace-section">
+        <section id="roadmap" className="workspace-section" tabIndex="-1">
           <ImplementationRoadmapPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="missions" className="workspace-section">
+        <section id="missions" className="workspace-section" tabIndex="-1">
           <MissionPanel onActionComplete={refreshCommandCenterSummary} />
           <MissionHistoryPanel
             refreshVersion={refreshVersion}
@@ -4210,7 +4222,7 @@ function App() {
         </section>
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
-        <section id="plugins" className="workspace-section">
+        <section id="plugins" className="workspace-section" tabIndex="-1">
           <PluginWorkspacePanel onActionComplete={refreshCommandCenterSummary} />
           <ResponsiveStatePanel />
           <PluginPanel onActionComplete={refreshCommandCenterSummary} />
@@ -4224,7 +4236,7 @@ function App() {
             onActionComplete={refreshCommandCenterSummary}
           />
         </section>
-        <section id="governance" className="workspace-section">
+        <section id="governance" className="workspace-section" tabIndex="-1">
           <AuditPanel onActionComplete={refreshCommandCenterSummary} />
         </section>
         <AuditHistoryPanel refreshVersion={refreshVersion} />
