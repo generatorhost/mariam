@@ -1256,10 +1256,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=92,
+                completion_percent=93,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add browser-level click smoke coverage for Command Center export buttons.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, browser-level click smoke coverage for Command Center export buttons, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add browser-level keyboard focus and tab-order smoke coverage for Command Center primary actions.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -3552,6 +3552,7 @@ class CommandCenterSummaryService:
             "py -3.11 tools/capture_frontend_screenshots.py",
             "py -3.11 tools/verify_governance_export_interaction.py",
             "py -3.11 tools/verify_delivery_governance_export_visual.py",
+            "node tools/verify_command_center_export_click_smoke.mjs",
         ]
         required_endpoints = [
             "/api/health",
@@ -3579,6 +3580,9 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
+            "artifacts/frontend-regression/command-center-export-button-click-smoke.json",
+            "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
+            "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
@@ -3604,6 +3608,8 @@ class CommandCenterSummaryService:
             missing_commands.append("py -3.11 tools/verify_governance_export_interaction.py")
         if "tools/verify_delivery_governance_export_visual.py" not in verification_text:
             missing_commands.append("py -3.11 tools/verify_delivery_governance_export_visual.py")
+        if "tools/verify_command_center_export_click_smoke.mjs" not in verification_text:
+            missing_commands.append("node tools/verify_command_center_export_click_smoke.mjs")
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
@@ -3634,6 +3640,9 @@ class CommandCenterSummaryService:
             "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
+            "artifacts/frontend-regression/command-center-export-button-click-smoke.json",
+            "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
+            "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
         }
         for artifact in required_artifacts:
             artifact_file = root / artifact
@@ -3898,6 +3907,16 @@ class CommandCenterSummaryService:
                     else "blocked"
                 ),
                 detail="Verification automation exercises the delivery governance evidence export control and writes a visual interaction artifact.",
+            ),
+            DataPlatformCheck(
+                name="command_center_export_button_click_smoke_included",
+                status=(
+                    "ready"
+                    if "node tools/verify_command_center_export_click_smoke.mjs"
+                    not in missing_commands
+                    else "blocked"
+                ),
+                detail="Verification automation launches Chromium, clicks Command Center export buttons, verifies success states, and captures browser screenshots.",
             ),
             DataPlatformCheck(
                 name="governed_write_schema_regression_snapshot_included",

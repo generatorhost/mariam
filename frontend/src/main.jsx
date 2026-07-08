@@ -4661,8 +4661,8 @@ function AuditPanel({ onActionComplete }) {
             </p>
           </div>
           <div className="mission-history">
-            {slaReport.items.map((item) => (
-              <article key={`${item.target_type}-${item.target_id}-${item.reviewer_id}`}>
+            {slaReport.items.map((item, index) => (
+              <article key={`${item.target_type}-${item.target_id}-${item.reviewer_id}-${item.status}-${index}`}>
                 <strong>{item.reviewer_id}</strong>
                 <span>{item.status}</span>
                 <p>
