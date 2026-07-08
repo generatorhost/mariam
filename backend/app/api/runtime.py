@@ -82,6 +82,13 @@ def command_center_completion_report(
     return asdict(service.completion_report())
 
 
+@router.get("/implementation-roadmap")
+def command_center_implementation_roadmap(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.implementation_roadmap())
+
+
 @router.post("/completion-report/export")
 def export_command_center_completion_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

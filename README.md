@@ -127,6 +127,12 @@ The completion report can also be exported as a JSON review package:
 POST /api/runtime/completion-report/export
 ```
 
+The implementation roadmap turns completion gaps into prioritized next build steps:
+
+```http
+GET /api/runtime/implementation-roadmap
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

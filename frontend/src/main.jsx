@@ -86,6 +86,10 @@ async function loadCompletionReport() {
   return apiGet('/api/runtime/completion-report');
 }
 
+async function loadImplementationRoadmap() {
+  return apiGet('/api/runtime/implementation-roadmap');
+}
+
 async function exportCompletionReport() {
   return apiRequest('/api/runtime/completion-report/export', {});
 }
@@ -2021,6 +2025,60 @@ function CompletionReportPanel({ refreshVersion }) {
   );
 }
 
+function ImplementationRoadmapPanel({ refreshVersion }) {
+  const [roadmap, setRoadmap] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshRoadmap = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setRoadmap(await loadImplementationRoadmap());
+      setStatus('ready');
+    } catch (roadmapError) {
+      setStatus('error');
+      setError(roadmapError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRoadmap();
+  }, [refreshRoadmap, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Implementation Roadmap</h2>
+        <p>Prioritize the next verified build steps from the completion report.</p>
+      </div>
+      <button onClick={refreshRoadmap} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Roadmap'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {roadmap && (
+        <>
+          <div className="mission-result">
+            <strong>{roadmap.status}</strong>
+            <span>{roadmap.data_platform}</span>
+            <p>{roadmap.operating_rule}</p>
+          </div>
+          <div className="mission-history">
+            {roadmap.items.map((item) => (
+              <article key={item.area}>
+                <strong>{item.area}</strong>
+                <span>{item.priority} / {item.current_completion_percent}%</span>
+                <p>{item.next_step}</p>
+                <p>{item.acceptance_signal}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -2352,6 +2410,7 @@ function App() {
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <UsageGuidePanel refreshVersion={refreshVersion} />
         <CompletionReportPanel refreshVersion={refreshVersion} />
+        <ImplementationRoadmapPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}

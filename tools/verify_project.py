@@ -98,6 +98,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/diagnostics",
         "/api/runtime/usage-guide",
         "/api/runtime/completion-report",
+        "/api/runtime/implementation-roadmap",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
@@ -167,6 +168,14 @@ def verify_api_smoke_flow() -> None:
         "Completion report export package did not preserve the area count.",
     )
     print("[verify] ok: completion report export")
+
+    implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
+    assert_condition(
+        implementation_roadmap["status"] == "ready_for_execution"
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        "Implementation roadmap did not expose the expected next execution priority.",
+    )
+    print("[verify] ok: implementation roadmap")
 
     print("[verify] checking mission to delivery flow")
     mission = request_json(

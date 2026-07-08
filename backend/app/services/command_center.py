@@ -137,6 +137,26 @@ class CompletionReportExportPackage:
     data_platform: str = "DB MARIAM"
 
 
+@dataclass
+class ImplementationRoadmapItem:
+    area: str
+    priority: str
+    current_completion_percent: int
+    next_step: str
+    acceptance_signal: str
+
+
+@dataclass
+class ImplementationRoadmap:
+    title: str
+    version: str
+    status: str
+    generated_at: str
+    data_platform: str
+    items: list[ImplementationRoadmapItem]
+    operating_rule: str
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -525,4 +545,36 @@ class CommandCenterSummaryService:
                 "requires_governance_review_before_external_delivery": True,
             },
             completion_report=report,
+        )
+
+    def implementation_roadmap(self) -> ImplementationRoadmap:
+        report = self.completion_report()
+        priority_order = {
+            "DB MARIAM persistence boundary": "high",
+            "Backend API foundation": "high",
+            "Governance and delivery workflow": "high",
+            "Frontend Command Center": "medium",
+            "Verification automation": "medium",
+        }
+        items = [
+            ImplementationRoadmapItem(
+                area=area.name,
+                priority=priority_order.get(area.name, "medium"),
+                current_completion_percent=area.completion_percent,
+                next_step=area.next_step,
+                acceptance_signal=f"{area.name} reaches a verified executable state above {area.completion_percent}%.",
+            )
+            for area in sorted(report.areas, key=lambda item: item.completion_percent)
+        ]
+        return ImplementationRoadmap(
+            title="Mariam Next Implementation Roadmap",
+            version="v1",
+            status="ready_for_execution",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            items=items,
+            operating_rule=(
+                "Work on the lowest-completion high-impact area first, verify with automated tests, "
+                "then update the completion report before moving to the next area."
+            ),
         )

@@ -2380,6 +2380,22 @@ def test_runtime_completion_report_can_be_exported_as_review_package() -> None:
     assert export_package["completion_report"]["status"] == "in_progress_verified"
 
 
+def test_runtime_implementation_roadmap_orders_next_work() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/implementation-roadmap")
+
+    assert response.status_code == 200
+    roadmap = response.json()
+    assert roadmap["title"] == "Mariam Next Implementation Roadmap"
+    assert roadmap["status"] == "ready_for_execution"
+    assert roadmap["data_platform"] == "DB MARIAM"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["priority"] == "high"
+    assert "lowest-completion" in roadmap["operating_rule"]
+    assert all("acceptance_signal" in item for item in roadmap["items"])
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(
