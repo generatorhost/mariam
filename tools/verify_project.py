@@ -307,6 +307,8 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/runtime/events"),
         ("POST", "/api/audit/approval-assignments"),
         ("POST", "/api/audit/notifications/route"),
+        ("POST", "/api/audit/governance-assignment-history/export"),
+        ("POST", "/api/audit/notification-routing-evidence/export"),
         ("POST", "/api/audit/reviewer-decisions"),
         ("POST", "/api/audit/reviewer-workload/export"),
         ("POST", "/api/audit/governance-sla/export"),
@@ -421,6 +423,7 @@ def verify_api_smoke_flow() -> None:
         "/api/audit",
         "/api/audit/reviewer-workload",
         "/api/audit/governance-assignment-history",
+        "/api/audit/notification-routing-evidence",
         "/api/runtime/events",
         "/api/plugins",
         "/api/runtime-objects",
@@ -1243,7 +1246,11 @@ def verify_api_smoke_flow() -> None:
         and "/api/runtime/data-platform/artifact-store/export"
         in verification_automation["required_endpoints"]
         and "/api/audit/reviewer-workload/export" in verification_automation["required_endpoints"]
-        and "/api/audit/governance-sla/export" in verification_automation["required_endpoints"],
+        and "/api/audit/governance-sla/export" in verification_automation["required_endpoints"]
+        and "/api/audit/governance-assignment-history/export"
+        in verification_automation["required_endpoints"]
+        and "/api/audit/notification-routing-evidence/export"
+        in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     assert_condition(
@@ -1341,6 +1348,15 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/audit/governance-assignment-history"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/GovernanceAssignmentHistoryResponse"
+        and openapi["paths"]["/api/audit/governance-assignment-history/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceAssignmentHistoryExportResponse"
+        and openapi["paths"]["/api/audit/notification-routing-evidence"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/NotificationRoutingEvidenceResponse"
+        and openapi["paths"]["/api/audit/notification-routing-evidence/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/NotificationRoutingEvidenceExportResponse"
         and openapi["paths"]["/api/audit/reviewer-decisions"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/AuditRecordResponse"
@@ -1563,6 +1579,45 @@ def verify_api_smoke_flow() -> None:
         "Notification routing did not record the expected audit evidence.",
     )
     print("[verify] ok: notification routing")
+
+    assignment_history_export = request_json(
+        "/api/audit/governance-assignment-history/export",
+        "POST",
+        {},
+    )["export_package"]
+    notification_routing_evidence = request_json("/api/audit/notification-routing-evidence")[
+        "routing_report"
+    ]
+    notification_routing_export = request_json(
+        "/api/audit/notification-routing-evidence/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        assignment_history_export["status"] == "ready_for_review"
+        and assignment_history_export["data_platform"] == "DB MARIAM"
+        and assignment_history_export["package_manifest"]["contains_secrets"] is False
+        and assignment_history_export["package_manifest"]["assignment_count"] >= 1
+        and approval_assignment["audit_id"]
+        in [item["audit_id"] for item in assignment_history_export["history_report"]["assignments"]],
+        "Governance assignment history export did not preserve assignment evidence.",
+    )
+    assert_condition(
+        notification_routing_evidence["status"] == "ready"
+        and notification_routing_evidence["data_platform"] == "DB MARIAM"
+        and notification_routing_evidence["route_count"] >= 1
+        and notification_route["audit_id"]
+        in [item["audit_id"] for item in notification_routing_evidence["routes"]]
+        and notification_routing_export["status"] == "ready_for_review"
+        and notification_routing_export["data_platform"] == "DB MARIAM"
+        and notification_routing_export["package_manifest"]["contains_secrets"] is False
+        and notification_routing_export["package_manifest"]["route_count"]
+        == notification_routing_evidence["route_count"]
+        and notification_route["audit_id"]
+        in [item["audit_id"] for item in notification_routing_export["routing_report"]["routes"]],
+        "Notification routing evidence export did not preserve routed notification evidence.",
+    )
+    print("[verify] ok: assignment history and notification routing evidence exports")
 
     reviewer_workload = request_json("/api/audit/reviewer-workload")["workload_report"]
     assert_condition(
@@ -1908,7 +1963,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

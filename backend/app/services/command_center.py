@@ -1381,10 +1381,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=95,
+                completion_percent=96,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, reviewer decision evidence export packages, governance workload evidence export packages, governance SLA evidence export packages, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, reviewer decision outcome filters by reviewer and decision, and typed API response models for governance workload, SLA, decision history, reviewer decision, escalation, assignment, notification, and evidence export endpoints are covered by tests and smoke verification.",
-                next_step="Add export packages for approval assignment history and notification routing evidence.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, approval assignment history export packages, persistent reviewer decision outcomes, reviewer decision evidence export packages, governance workload evidence export packages, governance SLA evidence export packages, notification routing, notification routing evidence reports and export packages, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, reviewer decision outcome filters by reviewer and decision, and typed API response models for governance workload, SLA, assignment history, notification routing, decision history, reviewer decision, escalation, assignment, notification, and evidence export endpoints are covered by tests and smoke verification.",
+                next_step="Add export packages for SLA escalation history and reviewer decision filter presets.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -3945,6 +3945,9 @@ class CommandCenterSummaryService:
             "/api/audit/governance-sla",
             "/api/audit/governance-sla/export",
             "/api/audit/governance-assignment-history",
+            "/api/audit/governance-assignment-history/export",
+            "/api/audit/notification-routing-evidence",
+            "/api/audit/notification-routing-evidence/export",
             "/api/runtime/verification-report",
             "/api/runtime/verification-automation/failure-summary/export",
             "/api/runtime/completion-report",
@@ -4119,6 +4122,12 @@ class CommandCenterSummaryService:
             "POST /api/runtime/events": ["/api/runtime/events", '"POST"'],
             "POST /api/audit/approval-assignments": ["/api/audit/approval-assignments"],
             "POST /api/audit/notifications/route": ["/api/audit/notifications/route"],
+            "POST /api/audit/governance-assignment-history/export": [
+                "/api/audit/governance-assignment-history/export"
+            ],
+            "POST /api/audit/notification-routing-evidence/export": [
+                "/api/audit/notification-routing-evidence/export"
+            ],
             "POST /api/audit/reviewer-decisions": ["/api/audit/reviewer-decisions"],
             "POST /api/audit/governance-decision-evidence/export": [
                 "/api/audit/governance-decision-evidence/export"

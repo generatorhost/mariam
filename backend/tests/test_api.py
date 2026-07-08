@@ -1872,6 +1872,72 @@ def test_governance_notification_routing_records_audit_and_event() -> None:
     ]
 
 
+def test_governance_assignment_and_notification_evidence_can_be_exported() -> None:
+    client = TestClient(create_app())
+
+    assignment_response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-export-02",
+            "target_type": "artifact",
+            "target_id": "artifact-export-target-01",
+            "approval_role": "quality-reviewer",
+            "reason": "Verify assignment export evidence.",
+            "evidence": {"assignment_source": "export-test"},
+        },
+    )
+    notification_response = client.post(
+        "/api/audit/notifications/route",
+        json={
+            "routed_by": "governance-router",
+            "recipient_id": "quality-reviewer-export-02",
+            "channel": "command-center",
+            "subject": "Review artifact export target",
+            "message": "Please review artifact export target before delivery.",
+            "target_type": "artifact",
+            "target_id": "artifact-export-target-01",
+            "evidence": {"notification_source": "export-test"},
+        },
+    )
+    assignment_audit = assignment_response.json()["audit_record"]
+    notification_audit = notification_response.json()["audit_record"]
+
+    assignment_export_response = client.post("/api/audit/governance-assignment-history/export")
+    routing_report_response = client.get("/api/audit/notification-routing-evidence")
+    routing_export_response = client.post("/api/audit/notification-routing-evidence/export")
+
+    assert assignment_response.status_code == 200
+    assert notification_response.status_code == 200
+    assert assignment_export_response.status_code == 200
+    assert routing_report_response.status_code == 200
+    assert routing_export_response.status_code == 200
+    assignment_export = assignment_export_response.json()["export_package"]
+    routing_report = routing_report_response.json()["routing_report"]
+    routing_export = routing_export_response.json()["export_package"]
+    assert assignment_export["export_id"].startswith("governance-assignment-history-export-")
+    assert assignment_export["status"] == "ready_for_review"
+    assert assignment_export["data_platform"] == "DB MARIAM"
+    assert assignment_export["package_manifest"]["contains_secrets"] is False
+    assert assignment_export["package_manifest"]["assignment_count"] >= 1
+    assert assignment_audit["audit_id"] in [
+        item["audit_id"] for item in assignment_export["history_report"]["assignments"]
+    ]
+    assert routing_report["title"] == "Governance Notification Routing Evidence Report"
+    assert routing_report["status"] == "ready"
+    assert routing_report["data_platform"] == "DB MARIAM"
+    assert routing_report["route_count"] >= 1
+    assert notification_audit["audit_id"] in [route["audit_id"] for route in routing_report["routes"]]
+    assert routing_export["export_id"].startswith("notification-routing-evidence-export-")
+    assert routing_export["status"] == "ready_for_review"
+    assert routing_export["data_platform"] == "DB MARIAM"
+    assert routing_export["package_manifest"]["contains_secrets"] is False
+    assert routing_export["package_manifest"]["route_count"] == routing_report["route_count"]
+    assert notification_audit["audit_id"] in [
+        route["audit_id"] for route in routing_export["routing_report"]["routes"]
+    ]
+
+
 def test_governance_reviewer_workload_reports_assignments_and_escalations() -> None:
     client = TestClient(create_app())
     for index in range(3):
@@ -3275,6 +3341,21 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/GovernanceAssignmentHistoryResponse"
     )
     assert (
+        openapi["paths"]["/api/audit/governance-assignment-history/export"]["post"]
+        ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/GovernanceAssignmentHistoryExportResponse"
+    )
+    assert (
+        openapi["paths"]["/api/audit/notification-routing-evidence"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/NotificationRoutingEvidenceResponse"
+    )
+    assert (
+        openapi["paths"]["/api/audit/notification-routing-evidence/export"]["post"]
+        ["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/NotificationRoutingEvidenceExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/audit/reviewer-decisions"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/AuditRecordResponse"
@@ -3525,6 +3606,12 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "ReviewerWorkloadReport" in openapi["components"]["schemas"]
     assert "GovernanceWorkloadEvidenceExportResponse" in openapi["components"]["schemas"]
     assert "GovernanceWorkloadEvidenceExportPackage" in openapi["components"]["schemas"]
+    assert "GovernanceAssignmentHistoryExportResponse" in openapi["components"]["schemas"]
+    assert "GovernanceAssignmentHistoryExportPackage" in openapi["components"]["schemas"]
+    assert "NotificationRoutingEvidenceResponse" in openapi["components"]["schemas"]
+    assert "NotificationRoutingEvidenceReport" in openapi["components"]["schemas"]
+    assert "NotificationRoutingEvidenceExportResponse" in openapi["components"]["schemas"]
+    assert "NotificationRoutingEvidenceExportPackage" in openapi["components"]["schemas"]
     assert "GovernanceAssignmentHistoryResponse" in openapi["components"]["schemas"]
     assert "GovernanceAssignmentHistoryReport" in openapi["components"]["schemas"]
     assert "GovernanceSLAResponse" in openapi["components"]["schemas"]
@@ -3605,8 +3692,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3818,6 +3905,8 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "/api/runtime/data-platform/capability-graph-store/export" in contract["required_endpoints"]
     assert "/api/runtime/data-platform/vector-index-store/export" in contract["required_endpoints"]
     assert "/api/runtime/data-platform/artifact-store/export" in contract["required_endpoints"]
+    assert "/api/audit/governance-assignment-history/export" in contract["required_endpoints"]
+    assert "/api/audit/notification-routing-evidence/export" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-capture.json" in contract["required_artifacts"]
     assert (
@@ -3954,7 +4043,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

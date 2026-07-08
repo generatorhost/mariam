@@ -169,6 +169,39 @@ class GovernanceDecisionEvidenceExportPackage(BaseModel):
     history_report: GovernanceAssignmentHistoryReport
 
 
+class GovernanceAssignmentHistoryExportPackage(BaseModel):
+    export_id: str
+    title: str
+    status: str
+    format: str
+    generated_at: datetime
+    data_platform: str = "DB MARIAM"
+    package_manifest: dict[str, object]
+    history_report: GovernanceAssignmentHistoryReport
+
+
+class NotificationRoutingEvidenceReport(BaseModel):
+    title: str
+    status: str
+    generated_at: datetime
+    route_count: int
+    recipient_count: int
+    channels: list[str]
+    routes: list[dict[str, object]]
+    data_platform: str = "DB MARIAM"
+
+
+class NotificationRoutingEvidenceExportPackage(BaseModel):
+    export_id: str
+    title: str
+    status: str
+    format: str
+    generated_at: datetime
+    data_platform: str = "DB MARIAM"
+    package_manifest: dict[str, object]
+    routing_report: NotificationRoutingEvidenceReport
+
+
 class GovernanceWorkloadEvidenceExportPackage(BaseModel):
     export_id: str
     title: str

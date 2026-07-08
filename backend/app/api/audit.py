@@ -6,11 +6,14 @@ from app.core.audit import (
     AuditRecord,
     AuditRecordRequest,
     EscalationRequest,
+    GovernanceAssignmentHistoryExportPackage,
     GovernanceAssignmentHistoryReport,
     GovernanceDecisionEvidenceExportPackage,
     GovernanceSLAEvidenceExportPackage,
     GovernanceSLAReport,
     GovernanceWorkloadEvidenceExportPackage,
+    NotificationRoutingEvidenceExportPackage,
+    NotificationRoutingEvidenceReport,
     NotificationRoutingRequest,
     ReviewerDecisionRequest,
     ReviewerWorkloadReport,
@@ -41,8 +44,20 @@ class GovernanceAssignmentHistoryResponse(BaseModel):
     history_report: GovernanceAssignmentHistoryReport
 
 
+class GovernanceAssignmentHistoryExportResponse(BaseModel):
+    export_package: GovernanceAssignmentHistoryExportPackage
+
+
 class GovernanceDecisionEvidenceExportResponse(BaseModel):
     export_package: GovernanceDecisionEvidenceExportPackage
+
+
+class NotificationRoutingEvidenceResponse(BaseModel):
+    routing_report: NotificationRoutingEvidenceReport
+
+
+class NotificationRoutingEvidenceExportResponse(BaseModel):
+    export_package: NotificationRoutingEvidenceExportPackage
 
 
 class GovernanceSLAResponse(BaseModel):
@@ -108,6 +123,14 @@ def governance_assignment_history(
     return {"history_report": service.governance_assignment_history().model_dump(mode="json")}
 
 
+@router.post("/governance-assignment-history/export", response_model=GovernanceAssignmentHistoryExportResponse)
+def export_governance_assignment_history(
+    authorization=Depends(require_permission("governance.assign_approval", "governance_assignment_history_export")),
+    service: AuditService = Depends(get_audit_service),
+) -> GovernanceAssignmentHistoryExportResponse:
+    return {"export_package": service.export_governance_assignment_history().model_dump(mode="json")}
+
+
 @router.post("/governance-decision-evidence/export", response_model=GovernanceDecisionEvidenceExportResponse)
 def export_governance_decision_evidence(
     authorization=Depends(require_permission("governance.assign_approval", "governance_decision_export")),
@@ -124,6 +147,21 @@ def record_reviewer_decision(
 ) -> AuditRecordResponse:
     record = service.record_reviewer_decision(request)
     return {"audit_record": record.model_dump(mode="json")}
+
+
+@router.get("/notification-routing-evidence", response_model=NotificationRoutingEvidenceResponse)
+def notification_routing_evidence(
+    service: AuditService = Depends(get_audit_service),
+) -> NotificationRoutingEvidenceResponse:
+    return {"routing_report": service.notification_routing_evidence_report().model_dump(mode="json")}
+
+
+@router.post("/notification-routing-evidence/export", response_model=NotificationRoutingEvidenceExportResponse)
+def export_notification_routing_evidence(
+    authorization=Depends(require_permission("governance.assign_approval", "notification_routing_export")),
+    service: AuditService = Depends(get_audit_service),
+) -> NotificationRoutingEvidenceExportResponse:
+    return {"export_package": service.export_notification_routing_evidence().model_dump(mode="json")}
 
 
 @router.get("/governance-sla", response_model=GovernanceSLAResponse)

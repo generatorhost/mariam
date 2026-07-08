@@ -6,6 +6,7 @@ from app.core.audit import (
     AuditRecord,
     AuditRecordRequest,
     EscalationRequest,
+    GovernanceAssignmentHistoryExportPackage,
     GovernanceAssignmentHistoryReport,
     GovernanceDecisionEvidenceExportPackage,
     GovernanceSLAEvidenceExportPackage,
@@ -13,6 +14,8 @@ from app.core.audit import (
     GovernanceSLAItem,
     GovernanceSLAReport,
     GovernanceWorkloadEvidenceExportPackage,
+    NotificationRoutingEvidenceExportPackage,
+    NotificationRoutingEvidenceReport,
     NotificationRoutingRequest,
     ReviewerDecisionOutcomeRecord,
     ReviewerDecisionRequest,
@@ -133,6 +136,33 @@ class AuditService:
             history_report=history,
         )
 
+    def export_governance_assignment_history(self) -> GovernanceAssignmentHistoryExportPackage:
+        history = self.governance_assignment_history()
+        reviewer_ids = sorted({assignment.reviewer_id for assignment in history.assignments})
+        reviewer_queues = sorted({assignment.reviewer_queue for assignment in history.assignments})
+        target_types = sorted({assignment.target_type for assignment in history.assignments})
+        return GovernanceAssignmentHistoryExportPackage(
+            export_id=f"governance-assignment-history-export-{uuid4()}",
+            title="Mariam Governance Assignment History Evidence Export",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC),
+            package_manifest={
+                "title": "Mariam Governance Assignment History Evidence Export",
+                "assignment_count": history.assignment_count,
+                "escalation_count": history.escalation_count,
+                "decision_count": history.decision_count,
+                "reviewer_count": len(reviewer_ids),
+                "reviewer_ids": reviewer_ids,
+                "reviewer_queues": reviewer_queues,
+                "target_types": target_types,
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": "DB MARIAM",
+            },
+            history_report=history,
+        )
+
     def record_reviewer_decision(self, request: ReviewerDecisionRequest) -> AuditRecord:
         record = self.record(
             AuditRecordRequest(
@@ -211,6 +241,40 @@ class AuditService:
             },
         )
         return record
+
+    def notification_routing_evidence_report(self) -> NotificationRoutingEvidenceReport:
+        routes = [record for record in self.list() if record.action == "governance.route_notification"]
+        recipient_ids = sorted({str(record.evidence.get("recipient_id", "unassigned")) for record in routes})
+        channels = sorted({str(record.evidence.get("channel", "unknown")) for record in routes})
+        return NotificationRoutingEvidenceReport(
+            title="Governance Notification Routing Evidence Report",
+            status="ready",
+            generated_at=datetime.now(UTC),
+            route_count=len(routes),
+            recipient_count=len(recipient_ids),
+            channels=channels,
+            routes=[route.model_dump(mode="json") for route in routes],
+        )
+
+    def export_notification_routing_evidence(self) -> NotificationRoutingEvidenceExportPackage:
+        report = self.notification_routing_evidence_report()
+        return NotificationRoutingEvidenceExportPackage(
+            export_id=f"notification-routing-evidence-export-{uuid4()}",
+            title="Mariam Notification Routing Evidence Export",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC),
+            package_manifest={
+                "title": "Mariam Notification Routing Evidence Export",
+                "route_count": report.route_count,
+                "recipient_count": report.recipient_count,
+                "channels": report.channels,
+                "requires_governance_review_before_external_delivery": True,
+                "contains_secrets": False,
+                "data_platform": "DB MARIAM",
+            },
+            routing_report=report,
+        )
 
     def reviewer_workload(self) -> ReviewerWorkloadReport:
         assignments: dict[str, dict[str, object]] = {}
