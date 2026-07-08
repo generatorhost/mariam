@@ -785,10 +785,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=76,
+                completion_percent=78,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, and browser screenshot artifact planning.",
-                next_step="Capture binary screenshot artifacts in CI/browser runner.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, and binary screenshot artifact capture.",
+                next_step="Add a Command Center UI report for captured screenshot artifacts.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2200,6 +2200,7 @@ class CommandCenterSummaryService:
             "npm run verify",
             "py -3.11 -m pytest",
             "npm.cmd run build",
+            "py -3.11 tools/capture_frontend_screenshots.py",
         ]
         required_endpoints = [
             "/api/health",
@@ -2215,6 +2216,10 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-regression-snapshot.json",
             "artifacts/frontend-regression/command-center-visual-contract.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
+            "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
+            "artifacts/frontend-regression/desktop-command-center.png",
+            "artifacts/frontend-regression/tablet-command-center.png",
+            "artifacts/frontend-regression/mobile-command-center.png",
             "artifacts/verification/verification-automation-contract.json",
         ]
         missing_commands = []
@@ -2227,6 +2232,8 @@ class CommandCenterSummaryService:
             or '"build"' not in frontend_package_text
         ):
             missing_commands.append("npm.cmd run build")
+        if "tools/capture_frontend_screenshots.py" not in verification_text:
+            missing_commands.append("py -3.11 tools/capture_frontend_screenshots.py")
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
@@ -2255,6 +2262,15 @@ class CommandCenterSummaryService:
                 name="frontend_build_included",
                 status="ready" if "npm.cmd run build" not in missing_commands else "blocked",
                 detail="Verification automation runs the frontend production build.",
+            ),
+            DataPlatformCheck(
+                name="frontend_screenshot_capture_included",
+                status=(
+                    "ready"
+                    if "py -3.11 tools/capture_frontend_screenshots.py" not in missing_commands
+                    else "blocked"
+                ),
+                detail="Verification automation captures binary Command Center screenshot artifacts.",
             ),
             DataPlatformCheck(
                 name="critical_endpoints_covered",
@@ -2299,7 +2315,7 @@ class CommandCenterSummaryService:
             "required_artifacts": required_artifacts,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Capture binary browser regression screenshots in CI artifacts.",
+            "next_ci_step": "Publish captured browser screenshot artifacts from CI runs.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

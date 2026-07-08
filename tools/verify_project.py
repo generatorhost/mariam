@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 API_BASE_URL = os.environ.get("MARIAM_VERIFY_API_BASE_URL", "http://127.0.0.1:8000")
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def run_command(command: list[str], cwd: Path) -> None:
@@ -85,6 +86,22 @@ def start_backend_if_needed() -> subprocess.Popen[bytes] | None:
 def assert_condition(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def verify_frontend_screenshot_capture() -> None:
+    run_command([sys.executable, "tools/capture_frontend_screenshots.py"], ROOT)
+    capture_report_path = ROOT / "artifacts" / "frontend-regression" / "command-center-browser-screenshot-capture.json"
+    capture_report = json.loads(capture_report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        capture_report["status"] == "ready"
+        and capture_report["artifact_count"] == 3
+        and all(
+            (ROOT / artifact["relative_path"]).read_bytes().startswith(PNG_SIGNATURE)
+            for artifact in capture_report["artifacts"]
+        ),
+        "Frontend screenshot capture did not produce valid PNG artifacts.",
+    )
+    print("[verify] ok: frontend screenshot capture artifacts")
 
 
 def verify_api_smoke_flow() -> None:
@@ -458,6 +475,7 @@ def verify_api_smoke_flow() -> None:
         "Frontend browser screenshot plan did not pass.",
     )
     print("[verify] ok: frontend browser screenshot plan")
+    verify_frontend_screenshot_capture()
 
     verification_automation = request_json("/api/runtime/verification-automation")
     assert_condition(
@@ -465,6 +483,8 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["local_automation_status"] == "ready"
         and verification_automation["ci_status"] == "ready"
         and "npm run verify" in verification_automation["required_commands"]
+        and "py -3.11 tools/capture_frontend_screenshots.py"
+        in verification_automation["required_commands"]
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"],
@@ -595,7 +615,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
