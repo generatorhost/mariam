@@ -244,6 +244,8 @@ class VerificationAutomationResponse(BaseModel):
     latest_run_status: dict[str, Any]
     ci_run_ingestion: dict[str, Any]
     local_history_comparison: dict[str, Any]
+    quality_gates: dict[str, Any]
+    artifact_freshness: dict[str, Any]
     local_automation_status: str
     ci_status: str
     next_ci_step: str

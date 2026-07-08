@@ -3219,8 +3219,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Verification automation"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3362,6 +3362,14 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "conclusion" in contract["ci_run_ingestion"]["parsed_fields"]
     assert contract["local_history_comparison"]["status"] in {"insufficient_history", "stable", "changed"}
     assert "snapshot_count" in contract["local_history_comparison"]
+    assert contract["quality_gates"]["backend_test_gate"] == "ready"
+    assert contract["quality_gates"]["backend_test_count"] >= contract["quality_gates"]["minimum_backend_tests"]
+    assert contract["quality_gates"]["endpoint_coverage_gate"] == "ready"
+    assert contract["quality_gates"]["artifact_coverage_gate"] == "ready"
+    assert contract["quality_gates"]["artifact_freshness_gate"] == "ready"
+    assert contract["artifact_freshness"]["status"] == "ready"
+    assert contract["artifact_freshness"]["max_age_hours"] == 24
+    assert contract["artifact_freshness"]["stale_artifacts"] == []
     assert "npm run verify" in contract["required_commands"]
     assert "py -3.11 tools/capture_frontend_screenshots.py" in contract["required_commands"]
     assert any(
@@ -3394,7 +3402,11 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "latest_ci_run_result_ingestion_ready" in [check["name"] for check in contract["checks"]]
     assert "local_verification_history_comparison_ready" in [check["name"] for check in contract["checks"]]
     assert "persisted_local_verification_runs_ready" in [check["name"] for check in contract["checks"]]
-    assert contract["next_ci_step"] == "Add verification quality gates for minimum coverage and artifact freshness."
+    assert "minimum_backend_test_count_gate" in [check["name"] for check in contract["checks"]]
+    assert "endpoint_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
+    assert "artifact_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
+    assert "artifact_freshness_quality_gate" in [check["name"] for check in contract["checks"]]
+    assert contract["next_ci_step"] == "Add mutation-level verification gates for each governed write endpoint."
     assert Path(contract["artifact_path"]).exists()
     assert Path(contract["persisted_run_log_path"]).exists()
 
@@ -3435,7 +3447,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

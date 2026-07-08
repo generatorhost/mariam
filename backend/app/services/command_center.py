@@ -490,6 +490,8 @@ class VerificationAutomationContract:
     latest_run_status: dict[str, object]
     ci_run_ingestion: dict[str, object]
     local_history_comparison: dict[str, object]
+    quality_gates: dict[str, object]
+    artifact_freshness: dict[str, object]
     local_automation_status: str
     ci_status: str
     next_ci_step: str
@@ -1173,10 +1175,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=88,
+                completion_percent=90,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add verification quality gates for minimum coverage and artifact freshness.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add mutation-level verification gates for each governed write endpoint.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3161,6 +3163,7 @@ class CommandCenterSummaryService:
         frontend_package_file = root / "frontend" / "package.json"
         requirements_file = root / "backend" / "requirements.txt"
         verification_script = root / "tools" / "verify_project.py"
+        backend_test_file = root / "backend" / "tests" / "test_api.py"
         docker_compose_file = root / "docker-compose.yml"
         ci_workflow_dir = root / ".github" / "workflows"
         ci_workflow_file = ci_workflow_dir / "verify.yml"
@@ -3171,6 +3174,7 @@ class CommandCenterSummaryService:
             frontend_package_file.read_text(encoding="utf-8") if frontend_package_file.exists() else ""
         )
         verification_text = verification_script.read_text(encoding="utf-8") if verification_script.exists() else ""
+        backend_test_text = backend_test_file.read_text(encoding="utf-8") if backend_test_file.exists() else ""
         ci_workflow_text = ci_workflow_file.read_text(encoding="utf-8") if ci_workflow_file.exists() else ""
         required_commands = [
             "npm run verify",
@@ -3220,6 +3224,78 @@ class CommandCenterSummaryService:
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
+        missing_required_artifact_checks = [
+            artifact for artifact in required_artifacts if artifact not in verification_text
+        ]
+        backend_test_count = backend_test_text.count("def test_")
+        minimum_backend_tests = 120
+        endpoint_coverage_ratio = (
+            round((len(required_endpoints) - len(missing_endpoints)) / len(required_endpoints), 3)
+            if required_endpoints
+            else 0
+        )
+        artifact_coverage_ratio = (
+            round(
+                (len(required_artifacts) - len(missing_required_artifact_checks)) / len(required_artifacts),
+                3,
+            )
+            if required_artifacts
+            else 0
+        )
+        max_artifact_age_hours = 24
+        now = datetime.now(UTC)
+        artifact_freshness_items = []
+        stale_artifacts = []
+        for artifact in required_artifacts:
+            artifact_file = root / artifact
+            if artifact == "artifacts/verification/verification-automation-contract.json":
+                exists = True
+                age_hours = 0.0
+                fresh = True
+            else:
+                exists = artifact_file.exists()
+                modified_at = (
+                    datetime.fromtimestamp(artifact_file.stat().st_mtime, tz=UTC)
+                    if exists
+                    else None
+                )
+                age_hours = (
+                    round((now - modified_at).total_seconds() / 3600, 3)
+                    if modified_at
+                    else None
+                )
+                fresh = bool(exists and age_hours is not None and age_hours <= max_artifact_age_hours)
+            artifact_freshness_items.append(
+                {
+                    "artifact": artifact,
+                    "exists": exists,
+                    "age_hours": age_hours,
+                    "fresh": fresh,
+                    "max_age_hours": max_artifact_age_hours,
+                }
+            )
+            if not fresh:
+                stale_artifacts.append(artifact)
+        quality_gates = {
+            "minimum_backend_tests": minimum_backend_tests,
+            "backend_test_count": backend_test_count,
+            "backend_test_gate": "ready" if backend_test_count >= minimum_backend_tests else "blocked",
+            "required_endpoint_count": len(required_endpoints),
+            "missing_endpoint_checks": missing_endpoints,
+            "endpoint_coverage_ratio": endpoint_coverage_ratio,
+            "endpoint_coverage_gate": "ready" if not missing_endpoints else "blocked",
+            "required_artifact_count": len(required_artifacts),
+            "missing_artifact_checks": missing_required_artifact_checks,
+            "artifact_coverage_ratio": artifact_coverage_ratio,
+            "artifact_coverage_gate": "ready" if not missing_required_artifact_checks else "blocked",
+            "artifact_freshness_gate": "ready" if not stale_artifacts else "blocked",
+        }
+        artifact_freshness = {
+            "status": "ready" if not stale_artifacts else "blocked",
+            "max_age_hours": max_artifact_age_hours,
+            "stale_artifacts": stale_artifacts,
+            "items": artifact_freshness_items,
+        }
         expected_files = [
             package_file,
             frontend_package_file,
@@ -3450,6 +3526,40 @@ class CommandCenterSummaryService:
                     else "Persisted local verification run records are malformed."
                 ),
             ),
+            DataPlatformCheck(
+                name="minimum_backend_test_count_gate",
+                status=str(quality_gates["backend_test_gate"]),
+                detail=(
+                    f"{backend_test_count} backend tests are declared; minimum gate is {minimum_backend_tests}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="endpoint_coverage_quality_gate",
+                status=str(quality_gates["endpoint_coverage_gate"]),
+                detail=(
+                    f"{endpoint_coverage_ratio:.0%} required endpoint checks are covered by verify_project.py."
+                    if not missing_endpoints
+                    else f"Missing endpoint checks: {', '.join(missing_endpoints)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="artifact_coverage_quality_gate",
+                status=str(quality_gates["artifact_coverage_gate"]),
+                detail=(
+                    f"{artifact_coverage_ratio:.0%} required artifact checks are covered by verify_project.py."
+                    if not missing_required_artifact_checks
+                    else f"Missing artifact checks: {', '.join(missing_required_artifact_checks)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="artifact_freshness_quality_gate",
+                status=str(quality_gates["artifact_freshness_gate"]),
+                detail=(
+                    f"All required verification artifacts are fresh within {max_artifact_age_hours} hours."
+                    if not stale_artifacts
+                    else f"Stale or missing artifacts: {', '.join(stale_artifacts)}."
+                ),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -3472,9 +3582,11 @@ class CommandCenterSummaryService:
             "latest_run_status": latest_run_status,
             "ci_run_ingestion": ci_run_ingestion,
             "local_history_comparison": local_history_comparison,
+            "quality_gates": quality_gates,
+            "artifact_freshness": artifact_freshness,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add verification quality gates for minimum coverage and artifact freshness.",
+            "next_ci_step": "Add mutation-level verification gates for each governed write endpoint.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -3495,6 +3607,8 @@ class CommandCenterSummaryService:
             latest_run_status=latest_run_status,
             ci_run_ingestion=ci_run_ingestion,
             local_history_comparison=local_history_comparison,
+            quality_gates=quality_gates,
+            artifact_freshness=artifact_freshness,
             local_automation_status=local_automation_status,
             ci_status=ci_status,
             next_ci_step=str(payload["next_ci_step"]),

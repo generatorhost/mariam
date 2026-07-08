@@ -112,7 +112,11 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/command-center-visual-contract.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
+            "artifacts/frontend-regression/desktop-command-center.png",
+            "artifacts/frontend-regression/tablet-command-center.png",
+            "artifacts/frontend-regression/mobile-command-center.png",
             "artifacts/verification/verification-automation-contract.json",
+            "artifacts/verification/local-verification-runs.json",
         ],
     }
     history = [item for item in history if not (isinstance(item, dict) and item.get("run_id") == run_id)]
@@ -619,6 +623,30 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["local_history_comparison"]["status"]
         in {"insufficient_history", "stable", "changed"}
         and "snapshot_count" in verification_automation["local_history_comparison"]
+        and verification_automation["quality_gates"]["backend_test_gate"] == "ready"
+        and verification_automation["quality_gates"]["backend_test_count"]
+        >= verification_automation["quality_gates"]["minimum_backend_tests"]
+        and verification_automation["quality_gates"]["endpoint_coverage_gate"] == "ready"
+        and verification_automation["quality_gates"]["artifact_coverage_gate"] == "ready"
+        and verification_automation["quality_gates"]["artifact_freshness_gate"] == "ready"
+        and verification_automation["artifact_freshness"]["status"] == "ready"
+        and verification_automation["artifact_freshness"]["stale_artifacts"] == []
+        and any(
+            check["name"] == "minimum_backend_test_count_gate" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "endpoint_coverage_quality_gate" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "artifact_coverage_quality_gate" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "artifact_freshness_quality_gate" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
         and isinstance(verification_automation["persisted_verification_runs"], list)
         and "artifacts/verification/local-verification-runs.json"
@@ -883,7 +911,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
