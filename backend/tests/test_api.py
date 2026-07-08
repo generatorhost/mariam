@@ -3470,7 +3470,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3643,6 +3643,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "py -3.11 tools/verify_governance_export_interaction.py" in contract["required_commands"]
     assert "py -3.11 tools/verify_delivery_governance_export_visual.py" in contract["required_commands"]
     assert "node tools/verify_command_center_export_click_smoke.mjs" in contract["required_commands"]
+    assert "node tools/verify_command_center_keyboard_focus_smoke.mjs" in contract["required_commands"]
     assert "npm run verify:schema-diff" in contract["required_commands"]
     assert any(
         check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
@@ -3675,6 +3676,10 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
         in contract["required_artifacts"]
     )
     assert (
+        "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json"
+        in contract["required_artifacts"]
+    )
+    assert (
         "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png"
         in contract["required_artifacts"]
     )
@@ -3701,6 +3706,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert "artifact_coverage_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "artifact_freshness_quality_gate" in [check["name"] for check in contract["checks"]]
     assert "mutation_level_write_endpoint_gate" in [check["name"] for check in contract["checks"]]
+    assert "command_center_keyboard_focus_smoke_included" in [check["name"] for check in contract["checks"]]
     assert "governance_export_interaction_smoke_included" in [
         check["name"] for check in contract["checks"]
     ]
@@ -3757,7 +3763,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

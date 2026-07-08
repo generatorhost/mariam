@@ -118,6 +118,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
             "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
             "artifacts/frontend-regression/command-center-export-button-click-smoke.json",
+            "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json",
             "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
             "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
             "artifacts/frontend-regression/desktop-command-center.png",
@@ -212,6 +213,28 @@ def verify_command_center_export_click_smoke() -> None:
         "Command Center export button browser click smoke did not pass.",
     )
     print("[verify] ok: command center export button browser click smoke")
+
+
+def verify_command_center_keyboard_focus_smoke() -> None:
+    run_command(["node", "tools/verify_command_center_keyboard_focus_smoke.mjs"], ROOT)
+    report_path = (
+        ROOT
+        / "artifacts"
+        / "frontend-regression"
+        / "command-center-keyboard-focus-smoke.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        report["status"] == "ready"
+        and report["data_platform"] == "DB MARIAM"
+        and report["checks"]["skip_link_first"] is True
+        and report["checks"]["primary_navigation_order_valid"] is True
+        and report["checks"]["primary_actions_focusable"] is True
+        and report["checks"]["no_browser_console_errors"] is True
+        and report["missing_focus_targets"] == [],
+        "Command Center keyboard focus smoke did not pass.",
+    )
+    print("[verify] ok: command center keyboard focus smoke")
 
 
 def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, Any]:
@@ -772,6 +795,7 @@ def verify_api_smoke_flow() -> None:
     verify_governance_export_interaction()
     verify_delivery_governance_export_visual()
     verify_command_center_export_click_smoke()
+    verify_command_center_keyboard_focus_smoke()
     frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
     assert_condition(
         frontend_screenshot_capture["status"] == "ready"
@@ -837,6 +861,8 @@ def verify_api_smoke_flow() -> None:
         and "py -3.11 tools/verify_delivery_governance_export_visual.py"
         in verification_automation["required_commands"]
         and "node tools/verify_command_center_export_click_smoke.mjs"
+        in verification_automation["required_commands"]
+        and "node tools/verify_command_center_keyboard_focus_smoke.mjs"
         in verification_automation["required_commands"]
         and "npm run verify:schema-diff" in verification_automation["required_commands"]
         and any(
@@ -912,6 +938,11 @@ def verify_api_smoke_flow() -> None:
             and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
+        and any(
+            check["name"] == "command_center_keyboard_focus_smoke_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
         and isinstance(verification_automation["persisted_verification_runs"], list)
         and "artifacts/verification/local-verification-runs.json"
@@ -921,6 +952,8 @@ def verify_api_smoke_flow() -> None:
         and "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-export-button-click-smoke.json"
+        in verification_automation["required_artifacts"]
+        and "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png"
         in verification_automation["required_artifacts"]
@@ -1341,7 +1374,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
