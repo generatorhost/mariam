@@ -54,6 +54,10 @@ async function loadSystemStatus() {
   };
 }
 
+async function loadSystemReadiness() {
+  return apiGet('/api/runtime/readiness');
+}
+
 async function loadMissions() {
   const body = await apiGet('/api/missions');
   return (body.missions || []).sort(
@@ -1572,6 +1576,62 @@ function SystemStatusPanel({ refreshVersion }) {
   );
 }
 
+function SystemReadinessPanel({ refreshVersion }) {
+  const [readiness, setReadiness] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshReadiness = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setReadiness(await loadSystemReadiness());
+      setStatus('ready');
+    } catch (readinessError) {
+      setStatus('error');
+      setError(readinessError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshReadiness();
+  }, [refreshReadiness, refreshVersion]);
+
+  const readyCount = readiness
+    ? readiness.checks.filter((check) => check.status === 'ready').length
+    : 0;
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>System Readiness</h2>
+        <p>Verify executable layers before operating the Command Center.</p>
+      </div>
+      <button onClick={refreshReadiness} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Readiness'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {readiness && (
+        <>
+          <div className="mission-result">
+            <strong>{readiness.status}</strong>
+            <span>{readyCount} / {readiness.checks.length} checks ready</span>
+          </div>
+          <div className="mission-history">
+            {readiness.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -1898,6 +1958,7 @@ function App() {
           })}
         </section>
         <SystemStatusPanel refreshVersion={refreshVersion} />
+        <SystemReadinessPanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}

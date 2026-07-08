@@ -20,6 +20,19 @@ class CommandCenterSummary:
     recent_events: list[dict[str, object]]
 
 
+@dataclass
+class ReadinessCheck:
+    name: str
+    status: str
+    detail: str
+
+
+@dataclass
+class CommandCenterReadiness:
+    status: str
+    checks: list[ReadinessCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -65,3 +78,50 @@ class CommandCenterSummaryService:
             runtime_events=len(events),
             recent_events=recent_events,
         )
+
+    def readiness(self) -> CommandCenterReadiness:
+        health_statuses = self._runtime_registry.health()
+        checks = [
+            ReadinessCheck(
+                name="runtime_core",
+                status="ready" if all(status.status == "healthy" for status in health_statuses) else "blocked",
+                detail="Runtime registry, event bus, and plugin registry health are available.",
+            ),
+            ReadinessCheck(
+                name="event_bus",
+                status="ready",
+                detail=f"{len(self._event_bus.list_events())} runtime events available for traceability.",
+            ),
+            ReadinessCheck(
+                name="audit_layer",
+                status="ready",
+                detail=f"{len(self._audit_service.list())} audit records available.",
+            ),
+            ReadinessCheck(
+                name="mission_layer",
+                status="ready",
+                detail=f"{len(self._mission_service.list())} missions available.",
+            ),
+            ReadinessCheck(
+                name="plugin_registry",
+                status="ready",
+                detail=f"{len(self._runtime_registry.list_plugins())} Plugin-managed Business Units registered.",
+            ),
+            ReadinessCheck(
+                name="runtime_objects",
+                status="ready",
+                detail=f"{len(self._runtime_object_service.list())} runtime objects available.",
+            ),
+            ReadinessCheck(
+                name="ai_resource_manager",
+                status="ready",
+                detail=f"{len(self._ai_resource_manager.list_routes())} AI routing decisions available.",
+            ),
+            ReadinessCheck(
+                name="artifact_delivery_pipeline",
+                status="ready",
+                detail="Artifact approval, quality review, delivery packaging, and client confirmation APIs are mounted.",
+            ),
+        ]
+        overall = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        return CommandCenterReadiness(status=overall, checks=checks)

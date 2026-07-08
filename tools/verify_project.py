@@ -36,6 +36,15 @@ def request_json(path: str, method: str = "GET", body: dict[str, Any] | None = N
         return json.loads(response.read().decode("utf-8"))
 
 
+def require_json(path: str) -> dict[str, Any]:
+    try:
+        return request_json(path)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(
+            f"{path} returned HTTP {error.code}. Restart the backend if it is running stale code."
+        ) from error
+
+
 def api_is_healthy() -> bool:
     try:
         return request_json("/api/health").get("status") == "healthy"
@@ -83,6 +92,7 @@ def verify_api_smoke_flow() -> None:
     read_endpoints = [
         "/api/health",
         "/api/runtime/summary",
+        "/api/runtime/readiness",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
@@ -93,7 +103,7 @@ def verify_api_smoke_flow() -> None:
         "/api/ai-resources/providers",
     ]
     for endpoint in read_endpoints:
-        request_json(endpoint)
+        require_json(endpoint)
         print(f"[verify] ok: {endpoint}")
 
     print("[verify] checking mission to delivery flow")

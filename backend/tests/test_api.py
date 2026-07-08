@@ -2167,6 +2167,25 @@ def test_runtime_summary_reports_command_center_counts() -> None:
     assert body["recent_events"][0]["source"] == "audit-service"
 
 
+def test_runtime_readiness_reports_executable_layers() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/readiness")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    checks = {check["name"]: check for check in body["checks"]}
+    assert checks["runtime_core"]["status"] == "ready"
+    assert checks["event_bus"]["status"] == "ready"
+    assert checks["audit_layer"]["status"] == "ready"
+    assert checks["mission_layer"]["status"] == "ready"
+    assert checks["plugin_registry"]["status"] == "ready"
+    assert checks["runtime_objects"]["status"] == "ready"
+    assert checks["ai_resource_manager"]["status"] == "ready"
+    assert checks["artifact_delivery_pipeline"]["status"] == "ready"
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

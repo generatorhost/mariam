@@ -59,6 +59,14 @@ npm run verify
 
 This runs backend tests, builds the frontend, checks core API endpoints, and executes the mission to artifact to quality review to delivery confirmation smoke flow.
 
+The Command Center also exposes **System Readiness**, backed by:
+
+```http
+GET /api/runtime/readiness
+```
+
+It reports readiness for runtime core, event bus, audit layer, mission layer, plugin registry, runtime objects, AI resource manager, and artifact delivery pipeline.
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:
