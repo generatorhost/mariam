@@ -88,6 +88,25 @@ function readCommandCenterPreference(key, fallback) {
   return typeof preferences[key] === 'string' ? preferences[key] : fallback;
 }
 
+async function buildApiError(response, path, actionLabel = 'Command Center action') {
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  const structuredError = payload?.error || {};
+  const detail = structuredError.message || payload?.detail || response.statusText;
+  const error = new Error(`${actionLabel} failed on ${path} with HTTP ${response.status}: ${detail}`);
+  error.statusCode = response.status;
+  error.path = structuredError.path || path;
+  error.requestId = structuredError.request_id || 'unavailable';
+  error.dataPlatform = structuredError.data_platform || 'DB MARIAM';
+  error.retryAction = actionLabel;
+  error.traceability = structuredError.traceability || {};
+  return error;
+}
+
 async function apiRequest(path, body, options = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     method: options.method || 'POST',
@@ -95,17 +114,52 @@ async function apiRequest(path, body, options = {}) {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error(`API request to ${path} failed with ${response.status}`);
+    throw await buildApiError(response, path, options.actionLabel);
   }
   return response.json();
 }
 
-async function apiGet(path) {
+async function apiGet(path, options = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`);
   if (!response.ok) {
-    throw new Error(`API request to ${path} failed with ${response.status}`);
+    throw await buildApiError(response, path, options.actionLabel);
   }
   return response.json();
+}
+
+function createPanelError(error, retryLabel, retryAction) {
+  return {
+    message: error.message,
+    statusCode: error.statusCode || 'network',
+    path: error.path || 'unknown endpoint',
+    requestId: error.requestId || 'unavailable',
+    dataPlatform: error.dataPlatform || 'DB MARIAM',
+    retryLabel,
+    retryAction,
+  };
+}
+
+function ErrorBanner({ error }) {
+  if (!error) {
+    return null;
+  }
+  return (
+    <div className="error-banner" role="alert" data-testid="command-center-error-banner">
+      <div>
+        <strong>{error.retryLabel || 'Command Center action failed'}</strong>
+        <p>{error.message}</p>
+        <span>
+          Endpoint: {error.path} · Status: {error.statusCode} · Request: {error.requestId} ·{' '}
+          {error.dataPlatform}
+        </span>
+      </div>
+      {error.retryAction && (
+        <button type="button" onClick={error.retryAction}>
+          Retry
+        </button>
+      )}
+    </div>
+  );
 }
 
 async function loadSystemStatus() {
@@ -2740,17 +2794,17 @@ function DockerContainerExecutionPanel({ refreshVersion }) {
 function LiveDatabaseWriteSmokePanel({ refreshVersion }) {
   const [writeStatus, setWriteStatus] = useState(null);
   const [status, setStatus] = useState('idle');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const runWriteSmoke = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       setWriteStatus(await runLiveDatabaseWriteSmoke());
       setStatus('ready');
     } catch (writeError) {
       setStatus('error');
-      setError(writeError.message);
+      setError(createPanelError(writeError, 'Run DB MARIAM Write Smoke', runWriteSmoke));
     }
   }, []);
 
@@ -2767,7 +2821,7 @@ function LiveDatabaseWriteSmokePanel({ refreshVersion }) {
       <button onClick={runWriteSmoke} disabled={status === 'loading'}>
         {status === 'loading' ? 'Writing...' : 'Run DB MARIAM Write Smoke'}
       </button>
-      {error && <p className="error">{error}</p>}
+      <ErrorBanner error={error} />
       {writeStatus && (
         <>
           <div className="mission-result">
@@ -2802,17 +2856,17 @@ function LiveDatabaseWriteSmokePanel({ refreshVersion }) {
 function LiveRepositoryWriteSmokePanel({ refreshVersion }) {
   const [writeStatus, setWriteStatus] = useState(null);
   const [status, setStatus] = useState('idle');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const runRepositoryWriteSmoke = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       setWriteStatus(await runLiveRepositoryWriteSmoke());
       setStatus('ready');
     } catch (writeError) {
       setStatus('error');
-      setError(writeError.message);
+      setError(createPanelError(writeError, 'Run Repository Write Smoke', runRepositoryWriteSmoke));
     }
   }, []);
 
@@ -2829,7 +2883,7 @@ function LiveRepositoryWriteSmokePanel({ refreshVersion }) {
       <button onClick={runRepositoryWriteSmoke} disabled={status === 'loading'}>
         {status === 'loading' ? 'Writing...' : 'Run Repository Write Smoke'}
       </button>
-      {error && <p className="error">{error}</p>}
+      <ErrorBanner error={error} />
       {writeStatus && (
         <>
           <div className="mission-result">
@@ -4032,18 +4086,18 @@ function AuditPanel({ onActionComplete }) {
   const [slaReport, setSlaReport] = useState(null);
   const [escalationRecord, setEscalationRecord] = useState(null);
   const [status, setStatus] = useState('idle');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
   const refreshReviewerWorkload = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       setWorkloadReport(await loadReviewerWorkload());
       setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Refresh Reviewer Workload', refreshReviewerWorkload));
     }
   }, []);
 
@@ -4053,19 +4107,19 @@ function AuditPanel({ onActionComplete }) {
 
   const refreshGovernanceSLA = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Refresh Governance SLA', refreshGovernanceSLA));
     }
   }, []);
 
-  async function handleAudit() {
+  const handleAudit = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       const body = await recordAuditDecision();
       setAuditRecord(body.audit_record);
@@ -4073,13 +4127,13 @@ function AuditPanel({ onActionComplete }) {
       onActionComplete();
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Record Audit Decision', handleAudit));
     }
-  }
+  }, [onActionComplete]);
 
-  async function handleApprovalAssignment() {
+  const handleApprovalAssignment = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       const body = await assignApproval();
       setAssignmentRecord(body.audit_record);
@@ -4089,13 +4143,13 @@ function AuditPanel({ onActionComplete }) {
       onActionComplete();
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Assign Approval', handleApprovalAssignment));
     }
-  }
+  }, [onActionComplete]);
 
-  async function handleNotificationRouting() {
+  const handleNotificationRouting = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       const body = await routeGovernanceNotification();
       setNotificationRecord(body.audit_record);
@@ -4105,13 +4159,13 @@ function AuditPanel({ onActionComplete }) {
       onActionComplete();
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Route Notification', handleNotificationRouting));
     }
-  }
+  }, [onActionComplete]);
 
-  async function handleReviewerEscalation() {
+  const handleReviewerEscalation = useCallback(async () => {
     setStatus('loading');
-    setError('');
+    setError(null);
     try {
       const body = await escalateReviewerWorkload();
       setEscalationRecord(body.audit_record);
@@ -4121,9 +4175,9 @@ function AuditPanel({ onActionComplete }) {
       onActionComplete();
     } catch (auditError) {
       setStatus('error');
-      setError(auditError.message);
+      setError(createPanelError(auditError, 'Escalate Reviewer Workload', handleReviewerEscalation));
     }
-  }
+  }, [onActionComplete]);
 
   return (
     <section className="panel mission-panel">
@@ -4149,7 +4203,7 @@ function AuditPanel({ onActionComplete }) {
       <button onClick={handleReviewerEscalation} disabled={status === 'loading'}>
         {status === 'loading' ? 'Escalating...' : 'Escalate Reviewer Workload'}
       </button>
-      {error && <p className="error">{error}</p>}
+      <ErrorBanner error={error} />
       {auditRecord && (
         <div className="mission-result">
           <h3>{auditRecord.decision}</h3>

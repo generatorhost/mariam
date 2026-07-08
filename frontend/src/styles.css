@@ -163,6 +163,39 @@ p {
   justify-self: start;
 }
 
+.error-banner {
+  align-items: center;
+  background: rgba(255, 61, 61, 0.08);
+  border: 1px solid rgba(255, 61, 61, 0.42);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.error-banner strong {
+  color: var(--red);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.error-banner p,
+.error-banner span {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.error-banner span {
+  color: var(--muted);
+}
+
+.error-banner button {
+  border-color: var(--red);
+  flex: 0 0 auto;
+}
+
 .mission-result {
   border-top: 1px solid var(--border);
   padding-top: 14px;

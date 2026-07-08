@@ -421,6 +421,8 @@ class FrontendRegressionSnapshot:
     missing_viewports: list[str]
     keyboard_traversal_targets: list[str]
     missing_keyboard_traversal_targets: list[str]
+    error_contracts: list[str]
+    missing_error_contracts: list[str]
     checks: list[DataPlatformCheck]
 
 
@@ -1150,10 +1152,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=88,
+                completion_percent=90,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section and delivery SLA filter preferences, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add frontend API error banners with retry context for failed panel actions.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section and delivery SLA filter preferences, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add decision outcome filters to the Governance panel UI.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2665,6 +2667,16 @@ class CommandCenterSummaryService:
             "Export Diagnostics",
             "Export Completion Report",
             "Export Roadmap",
+            "Retry",
+            "command-center-error-banner",
+        ]
+        error_contracts = [
+            "buildApiError",
+            "createPanelError",
+            "function ErrorBanner",
+            "retryAction",
+            "requestId",
+            "Endpoint:",
         ]
         viewport_contracts = ["Mobile", "Tablet", "Desktop"]
         keyboard_traversal_targets = [
@@ -2687,6 +2699,9 @@ class CommandCenterSummaryService:
         missing_viewports = [viewport for viewport in viewport_contracts if viewport not in source_text]
         missing_keyboard_targets = [
             target for target in keyboard_traversal_targets if target not in source_text
+        ]
+        missing_error_contracts = [
+            target for target in error_contracts if target not in source_text
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         checks = [
@@ -2739,6 +2754,15 @@ class CommandCenterSummaryService:
                 ),
                 detail="Command Center persists active section and delivery SLA filter preferences in localStorage.",
             ),
+            DataPlatformCheck(
+                name="frontend_error_retry_contract_present",
+                status="ready" if not missing_error_contracts else "blocked",
+                detail=(
+                    "Command Center exposes API error banners with endpoint, request id, data platform, and retry context."
+                    if not missing_error_contracts
+                    else f"Missing error retry contracts: {', '.join(missing_error_contracts)}."
+                ),
+            ),
         ]
         status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
         generated_at = datetime.now(UTC).isoformat()
@@ -2755,6 +2779,8 @@ class CommandCenterSummaryService:
             "missing_viewports": missing_viewports,
             "keyboard_traversal_targets": keyboard_traversal_targets,
             "missing_keyboard_traversal_targets": missing_keyboard_targets,
+            "error_contracts": error_contracts,
+            "missing_error_contracts": missing_error_contracts,
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -2782,6 +2808,8 @@ class CommandCenterSummaryService:
             missing_viewports=missing_viewports,
             keyboard_traversal_targets=keyboard_traversal_targets,
             missing_keyboard_traversal_targets=missing_keyboard_targets,
+            error_contracts=error_contracts,
+            missing_error_contracts=missing_error_contracts,
             checks=checks,
         )
 

@@ -485,6 +485,7 @@ def verify_api_smoke_flow() -> None:
         and frontend_regression["missing_controls"] == []
         and frontend_regression["missing_viewports"] == []
         and frontend_regression["missing_keyboard_traversal_targets"] == []
+        and frontend_regression["missing_error_contracts"] == []
         and 'className="skip-link"' in frontend_regression["keyboard_traversal_targets"]
         and 'aria-label="Command Center sections"'
         in frontend_regression["keyboard_traversal_targets"]
@@ -500,6 +501,10 @@ def verify_api_smoke_flow() -> None:
         and "mariam.commandCenter.preferences.v1" in frontend_regression["controls_checked"]
         and "deliverySlaStateFilter" in frontend_regression["controls_checked"]
         and "deliveryReviewerQueueFilter" in frontend_regression["controls_checked"]
+        and "Retry" in frontend_regression["controls_checked"]
+        and "command-center-error-banner" in frontend_regression["controls_checked"]
+        and "buildApiError" in frontend_regression["error_contracts"]
+        and "retryAction" in frontend_regression["error_contracts"]
         and "writeCommandCenterPreference('activeSection', sectionId)"
         in frontend_regression["keyboard_traversal_targets"],
         "Frontend regression snapshot did not pass.",
@@ -878,7 +883,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
