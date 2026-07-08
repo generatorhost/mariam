@@ -368,6 +368,21 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: live DB write smoke")
 
+    live_repository_write_smoke = request_json(
+        "/api/runtime/data-platform/live-repository-write-smoke",
+        "POST",
+        {},
+    )
+    assert_condition(
+        live_repository_write_smoke["status"] == "ready"
+        and live_repository_write_smoke["mission_written"] is True
+        and live_repository_write_smoke["artifact_written"] is True
+        and live_repository_write_smoke["delivery_written"] is True
+        and live_repository_write_smoke["data_platform"] == "DB MARIAM",
+        "DB MARIAM live repository write smoke did not write mission/artifact/delivery records.",
+    )
+    print("[verify] ok: live repository write smoke")
+
     frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
     assert_condition(
         frontend_regression["status"] == "ready"
@@ -377,6 +392,7 @@ def verify_api_smoke_flow() -> None:
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
         and "Refresh Visual Contract" in frontend_regression["controls_checked"]
+        and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"],
         "Frontend regression snapshot did not pass.",
     )
@@ -517,7 +533,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

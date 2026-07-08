@@ -133,6 +133,12 @@ Live write smoke verifies DB MARIAM can write and read audit and runtime event r
 POST /api/runtime/data-platform/live-write-smoke
 ```
 
+Live repository write smoke verifies DB MARIAM can write and read mission, artifact, and delivery package records against the live Postgres database:
+
+```http
+POST /api/runtime/data-platform/live-repository-write-smoke
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

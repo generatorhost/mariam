@@ -323,6 +323,21 @@ class LiveDatabaseWriteStatus:
 
 
 @dataclass
+class LiveRepositoryWriteStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    mission_id: str
+    artifact_id: str
+    delivery_id: str
+    mission_written: bool
+    artifact_written: bool
+    delivery_written: bool
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class FrontendRegressionSnapshot:
     title: str
     status: str
@@ -758,10 +773,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=74,
-                status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, and live audit/event write smoke.",
-                next_step="Add persistent repository smoke writes for missions and artifact delivery packages.",
+                completion_percent=76,
+                status="executable",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery repository write smoke.",
+                next_step="Add persistent repository smoke writes for plugin manifests and runtime objects.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1508,6 +1523,179 @@ class CommandCenterSummaryService:
             checks=checks,
         )
 
+    def live_repository_write_status(self) -> LiveRepositoryWriteStatus:
+        settings = get_settings()
+        mission_id = str(uuid4())
+        artifact_id = str(uuid4())
+        delivery_id = str(uuid4())
+        generated_at = datetime.now(UTC).isoformat()
+        mission_written = False
+        artifact_written = False
+        delivery_written = False
+        database_error = ""
+        try:
+            import psycopg
+            from psycopg.rows import dict_row
+            from psycopg.types.json import Jsonb
+
+            with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO missions (
+                            mission_id,
+                            plugin_id,
+                            requested_by,
+                            user_request,
+                            status,
+                            chief_agent,
+                            governance_gate,
+                            data_platform,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            mission_id,
+                            "crm",
+                            "db-mariam-repository-smoke",
+                            "Verify mission repository persistence.",
+                            "approved",
+                            "CRM Chief Agent",
+                            "repository_smoke_verified",
+                            "DB MARIAM",
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO artifacts (
+                            artifact_id,
+                            mission_id,
+                            plugin_id,
+                            title,
+                            content,
+                            status,
+                            data_platform,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            artifact_id,
+                            mission_id,
+                            "crm",
+                            "DB MARIAM Repository Smoke Artifact",
+                            "Artifact written by the DB MARIAM repository smoke verification.",
+                            "approved",
+                            "DB MARIAM",
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO delivery_packages (
+                            delivery_id,
+                            artifact_id,
+                            mission_id,
+                            plugin_id,
+                            destination,
+                            status,
+                            package_manifest,
+                            data_platform,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            delivery_id,
+                            artifact_id,
+                            mission_id,
+                            "crm",
+                            "repository-smoke-channel",
+                            "packaged",
+                            Jsonb(
+                                {
+                                    "data_platform": "DB MARIAM",
+                                    "mission_id": mission_id,
+                                    "artifact_id": artifact_id,
+                                    "verification": "repository-write-smoke",
+                                }
+                            ),
+                            "DB MARIAM",
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
+                        (mission_id, "DB MARIAM"),
+                    )
+                    mission_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        "SELECT artifact_id FROM artifacts WHERE artifact_id = %s AND mission_id = %s",
+                        (artifact_id, mission_id),
+                    )
+                    artifact_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        """
+                        SELECT delivery_id
+                        FROM delivery_packages
+                        WHERE delivery_id = %s AND artifact_id = %s AND mission_id = %s
+                        """,
+                        (delivery_id, artifact_id, mission_id),
+                    )
+                    delivery_written = cursor.fetchone() is not None
+        except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
+            database_error = str(error)
+
+        checks = [
+            DataPlatformCheck(
+                name="live_mission_repository_write",
+                status="ready" if mission_written else "blocked",
+                detail=(
+                    f"Mission repository smoke record {mission_id} was written and read from DB MARIAM."
+                    if mission_written
+                    else f"Mission repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_artifact_repository_write",
+                status="ready" if artifact_written else "blocked",
+                detail=(
+                    f"Artifact repository smoke record {artifact_id} was written and read from DB MARIAM."
+                    if artifact_written
+                    else f"Artifact repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_delivery_repository_write",
+                status="ready" if delivery_written else "blocked",
+                detail=(
+                    f"Delivery package repository smoke record {delivery_id} was written and read from DB MARIAM."
+                    if delivery_written
+                    else f"Delivery package repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="repository_write_database_name",
+                status="ready" if "db_mariam" in settings.database_url else "blocked",
+                detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
+            ),
+        ]
+        return LiveRepositoryWriteStatus(
+            title="DB MARIAM Live Repository Write Verification",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            mission_id=mission_id,
+            artifact_id=artifact_id,
+            delivery_id=delivery_id,
+            mission_written=mission_written,
+            artifact_written=artifact_written,
+            delivery_written=delivery_written,
+            checks=checks,
+        )
+
     def frontend_regression_snapshot(self) -> FrontendRegressionSnapshot:
         root = Path(__file__).resolve().parents[3]
         source_file = root / "frontend" / "src" / "main.jsx"
@@ -1520,6 +1708,7 @@ class CommandCenterSummaryService:
             "Enforce Human Identity",
             "Refresh Docker Execution",
             "Run DB MARIAM Write Smoke",
+            "Run Repository Write Smoke",
             "Open Live Plugin Workspace",
             "Start CRM Mission",
             "Route Notification",

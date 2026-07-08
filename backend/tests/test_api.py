@@ -2764,6 +2764,7 @@ def test_runtime_completion_report_summarizes_project_readiness() -> None:
         "Backend API foundation",
         "Frontend Command Center",
         "DB MARIAM persistence boundary",
+        "Governance and delivery workflow",
         "Verification automation",
     }
 
@@ -2795,7 +2796,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2815,6 +2816,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Enforce Human Identity" in snapshot["controls_checked"]
     assert "Refresh Docker Execution" in snapshot["controls_checked"]
     assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
+    assert "Run Repository Write Smoke" in snapshot["controls_checked"]
     assert "Refresh Reviewer Workload" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
@@ -2877,7 +2879,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3069,6 +3071,25 @@ def test_data_platform_live_write_smoke_writes_audit_and_event_records() -> None
     assert status["event_written"] is True
     assert status["audit_id"]
     assert status["event_id"]
+    assert all(check["status"] == "ready" for check in status["checks"])
+
+
+def test_data_platform_live_repository_write_smoke_writes_mission_artifact_delivery() -> None:
+    client = TestClient(create_app())
+
+    response = client.post("/api/runtime/data-platform/live-repository-write-smoke")
+
+    assert response.status_code == 200
+    status = response.json()
+    assert status["title"] == "DB MARIAM Live Repository Write Verification"
+    assert status["status"] == "ready"
+    assert status["data_platform"] == "DB MARIAM"
+    assert status["mission_written"] is True
+    assert status["artifact_written"] is True
+    assert status["delivery_written"] is True
+    assert status["mission_id"]
+    assert status["artifact_id"]
+    assert status["delivery_id"]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 

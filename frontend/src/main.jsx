@@ -194,6 +194,10 @@ async function runLiveDatabaseWriteSmoke() {
   return apiRequest('/api/runtime/data-platform/live-write-smoke', {});
 }
 
+async function runLiveRepositoryWriteSmoke() {
+  return apiRequest('/api/runtime/data-platform/live-repository-write-smoke', {});
+}
+
 async function loadFrontendRegressionSnapshot() {
   return apiGet('/api/runtime/frontend/regression-snapshot');
 }
@@ -2619,6 +2623,66 @@ function LiveDatabaseWriteSmokePanel({ refreshVersion }) {
   );
 }
 
+function LiveRepositoryWriteSmokePanel({ refreshVersion }) {
+  const [writeStatus, setWriteStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const runRepositoryWriteSmoke = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setWriteStatus(await runLiveRepositoryWriteSmoke());
+      setStatus('ready');
+    } catch (writeError) {
+      setStatus('error');
+      setError(writeError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    runRepositoryWriteSmoke();
+  }, [runRepositoryWriteSmoke, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>DB MARIAM Repository Write Smoke</h2>
+        <p>Write and read mission, artifact, and delivery package records against the live Postgres database.</p>
+      </div>
+      <button onClick={runRepositoryWriteSmoke} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Writing...' : 'Run Repository Write Smoke'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {writeStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{writeStatus.status}</strong>
+            <span>{writeStatus.data_platform}</span>
+            <p>Mission: <strong>{writeStatus.mission_id}</strong></p>
+            <p>Artifact: <strong>{writeStatus.artifact_id}</strong></p>
+            <p>Delivery: <strong>{writeStatus.delivery_id}</strong></p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{String(writeStatus.mission_written)}</strong><span>Mission Written</span></div>
+            <div><strong>{String(writeStatus.artifact_written)}</strong><span>Artifact Written</span></div>
+            <div><strong>{String(writeStatus.delivery_written)}</strong><span>Delivery Written</span></div>
+          </div>
+          <div className="mission-history">
+            {writeStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function FrontendRegressionSnapshotPanel({ refreshVersion }) {
   const [snapshot, setSnapshot] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -3846,6 +3910,7 @@ function App() {
           <LiveDbSmokePanel refreshVersion={refreshVersion} />
           <DockerContainerExecutionPanel refreshVersion={refreshVersion} />
           <LiveDatabaseWriteSmokePanel refreshVersion={refreshVersion} />
+          <LiveRepositoryWriteSmokePanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
