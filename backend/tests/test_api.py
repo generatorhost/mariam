@@ -71,6 +71,39 @@ def test_health_reports_runtime_services() -> None:
     assert {service["name"] for service in body["services"]} >= {"api", "event_bus", "plugin_registry"}
 
 
+def test_api_error_contract_is_exposed_for_governed_endpoints() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/api-error-contract")
+
+    assert response.status_code == 200
+    contract = response.json()
+    assert contract["title"] == "Mariam Structured API Error Response Contract"
+    assert contract["status"] == "ready"
+    assert contract["data_platform"] == "DB MARIAM"
+    assert "error.request_id" in contract["required_fields"]
+    assert "governed_endpoints" in contract["applies_to"]
+
+
+def test_api_not_found_errors_follow_structured_contract() -> None:
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/api/runtime/not-found-for-error-contract",
+        headers={"x-mariam-request-id": "error-contract-404"},
+    )
+
+    assert response.status_code == 404
+    body = response.json()
+    assert body["detail"] == "Not Found"
+    assert body["error"]["code"] == "http_404"
+    assert body["error"]["status_code"] == 404
+    assert body["error"]["path"] == "/api/runtime/not-found-for-error-contract"
+    assert body["error"]["request_id"] == "error-contract-404"
+    assert body["error"]["data_platform"] == "DB MARIAM"
+    assert body["error"]["traceability"]["governed"] is True
+
+
 def test_auth_session_exposes_roles_and_permissions() -> None:
     client = TestClient(create_app())
 
@@ -2924,7 +2957,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3017,6 +3050,7 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
         check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
         for check in contract["checks"]
     )
+    assert "/api/runtime/api-error-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/visual-contract" in contract["required_endpoints"]
     assert "/api/runtime/frontend/browser-screenshot-plan" in contract["required_endpoints"]
     assert "artifacts/frontend-regression/command-center-browser-screenshot-plan.json" in contract["required_artifacts"]
@@ -3040,7 +3074,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.dependencies import get_command_center_summary_service, get_event_bus, require_permission
+from app.core.errors import api_error_contract
 from app.core.events import InMemoryEventBus
 from app.services.command_center import CommandCenterSummaryService
 
@@ -31,6 +32,11 @@ def command_center_readiness(
         "status": readiness.status,
         "checks": [check.__dict__ for check in readiness.checks],
     }
+
+
+@router.get("/api-error-contract")
+def command_center_api_error_contract() -> dict:
+    return api_error_contract()
 
 
 @router.get("/data-platform/readiness")

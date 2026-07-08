@@ -123,6 +123,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/frontend/browser-screenshot-plan",
+        "/api/runtime/api-error-contract",
         "/api/runtime/verification-report",
         "/api/runtime/verification-automation",
         "/api/runtime/verification-report/snapshots",
@@ -477,6 +478,16 @@ def verify_api_smoke_flow() -> None:
     print("[verify] ok: frontend browser screenshot plan")
     verify_frontend_screenshot_capture()
 
+    api_error_contract = request_json("/api/runtime/api-error-contract")
+    assert_condition(
+        api_error_contract["status"] == "ready"
+        and api_error_contract["data_platform"] == "DB MARIAM"
+        and "error.request_id" in api_error_contract["required_fields"]
+        and "governed_endpoints" in api_error_contract["applies_to"],
+        "API error contract did not expose required governed error fields.",
+    )
+    print("[verify] ok: api error contract")
+
     verification_automation = request_json("/api/runtime/verification-automation")
     assert_condition(
         verification_automation["status"] == "ready"
@@ -491,7 +502,8 @@ def verify_api_smoke_flow() -> None:
         )
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
-        in verification_automation["required_endpoints"],
+        in verification_automation["required_endpoints"]
+        and "/api/runtime/api-error-contract" in verification_automation["required_endpoints"],
         "Verification automation contract did not pass.",
     )
     print("[verify] ok: verification automation contract")
@@ -619,7 +631,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

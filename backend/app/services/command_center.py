@@ -778,10 +778,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=78,
+                completion_percent=80,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
-                next_step="Add structured API error response contracts for governed endpoints.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
+                next_step="Add OpenAPI response examples for governed API error contracts.",
             ),
             CompletionArea(
                 name="Frontend Command Center",
@@ -2208,6 +2208,7 @@ class CommandCenterSummaryService:
             "/api/runtime/frontend/regression-snapshot",
             "/api/runtime/frontend/visual-contract",
             "/api/runtime/frontend/browser-screenshot-plan",
+            "/api/runtime/api-error-contract",
             "/api/runtime/verification-report",
             "/api/runtime/completion-report",
             "/api/runtime/implementation-roadmap",
