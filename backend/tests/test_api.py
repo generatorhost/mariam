@@ -2828,7 +2828,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["area"] == "Verification automation"
     assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2853,6 +2853,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Governance SLA" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
+    assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
     assert snapshot["missing_viewports"] == []
@@ -2879,6 +2880,27 @@ def test_runtime_frontend_visual_contract_records_layout_and_breakpoints() -> No
     assert contract["missing_breakpoint_contracts"] == []
     assert contract["artifact_path"].endswith("command-center-visual-contract.json")
     assert Path(contract["artifact_path"]).exists()
+
+
+def test_runtime_frontend_browser_screenshot_plan_records_viewports_and_artifacts() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/frontend/browser-screenshot-plan")
+
+    assert response.status_code == 200
+    plan = response.json()
+    assert plan["title"] == "Mariam Command Center Browser Screenshot Artifact Plan"
+    assert plan["status"] == "ready"
+    assert plan["data_platform"] == "DB MARIAM"
+    assert "desktop" in [target["name"] for target in plan["viewport_targets"]]
+    assert "#governance" in plan["critical_sections"]
+    assert any(
+        artifact.endswith("desktop-command-center.png")
+        for artifact in plan["screenshot_artifacts"]
+    )
+    assert "screenshot_artifacts_captured" in plan["required_browser_checks"]
+    assert plan["artifact_path"].endswith("command-center-browser-screenshot-plan.json")
+    assert Path(plan["artifact_path"]).exists()
 
 
 def test_runtime_verification_automation_contract_records_local_coverage() -> None:
@@ -2912,7 +2934,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
+    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

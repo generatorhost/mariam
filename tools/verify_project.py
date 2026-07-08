@@ -392,6 +392,7 @@ def verify_api_smoke_flow() -> None:
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
         and "Refresh Visual Contract" in frontend_regression["controls_checked"]
+        and "Refresh Screenshot Plan" in frontend_regression["controls_checked"]
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"],
@@ -409,6 +410,21 @@ def verify_api_smoke_flow() -> None:
         "Frontend visual contract did not pass.",
     )
     print("[verify] ok: frontend visual contract")
+
+    frontend_screenshot_plan = request_json("/api/runtime/frontend/browser-screenshot-plan")
+    assert_condition(
+        frontend_screenshot_plan["status"] == "ready"
+        and any(target["name"] == "desktop" for target in frontend_screenshot_plan["viewport_targets"])
+        and "#governance" in frontend_screenshot_plan["critical_sections"]
+        and any(
+            artifact.endswith("desktop-command-center.png")
+            for artifact in frontend_screenshot_plan["screenshot_artifacts"]
+        )
+        and "screenshot_artifacts_captured"
+        in frontend_screenshot_plan["required_browser_checks"],
+        "Frontend browser screenshot plan did not pass.",
+    )
+    print("[verify] ok: frontend browser screenshot plan")
 
     verification_automation = request_json("/api/runtime/verification-automation")
     assert_condition(
@@ -543,7 +559,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

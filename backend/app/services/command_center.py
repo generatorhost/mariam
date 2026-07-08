@@ -371,6 +371,21 @@ class FrontendVisualContract:
 
 
 @dataclass
+class FrontendBrowserScreenshotPlan:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_file: str
+    artifact_path: str
+    viewport_targets: list[dict[str, int | str]]
+    critical_sections: list[str]
+    screenshot_artifacts: list[str]
+    required_browser_checks: list[str]
+    checks: list[DataPlatformCheck]
+
+
+@dataclass
 class VerificationAutomationContract:
     title: str
     status: str
@@ -766,10 +781,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=74,
+                completion_percent=76,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, and visual contract artifact checks.",
-                next_step="Add real browser screenshot artifacts for critical Command Center flows.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, and browser screenshot artifact planning.",
+                next_step="Capture binary screenshot artifacts in CI/browser runner.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -1717,6 +1732,7 @@ class CommandCenterSummaryService:
             "Escalate Reviewer Workload",
             "Refresh Frontend Regression",
             "Refresh Visual Contract",
+            "Refresh Screenshot Plan",
             "Refresh Verification Automation",
             "Export Diagnostics",
             "Export Completion Report",
@@ -1939,6 +1955,118 @@ class CommandCenterSummaryService:
             breakpoint_contracts_checked=breakpoint_contracts_checked,
             missing_breakpoint_contracts=missing_breakpoint_contracts,
             screenshot_targets=screenshot_targets,
+            checks=checks,
+        )
+
+    def frontend_browser_screenshot_plan(self) -> FrontendBrowserScreenshotPlan:
+        root = Path(__file__).resolve().parents[3]
+        source_file = root / "frontend" / "src" / "main.jsx"
+        artifact_path = (
+            root
+            / "artifacts"
+            / "frontend-regression"
+            / "command-center-browser-screenshot-plan.json"
+        )
+        source_text = source_file.read_text(encoding="utf-8") if source_file.exists() else ""
+        viewport_targets: list[dict[str, int | str]] = [
+            {"name": "desktop", "width": 1280, "height": 720},
+            {"name": "tablet", "width": 900, "height": 900},
+            {"name": "mobile", "width": 390, "height": 844},
+        ]
+        critical_sections = [
+            "#status",
+            "#data-platform",
+            "#verification",
+            "#roadmap",
+            "#missions",
+            "#plugins",
+            "#governance",
+        ]
+        screenshot_artifacts = [
+            "artifacts/frontend-regression/desktop-command-center.png",
+            "artifacts/frontend-regression/tablet-command-center.png",
+            "artifacts/frontend-regression/mobile-command-center.png",
+        ]
+        required_browser_checks = [
+            "no_console_errors",
+            "critical_text_visible",
+            "responsive_layout_visible",
+            "screenshot_artifacts_captured",
+        ]
+        missing_sections = []
+        for section in critical_sections:
+            target_id = section.removeprefix("#")
+            if (
+                section not in source_text
+                and f'id="{target_id}"' not in source_text
+                and f"id='{target_id}'" not in source_text
+            ):
+                missing_sections.append(section)
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        checks = [
+            DataPlatformCheck(
+                name="frontend_source_present",
+                status="ready" if source_file.exists() else "blocked",
+                detail=f"Command Center source file: {source_file}.",
+            ),
+            DataPlatformCheck(
+                name="screenshot_targets_declared",
+                status="ready" if not missing_sections else "blocked",
+                detail=(
+                    "Critical Command Center screenshot sections are declared."
+                    if not missing_sections
+                    else f"Missing screenshot sections: {', '.join(missing_sections)}."
+                ),
+            ),
+            DataPlatformCheck(
+                name="viewport_targets_declared",
+                status="ready" if len(viewport_targets) == 3 else "blocked",
+                detail="Desktop, tablet, and mobile screenshot targets are declared.",
+            ),
+            DataPlatformCheck(
+                name="browser_checks_declared",
+                status="ready" if len(required_browser_checks) == 4 else "blocked",
+                detail="Console, text, responsive layout, and artifact capture checks are declared.",
+            ),
+        ]
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        generated_at = datetime.now(UTC).isoformat()
+        payload = {
+            "title": "Mariam Command Center Browser Screenshot Artifact Plan",
+            "status": status,
+            "generated_at": generated_at,
+            "data_platform": "DB MARIAM",
+            "source_file": str(source_file),
+            "artifact_path": str(artifact_path),
+            "viewport_targets": viewport_targets,
+            "critical_sections": critical_sections,
+            "screenshot_artifacts": screenshot_artifacts,
+            "required_browser_checks": required_browser_checks,
+            "checks": [check.__dict__ for check in checks],
+        }
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        checks.append(
+            DataPlatformCheck(
+                name="artifact_plan_written",
+                status="ready" if artifact_path.exists() else "blocked",
+                detail=f"Browser screenshot plan artifact: {artifact_path}.",
+            )
+        )
+        status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
+        payload["status"] = status
+        payload["checks"] = [check.__dict__ for check in checks]
+        artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return FrontendBrowserScreenshotPlan(
+            title=str(payload["title"]),
+            status=status,
+            generated_at=generated_at,
+            data_platform="DB MARIAM",
+            source_file=str(source_file),
+            artifact_path=str(artifact_path),
+            viewport_targets=viewport_targets,
+            critical_sections=critical_sections,
+            screenshot_artifacts=screenshot_artifacts,
+            required_browser_checks=required_browser_checks,
             checks=checks,
         )
 

@@ -135,6 +135,13 @@ def command_center_frontend_visual_contract(
     return asdict(service.frontend_visual_contract())
 
 
+@router.get("/frontend/browser-screenshot-plan")
+def command_center_frontend_browser_screenshot_plan(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.frontend_browser_screenshot_plan())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

@@ -173,6 +173,12 @@ Frontend visual contracts verify official design tokens, layout contracts, break
 GET /api/runtime/frontend/visual-contract
 ```
 
+Frontend browser screenshot plans define desktop, tablet, and mobile screenshot artifacts and critical sections for browser regression review:
+
+```http
+GET /api/runtime/frontend/browser-screenshot-plan
+```
+
 Verification automation contracts verify the local `npm run verify` entrypoint, backend tests, frontend build, critical endpoint coverage, and generated review artifacts:
 
 ```http

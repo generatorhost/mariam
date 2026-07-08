@@ -206,6 +206,10 @@ async function loadFrontendVisualContract() {
   return apiGet('/api/runtime/frontend/visual-contract');
 }
 
+async function loadFrontendBrowserScreenshotPlan() {
+  return apiGet('/api/runtime/frontend/browser-screenshot-plan');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2816,6 +2820,75 @@ function FrontendVisualContractPanel({ refreshVersion }) {
   );
 }
 
+function FrontendBrowserScreenshotPlanPanel({ refreshVersion }) {
+  const [plan, setPlan] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshScreenshotPlan = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setPlan(await loadFrontendBrowserScreenshotPlan());
+      setStatus('ready');
+    } catch (planError) {
+      setStatus('error');
+      setError(planError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshScreenshotPlan();
+  }, [refreshScreenshotPlan, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Browser Screenshot Artifact Plan</h2>
+        <p>Define desktop, tablet, and mobile screenshot artifacts for critical Command Center sections.</p>
+      </div>
+      <button onClick={refreshScreenshotPlan} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Planning...' : 'Refresh Screenshot Plan'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {plan && (
+        <>
+          <div className="mission-result">
+            <strong>{plan.status}</strong>
+            <span>{plan.data_platform}</span>
+            <p>{plan.artifact_path}</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{plan.viewport_targets.length}</strong><span>Viewports</span></div>
+            <div><strong>{plan.critical_sections.length}</strong><span>Critical Sections</span></div>
+            <div><strong>{plan.screenshot_artifacts.length}</strong><span>Screenshot Artifacts</span></div>
+            <div><strong>{plan.required_browser_checks.length}</strong><span>Browser Checks</span></div>
+          </div>
+          <div className="terms">
+            {plan.viewport_targets.map((target) => (
+              <span key={target.name}>{target.name}: {target.width}x{target.height}</span>
+            ))}
+          </div>
+          <div className="terms">
+            {plan.screenshot_artifacts.map((artifact) => (
+              <span key={artifact}>{artifact}</span>
+            ))}
+          </div>
+          <div className="mission-history">
+            {plan.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -3969,6 +4042,7 @@ function App() {
         <section id="verification" className="workspace-section">
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
           <FrontendVisualContractPanel refreshVersion={refreshVersion} />
+          <FrontendBrowserScreenshotPlanPanel refreshVersion={refreshVersion} />
           <VerificationReportPanel refreshVersion={refreshVersion} />
           <VerificationAutomationPanel refreshVersion={refreshVersion} />
           <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
