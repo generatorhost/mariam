@@ -706,7 +706,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -867,6 +867,20 @@ def verify_api_smoke_flow() -> None:
         and sla_item["sla_state"] == "confirmed"
         and sla_item["escalation_required"] is False,
         "Delivery evidence report did not expose the signed delivery SLA trace.",
+    )
+    drilldown_item = next(
+        (
+            item for item in delivery_evidence_report["sla_drilldown_items"]
+            if item["delivery_id"] == confirmed["delivery_id"]
+        ),
+        None,
+    )
+    assert_condition(
+        delivery_evidence_report["sla_drilldown_summary"]["signed_item_count"] >= 1
+        and drilldown_item is not None
+        and drilldown_item["reviewer_queue"] == "delivery-evidence"
+        and drilldown_item["governance_action"] == "confirm_traceability_complete",
+        "Delivery evidence report did not expose the governance SLA drill-down row.",
     )
     print("[verify] ok: mission -> artifact -> revision -> quality -> package -> client delivery")
 

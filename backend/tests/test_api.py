@@ -1596,6 +1596,14 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
     assert sla_item["delivery_confirmed"] is True
     assert sla_item["sla_state"] == "confirmed"
     assert sla_item["governance_action"] == "confirm_traceability_complete"
+    assert evidence_report["sla_drilldown_summary"]["title"] == "Signed Delivery SLA Drill-down"
+    assert evidence_report["sla_drilldown_summary"]["signed_item_count"] >= 1
+    drilldown_item = next(
+        item for item in evidence_report["sla_drilldown_items"]
+        if item["delivery_id"] == confirmed["delivery_id"]
+    )
+    assert drilldown_item["sla_state"] == "confirmed"
+    assert drilldown_item["reviewer_queue"] == "delivery-evidence"
 
     second_confirm_response = client.post(
         f"/api/artifacts/deliveries/{delivery_package['delivery_id']}/confirm",
@@ -3037,8 +3045,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3188,7 +3196,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

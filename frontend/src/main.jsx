@@ -1768,6 +1768,29 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
               ))}
             </div>
           ) : null}
+          {deliveryEvidenceReport.sla_drilldown_summary && (
+            <>
+              <div className="status-grid">
+                <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.signed_item_count}</strong><span>Signed SLA Rows</span></div>
+                <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.state_counts?.confirmed ?? 0}</strong><span>Confirmed</span></div>
+                <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.state_counts?.review_due ?? 0}</strong><span>Review Due</span></div>
+                <div><strong>{deliveryEvidenceReport.sla_drilldown_summary.state_counts?.escalation_required ?? 0}</strong><span>Escalations</span></div>
+              </div>
+              <div className="mission-history compact-history">
+                {deliveryEvidenceReport.sla_drilldown_items?.length ? (
+                  deliveryEvidenceReport.sla_drilldown_items.slice(0, 5).map((item) => (
+                    <article key={`drilldown-${item.delivery_id}`}>
+                      <strong>{item.sla_state}</strong>
+                      <span>{item.reviewer_queue}</span>
+                      <p>{item.plugin_id} / {item.governance_action} / {item.age_minutes} minutes</p>
+                    </article>
+                  ))
+                ) : (
+                  <p>{deliveryEvidenceReport.sla_drilldown_summary.empty_state}</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
       <div className="mission-history">

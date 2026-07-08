@@ -103,6 +103,8 @@ class DeliveryEvidenceReportResponse(BaseModel):
     invalid_signature_count: int
     evidence_items: list[dict[str, Any]]
     sla_items: list[dict[str, Any]]
+    sla_drilldown_summary: dict[str, Any]
+    sla_drilldown_items: list[dict[str, Any]]
     checks: list[RuntimeCheckResponse]
 
 
