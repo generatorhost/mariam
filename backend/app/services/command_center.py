@@ -1124,10 +1124,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=88,
+                completion_percent=90,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, typed response models for data-platform readiness, migration runner, and seed-data endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
-                next_step="Add typed API response models for backup, Docker, and live smoke endpoints.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, and live repository write smoke endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
+                next_step="Add typed API response models for frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints.",
             ),
             CompletionArea(
                 name="Frontend Command Center",

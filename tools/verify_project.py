@@ -668,7 +668,28 @@ def verify_api_smoke_flow() -> None:
         == "#/components/schemas/DataPlatformReadinessResponse"
         and openapi["paths"]["/api/runtime/data-platform/readiness/export"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
-        == "#/components/schemas/DataPlatformReadinessExportResponse",
+        == "#/components/schemas/DataPlatformReadinessExportResponse"
+        and openapi["paths"]["/api/runtime/data-platform/backup-readiness"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/BackupReadinessStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/plugin-schema-isolation"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/PluginSchemaIsolationStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/docker-persistence"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DockerPersistenceStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/live-db-smoke"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LiveDatabaseSmokeStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/docker-container-execution"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DockerContainerExecutionStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/live-write-smoke"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LiveDatabaseWriteStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/live-repository-write-smoke"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LiveRepositoryWriteStatusResponse",
         "Governed runtime endpoints did not publish typed response models.",
     )
     print("[verify] ok: governed runtime typed response models")
@@ -797,7 +818,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

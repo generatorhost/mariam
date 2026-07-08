@@ -68,6 +68,114 @@ class SeedDataStatusResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class BackupReadinessStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    policy_id: str
+    policy_file: str
+    scope_count: int
+    retention: dict[str, str]
+    contains_secrets: bool
+    checks: list[RuntimeCheckResponse]
+
+
+class PluginSchemaIsolationStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    manifest_id: str
+    manifest_file: str
+    plugin_schema_count: int
+    shared_table_count: int
+    private_table_count: int
+    contains_secrets: bool
+    checks: list[RuntimeCheckResponse]
+
+
+class DockerPersistenceStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    env_file: str
+    compose_file: str
+    postgres_store_count: int
+    database_url_masked: str
+    checks: list[RuntimeCheckResponse]
+
+
+class LiveDatabaseSmokeStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    docker_available: bool
+    compose_config_valid: bool
+    smoke_command: str
+    checks: list[RuntimeCheckResponse]
+
+
+class DockerContainerExecutionStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    postgres_running: bool
+    pg_isready: bool
+    services: list[str]
+    execution_commands: list[str]
+    checks: list[RuntimeCheckResponse]
+
+
+class LiveDatabaseWriteStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    audit_id: str
+    event_id: str
+    audit_written: bool
+    event_written: bool
+    checks: list[RuntimeCheckResponse]
+
+
+class LiveRepositoryWriteStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    mission_id: str
+    artifact_id: str
+    delivery_id: str
+    plugin_id: str
+    runtime_object_id: str
+    ai_resource_route_id: str
+    quality_review_id: str
+    communication_record_id: str
+    document_record_id: str
+    workflow_record_id: str
+    capability_graph_record_id: str
+    vector_index_record_id: str
+    artifact_store_record_id: str
+    mission_written: bool
+    artifact_written: bool
+    delivery_written: bool
+    plugin_written: bool
+    runtime_object_written: bool
+    ai_resource_route_written: bool
+    quality_review_written: bool
+    communication_record_written: bool
+    document_record_written: bool
+    workflow_record_written: bool
+    capability_graph_record_written: bool
+    vector_index_record_written: bool
+    artifact_store_record_written: bool
+    checks: list[RuntimeCheckResponse]
+
+
 class CompletionAreaResponse(BaseModel):
     name: str
     completion_percent: int
@@ -220,54 +328,54 @@ def command_center_data_platform_seed_data(
     return asdict(service.seed_data_status())
 
 
-@router.get("/data-platform/backup-readiness")
+@router.get("/data-platform/backup-readiness", response_model=BackupReadinessStatusResponse)
 def command_center_data_platform_backup_readiness(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> BackupReadinessStatusResponse:
     return asdict(service.backup_readiness_status())
 
 
-@router.get("/data-platform/plugin-schema-isolation")
+@router.get("/data-platform/plugin-schema-isolation", response_model=PluginSchemaIsolationStatusResponse)
 def command_center_data_platform_plugin_schema_isolation(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> PluginSchemaIsolationStatusResponse:
     return asdict(service.plugin_schema_isolation_status())
 
 
-@router.get("/data-platform/docker-persistence")
+@router.get("/data-platform/docker-persistence", response_model=DockerPersistenceStatusResponse)
 def command_center_data_platform_docker_persistence(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DockerPersistenceStatusResponse:
     return asdict(service.docker_persistence_status())
 
 
-@router.get("/data-platform/live-db-smoke")
+@router.get("/data-platform/live-db-smoke", response_model=LiveDatabaseSmokeStatusResponse)
 def command_center_data_platform_live_db_smoke(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> LiveDatabaseSmokeStatusResponse:
     return asdict(service.live_database_smoke_status())
 
 
-@router.get("/data-platform/docker-container-execution")
+@router.get("/data-platform/docker-container-execution", response_model=DockerContainerExecutionStatusResponse)
 def command_center_data_platform_docker_container_execution(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DockerContainerExecutionStatusResponse:
     return asdict(service.docker_container_execution_status())
 
 
-@router.post("/data-platform/live-write-smoke")
+@router.post("/data-platform/live-write-smoke", response_model=LiveDatabaseWriteStatusResponse)
 def command_center_data_platform_live_write_smoke(
     authorization=Depends(require_permission("data_platform.write", "data_platform_smoke")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> LiveDatabaseWriteStatusResponse:
     return asdict(service.live_database_write_status())
 
 
-@router.post("/data-platform/live-repository-write-smoke")
+@router.post("/data-platform/live-repository-write-smoke", response_model=LiveRepositoryWriteStatusResponse)
 def command_center_data_platform_live_repository_write_smoke(
     authorization=Depends(require_permission("data_platform.write", "repository_write_smoke")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> LiveRepositoryWriteStatusResponse:
     return asdict(service.live_repository_write_status())
 
 
