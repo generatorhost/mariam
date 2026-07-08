@@ -4183,11 +4183,17 @@ function AuditPanel({ onActionComplete }) {
   );
 }
 
-function CommandCenterNavigation() {
+function CommandCenterNavigation({ activeSection, onNavigate }) {
   return (
     <nav className="sidebar-nav" aria-label="Command Center sections">
       {commandCenterNav.map((item) => (
-        <a key={item.href} href={item.href}>
+        <a
+          aria-current={activeSection === item.href.slice(1) ? 'page' : undefined}
+          data-active={activeSection === item.href.slice(1) ? 'true' : undefined}
+          key={item.href}
+          href={item.href}
+          onClick={() => onNavigate(item.href.slice(1))}
+        >
           {item.label}
         </a>
       ))}
@@ -4197,8 +4203,36 @@ function CommandCenterNavigation() {
 
 function App() {
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [activeSection, setActiveSection] = useState('status');
   const refreshCommandCenterSummary = useCallback(() => {
     setRefreshVersion((current) => current + 1);
+  }, []);
+
+  useEffect(() => {
+    const sectionIds = commandCenterNav.map((item) => item.href.slice(1));
+    const updateActiveSection = () => {
+      const hashSection = window.location.hash.replace('#', '');
+      if (sectionIds.includes(hashSection)) {
+        setActiveSection(hashSection);
+        return;
+      }
+      const nextActiveSection = sectionIds.reduce((current, sectionId) => {
+        const section = document.getElementById(sectionId);
+        if (!section) {
+          return current;
+        }
+        const top = section.getBoundingClientRect().top;
+        return top <= 140 ? sectionId : current;
+      }, sectionIds[0]);
+      setActiveSection(nextActiveSection);
+    };
+    updateActiveSection();
+    window.addEventListener('hashchange', updateActiveSection);
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    return () => {
+      window.removeEventListener('hashchange', updateActiveSection);
+      window.removeEventListener('scroll', updateActiveSection);
+    };
   }, []);
 
   return (
@@ -4211,7 +4245,10 @@ function App() {
           <strong>Mariam</strong>
           <span>Command Center</span>
         </div>
-        <CommandCenterNavigation />
+        <CommandCenterNavigation
+          activeSection={activeSection}
+          onNavigate={setActiveSection}
+        />
       </aside>
       <section className="workspace" id="workspace" tabIndex="-1">
         <header className="topbar">

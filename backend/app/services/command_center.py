@@ -1118,10 +1118,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=84,
+                completion_percent=86,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add active section highlighting for Command Center navigation.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add persisted Command Center UI preferences for section and filter state.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -2431,6 +2431,8 @@ class CommandCenterSummaryService:
             'className="skip-link"',
             'href="#workspace"',
             'aria-label="Command Center sections"',
+            'aria-current={activeSection === item.href.slice(1) ? \'page\' : undefined}',
+            'data-active={activeSection === item.href.slice(1) ? \'true\' : undefined}',
             'id="workspace" tabIndex="-1"',
             'id="status" tabIndex="-1"',
             'id="data-platform" className="workspace-section" tabIndex="-1"',

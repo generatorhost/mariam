@@ -90,11 +90,18 @@ a {
 }
 
 .sidebar-nav a:hover,
-.sidebar-nav a:focus-visible {
+.sidebar-nav a:focus-visible,
+.sidebar-nav a[aria-current="page"],
+.sidebar-nav a[data-active="true"] {
   background: var(--card2);
   border-color: var(--border);
   color: var(--text);
   outline: none;
+}
+
+.sidebar-nav a[aria-current="page"] {
+  border-left-color: var(--green);
+  box-shadow: inset 3px 0 0 var(--green);
 }
 
 .workspace {
