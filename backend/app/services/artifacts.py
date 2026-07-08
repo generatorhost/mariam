@@ -7,6 +7,7 @@ from app.core.artifacts import (
     ArtifactQualityReview,
     ArtifactQualityReviewRequest,
     ArtifactRejectionRequest,
+    ArtifactRevisionRequest,
     ArtifactStatus,
     DeliveryConfirmationRequest,
     DeliveryPackage,
@@ -128,6 +129,49 @@ class ArtifactService:
                 "mission_id": saved.mission_id,
                 "plugin_id": saved.plugin_id,
                 "rejected_by": request.rejected_by,
+                "status": saved.status,
+            },
+        )
+        return saved
+
+    def request_revision(self, artifact_id: str, request: ArtifactRevisionRequest) -> Artifact:
+        artifact = self._get(artifact_id)
+        if artifact.status != ArtifactStatus.rejected:
+            raise ValueError(f"Artifact {artifact_id} must be rejected before revision can be requested.")
+        revised = artifact.model_copy(
+            update={
+                "status": ArtifactStatus.awaiting_approval,
+                "content": (
+                    f"{artifact.content}\n\nRevision requested: {request.revision_request}. "
+                    "Delivery remains blocked until governance approval."
+                ),
+            }
+        )
+        saved = self._repository.update(revised)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.requested_by,
+                action="artifact.request_revision",
+                target_type="artifact",
+                target_id=artifact_id,
+                decision="approved",
+                evidence={
+                    "mission_id": saved.mission_id,
+                    "plugin_id": saved.plugin_id,
+                    "revision_request": request.revision_request,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "artifact.revision_requested",
+            "artifact-service",
+            {
+                "artifact_id": saved.artifact_id,
+                "mission_id": saved.mission_id,
+                "plugin_id": saved.plugin_id,
+                "requested_by": request.requested_by,
                 "status": saved.status,
             },
         )

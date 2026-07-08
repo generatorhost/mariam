@@ -258,6 +258,14 @@ async function rejectArtifact(artifactId) {
   });
 }
 
+async function requestArtifactRevision(artifactId) {
+  return apiRequest(`/api/artifacts/${artifactId}/request-revision`, {
+    requested_by: 'command-center-artifact-governance',
+    revision_request: 'Add traceability evidence and keep delivery blocked until governance approval.',
+    evidence: { revision_loop: 'Requested from Command Center artifact panel' },
+  });
+}
+
 async function reviewArtifactQuality(artifactId) {
   return apiRequest(`/api/artifacts/${artifactId}/quality-review`, {
     reviewed_by: 'command-center-quality-governance',
@@ -1411,6 +1419,22 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }
 
+  async function handleArtifactRevision() {
+    if (!artifact) return;
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await requestArtifactRevision(artifact.artifact_id);
+      setArtifact(body.artifact);
+      setQualityReview(null);
+      onActionComplete();
+      setStatus('ready');
+    } catch (artifactError) {
+      setStatus('error');
+      setError(artifactError.message);
+    }
+  }
+
   async function handleQualityReview() {
     if (!artifact) return;
     setStatus('loading');
@@ -1493,6 +1517,13 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
                 disabled={status === 'loading' || !qualityReview?.passed}
               >
                 Package Delivery
+              </button>
+            </div>
+          )}
+          {artifact.status === 'rejected' && (
+            <div className="mission-actions">
+              <button onClick={handleArtifactRevision} disabled={status === 'loading'}>
+                Request Changes
               </button>
             </div>
           )}

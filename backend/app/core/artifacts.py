@@ -22,6 +22,12 @@ class ArtifactRejectionRequest(BaseModel):
     evidence: dict[str, str] = Field(default_factory=dict)
 
 
+class ArtifactRevisionRequest(BaseModel):
+    requested_by: str = Field(default="artifact-governance", min_length=2)
+    revision_request: str = Field(min_length=3)
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
 class ArtifactDeliveryRequest(BaseModel):
     packaged_by: str = Field(default="delivery-governance", min_length=2)
     destination: str = Field(default="client-review-channel", min_length=3)

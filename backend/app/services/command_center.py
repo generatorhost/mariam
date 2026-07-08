@@ -381,7 +381,7 @@ class CommandCenterSummaryService:
                 "audit_records": summary.audit_records,
                 "runtime_events": summary.runtime_events,
             },
-            smoke_flow="mission -> artifact -> quality review -> delivery package -> client delivery confirmation",
+            smoke_flow="mission -> artifact -> rejection revision loop -> quality review -> delivery package -> client delivery confirmation",
             required_endpoints=[
                 "/api/health",
                 "/api/runtime/summary",
@@ -534,14 +534,14 @@ class CommandCenterSummaryService:
                     verification_signal="Smoke verification exercises mission to artifact to quality to delivery confirmation.",
                 ),
                 UsageGuideStep(
-                    action="Approve artifact and package delivery",
-                    frontend_control="Approve Artifact / Run Quality Review / Package Delivery",
-                    api_endpoint="POST /api/artifacts/{artifact_id}/approve; POST /quality-review; POST /package-delivery",
-                    backend_handler="approve_artifact, review_artifact_quality, package_artifact_delivery",
-                    service_effect="Moves artifact through approval, quality gate, and client package creation.",
+                    action="Approve, revise, and package artifact",
+                    frontend_control="Approve Artifact / Reject Artifact / Request Changes / Run Quality Review / Package Delivery",
+                    api_endpoint="POST /api/artifacts/{artifact_id}/approve; POST /reject; POST /request-revision; POST /quality-review; POST /package-delivery",
+                    backend_handler="approve_artifact, reject_artifact, request_artifact_revision, review_artifact_quality, package_artifact_delivery",
+                    service_effect="Moves artifact through approval, rejection revision loop, quality gate, and client package creation.",
                     data_platform_effect="Stores approval, quality, delivery package, audit, and event evidence.",
                     result="A client delivery package becomes ready for confirmation.",
-                    verification_signal="Smoke verification rejects premature delivery packaging and confirms the valid path.",
+                    verification_signal="Smoke verification rejects premature delivery packaging, tests revision loop, and confirms the valid path.",
                 ),
                 UsageGuideStep(
                     action="Register and govern plugin",
@@ -610,10 +610,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=64,
+                completion_percent=66,
                 status="executable",
-                evidence="Mission approval, artifact approval, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add human identity, approval assignment, rejection revision loops, and notification routing.",
+                evidence="Mission approval, artifact approval, rejection revision loop, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add human identity, approval assignment, and notification routing.",
             ),
             CompletionArea(
                 name="Verification automation",

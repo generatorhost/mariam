@@ -1245,6 +1245,70 @@ def test_artifact_can_be_rejected_with_governance_reason() -> None:
     ]
 
 
+def test_rejected_artifact_can_request_revision_and_return_to_approval() -> None:
+    client = TestClient(create_app())
+    mission_id = client.post(
+        "/api/missions",
+        json={
+            "plugin_id": "crm",
+            "user_request": "Prepare a client report that may need revision.",
+            "requested_by": "command-center-user",
+        },
+    ).json()["mission"]["mission_id"]
+    artifact = client.post(f"/api/artifacts/from-mission/{mission_id}").json()["artifact"]
+    client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/reject",
+        json={
+            "rejected_by": "artifact-governance",
+            "reason": "Request stronger client evidence before delivery.",
+            "evidence": {"review": "revision-needed"},
+        },
+    )
+
+    revision_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/request-revision",
+        json={
+            "requested_by": "artifact-governance",
+            "revision_request": "Add traceability evidence and delivery constraints.",
+            "evidence": {"revision_loop": "opened"},
+        },
+    )
+
+    assert revision_response.status_code == 200
+    revised_artifact = revision_response.json()["artifact"]
+    assert revised_artifact["status"] == "awaiting_approval"
+    assert "Revision requested" in revised_artifact["content"]
+    assert "Delivery remains blocked until governance approval" in revised_artifact["content"]
+
+    approve_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/approve",
+        json={
+            "approved_by": "artifact-governance",
+            "evidence": {"review": "revised-artifact-approved"},
+        },
+    )
+    assert approve_response.status_code == 200
+    quality_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/quality-review",
+        json={"reviewed_by": "quality-governance", "evidence": {"quality": "revision-loop"}},
+    )
+    assert quality_response.status_code == 200
+    assert quality_response.json()["quality_review"]["passed"] is True
+
+    audit_response = client.get("/api/audit")
+    assert artifact["artifact_id"] in [
+        record["target_id"]
+        for record in audit_response.json()["audit_records"]
+        if record["action"] == "artifact.request_revision"
+    ]
+    events_response = client.get("/api/runtime/events")
+    assert artifact["artifact_id"] in [
+        event["payload"].get("artifact_id")
+        for event in events_response.json()["events"]
+        if event["name"] == "artifact.revision_requested"
+    ]
+
+
 def test_plugin_validation_records_audit_event_and_stamp() -> None:
     client = TestClient(create_app())
     manifest_path = Path(__file__).resolve().parents[2] / "plugins" / "crm" / "manifest.json"
@@ -2390,8 +2454,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2408,7 +2472,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

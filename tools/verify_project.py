@@ -237,7 +237,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
@@ -265,6 +265,31 @@ def verify_api_smoke_flow() -> None:
         },
     )["mission"]
     artifact = request_json(f"/api/artifacts/from-mission/{mission['mission_id']}", "POST", {})["artifact"]
+    rejected = request_json(
+        f"/api/artifacts/{artifact['artifact_id']}/reject",
+        "POST",
+        {
+            "rejected_by": "project-verifier",
+            "reason": "Verify artifact revision loop before approval.",
+            "evidence": {"verification": "artifact-rejected-for-revision"},
+        },
+    )["artifact"]
+    assert_condition(rejected["status"] == "rejected", "Artifact rejection did not return rejected status.")
+
+    revision = request_json(
+        f"/api/artifacts/{artifact['artifact_id']}/request-revision",
+        "POST",
+        {
+            "requested_by": "project-verifier",
+            "revision_request": "Add traceability evidence before final approval.",
+            "evidence": {"verification": "artifact-revision-requested"},
+        },
+    )["artifact"]
+    assert_condition(
+        revision["status"] == "awaiting_approval" and "Revision requested" in revision["content"],
+        "Artifact revision loop did not return the artifact to approval.",
+    )
+
     approved = request_json(
         f"/api/artifacts/{artifact['artifact_id']}/approve",
         "POST",
@@ -328,7 +353,7 @@ def verify_api_smoke_flow() -> None:
         },
     )["delivery_package"]
     assert_condition(confirmed["status"] == "delivered_to_client", "Delivery was not confirmed to client.")
-    print("[verify] ok: mission -> artifact -> quality -> package -> client delivery")
+    print("[verify] ok: mission -> artifact -> revision -> quality -> package -> client delivery")
 
 
 def main() -> None:

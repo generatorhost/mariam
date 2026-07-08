@@ -5,6 +5,7 @@ from app.core.artifacts import (
     ArtifactDeliveryRequest,
     ArtifactQualityReviewRequest,
     ArtifactRejectionRequest,
+    ArtifactRevisionRequest,
     DeliveryConfirmationRequest,
 )
 from app.dependencies import get_artifact_service
@@ -99,6 +100,19 @@ def reject_artifact(
         artifact = service.reject(artifact_id, request)
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"artifact": artifact.model_dump(mode="json")}
+
+
+@router.post("/{artifact_id}/request-revision")
+def request_artifact_revision(
+    artifact_id: str,
+    request: ArtifactRevisionRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        artifact = service.request_revision(artifact_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     return {"artifact": artifact.model_dump(mode="json")}
 
 
