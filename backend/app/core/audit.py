@@ -23,6 +23,17 @@ class ApprovalAssignmentRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class NotificationRoutingRequest(BaseModel):
+    routed_by: str = Field(default="governance-router", min_length=2)
+    recipient_id: str = Field(min_length=2)
+    channel: str = Field(default="command-center", min_length=2)
+    subject: str = Field(min_length=3)
+    message: str = Field(min_length=3)
+    target_type: str = Field(min_length=2)
+    target_id: str = Field(min_length=2)
+    evidence: dict = Field(default_factory=dict)
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str

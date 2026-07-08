@@ -193,6 +193,12 @@ The implementation roadmap can be exported as a JSON review package:
 POST /api/runtime/implementation-roadmap/export
 ```
 
+Governance notification routing records reviewer notifications as DB MARIAM audit evidence:
+
+```http
+POST /api/audit/notifications/route
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

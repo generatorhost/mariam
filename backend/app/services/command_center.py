@@ -580,6 +580,16 @@ class CommandCenterSummaryService:
                     verification_signal="verify_project.py posts an approval assignment and checks the assignment decision.",
                 ),
                 UsageGuideStep(
+                    action="Route governance notification",
+                    frontend_control="Route Notification",
+                    api_endpoint="POST /api/audit/notifications/route",
+                    backend_handler="route_notification",
+                    service_effect="Routes a governed notification to the assigned human reviewer and emits a traceable notification event.",
+                    data_platform_effect="Stores recipient, channel, subject, and target evidence in DB MARIAM audit records.",
+                    result="The user sees the routed recipient, channel, and audit id before review work continues.",
+                    verification_signal="verify_project.py posts a notification route and checks the routed decision.",
+                ),
+                UsageGuideStep(
                     action="Register and govern plugin",
                     frontend_control="Register CRM Plugin / Validate / Enable / Impact / Approve / Disable",
                     api_endpoint="POST /api/plugins and governed plugin lifecycle endpoints",
@@ -646,10 +656,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=68,
+                completion_percent=70,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add human identity and notification routing.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add human identity enforcement.",
             ),
             CompletionArea(
                 name="Verification automation",

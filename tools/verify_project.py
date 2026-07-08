@@ -282,10 +282,32 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: approval assignment")
 
+    notification_route = request_json(
+        "/api/audit/notifications/route",
+        "POST",
+        {
+            "routed_by": "project-verifier",
+            "recipient_id": "quality-reviewer-01",
+            "channel": "command-center",
+            "subject": "Verification artifact review",
+            "message": "Verify notification routing before client delivery.",
+            "target_type": "artifact",
+            "target_id": "verification-artifact-review",
+            "evidence": {"verification": "notification-routed"},
+        },
+    )["audit_record"]
+    assert_condition(
+        notification_route["decision"] == "routed"
+        and notification_route["evidence"]["recipient_id"] == "quality-reviewer-01"
+        and notification_route["evidence"]["channel"] == "command-center",
+        "Notification routing did not record the expected audit evidence.",
+    )
+    print("[verify] ok: notification routing")
+
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

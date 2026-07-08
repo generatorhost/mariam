@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.core.audit import ApprovalAssignmentRequest, AuditRecordRequest
+from app.core.audit import ApprovalAssignmentRequest, AuditRecordRequest, NotificationRoutingRequest
 from app.dependencies import get_audit_service
 from app.services.audit import AuditService
 
@@ -27,4 +27,13 @@ def assign_approval(
     service: AuditService = Depends(get_audit_service),
 ) -> dict:
     record = service.assign_approval(request)
+    return {"audit_record": record.model_dump(mode="json")}
+
+
+@router.post("/notifications/route")
+def route_notification(
+    request: NotificationRoutingRequest,
+    service: AuditService = Depends(get_audit_service),
+) -> dict:
+    record = service.route_notification(request)
     return {"audit_record": record.model_dump(mode="json")}

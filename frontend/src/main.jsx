@@ -611,6 +611,19 @@ async function assignApproval() {
   });
 }
 
+async function routeGovernanceNotification() {
+  return apiRequest('/api/audit/notifications/route', {
+    routed_by: 'command-center-governance',
+    recipient_id: 'quality-reviewer-01',
+    channel: 'command-center',
+    subject: 'Artifact review assigned',
+    message: 'Please review the assigned artifact before client delivery.',
+    target_type: 'artifact',
+    target_id: 'command-center-artifact-review',
+    evidence: { notification_source: 'command-center' },
+  });
+}
+
 function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [runtimeObjects, setRuntimeObjects] = useState([]);
   const [dnaPackage, setDnaPackage] = useState(null);
@@ -3045,6 +3058,7 @@ function RuntimeObjectPanel({ onActionComplete }) {
 function AuditPanel({ onActionComplete }) {
   const [auditRecord, setAuditRecord] = useState(null);
   const [assignmentRecord, setAssignmentRecord] = useState(null);
+  const [notificationRecord, setNotificationRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -3076,6 +3090,20 @@ function AuditPanel({ onActionComplete }) {
     }
   }
 
+  async function handleNotificationRouting() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await routeGovernanceNotification();
+      setNotificationRecord(body.audit_record);
+      setStatus('ready');
+      onActionComplete();
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -3087,6 +3115,9 @@ function AuditPanel({ onActionComplete }) {
       </button>
       <button onClick={handleApprovalAssignment} disabled={status === 'loading'}>
         {status === 'loading' ? 'Assigning...' : 'Assign Approval'}
+      </button>
+      <button onClick={handleNotificationRouting} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Routing...' : 'Route Notification'}
       </button>
       {error && <p className="error">{error}</p>}
       {auditRecord && (
@@ -3113,6 +3144,20 @@ function AuditPanel({ onActionComplete }) {
           <p>
             Audit <strong>{assignmentRecord.audit_id}</strong> recorded in{' '}
             <strong>{assignmentRecord.data_platform}</strong>.
+          </p>
+        </div>
+      )}
+      {notificationRecord && (
+        <div className="mission-result">
+          <h3>Notification Routed</h3>
+          <p>
+            <strong>{notificationRecord.evidence.subject}</strong> routed to{' '}
+            <strong>{notificationRecord.evidence.recipient_id}</strong> through{' '}
+            <strong>{notificationRecord.evidence.channel}</strong>.
+          </p>
+          <p>
+            Audit <strong>{notificationRecord.audit_id}</strong> recorded in{' '}
+            <strong>{notificationRecord.data_platform}</strong>.
           </p>
         </div>
       )}

@@ -1,4 +1,10 @@
-from app.core.audit import ApprovalAssignmentRequest, AuditRecord, AuditRecordRequest, create_audit_record
+from app.core.audit import (
+    ApprovalAssignmentRequest,
+    AuditRecord,
+    AuditRecordRequest,
+    NotificationRoutingRequest,
+    create_audit_record,
+)
 from app.core.events import InMemoryEventBus
 from app.repositories.audit import AuditRepository
 
@@ -52,6 +58,39 @@ class AuditService:
                 "assigned_by": request.assigned_by,
                 "assignee_id": request.assignee_id,
                 "approval_role": request.approval_role,
+            },
+        )
+        return record
+
+    def route_notification(self, request: NotificationRoutingRequest) -> AuditRecord:
+        record = self.record(
+            AuditRecordRequest(
+                actor_id=request.routed_by,
+                action="governance.route_notification",
+                target_type=request.target_type,
+                target_id=request.target_id,
+                decision="routed",
+                evidence={
+                    "recipient_id": request.recipient_id,
+                    "channel": request.channel,
+                    "subject": request.subject,
+                    "message": request.message,
+                    "data_platform": "DB MARIAM",
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "governance.notification_routed",
+            "audit-service",
+            {
+                "audit_id": record.audit_id,
+                "target_type": request.target_type,
+                "target_id": request.target_id,
+                "routed_by": request.routed_by,
+                "recipient_id": request.recipient_id,
+                "channel": request.channel,
+                "subject": request.subject,
             },
         )
         return record
