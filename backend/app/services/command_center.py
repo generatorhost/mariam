@@ -191,6 +191,17 @@ class DataPlatformReadiness:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class DataPlatformReadinessExportPackage:
+    export_id: str
+    status: str
+    format: str
+    generated_at: str
+    package_manifest: dict[str, object]
+    readiness: DataPlatformReadiness
+    data_platform: str = "DB MARIAM"
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -706,3 +717,23 @@ class CommandCenterSummaryService:
         credentials, host = parsed.netloc.rsplit("@", 1)
         username = credentials.split(":", 1)[0]
         return urlunsplit((parsed.scheme, f"{username}:***@{host}", parsed.path, parsed.query, parsed.fragment))
+
+    def export_data_platform_readiness(self) -> DataPlatformReadinessExportPackage:
+        readiness = self.data_platform_readiness()
+        return DataPlatformReadinessExportPackage(
+            export_id=f"data-platform-readiness-export-{uuid4()}",
+            status="ready_for_review",
+            format="json",
+            generated_at=datetime.now(UTC).isoformat(),
+            package_manifest={
+                "title": readiness.title,
+                "readiness_status": readiness.status,
+                "database_name": readiness.database_name,
+                "migration_count": len(readiness.migrations_found),
+                "expected_table_count": len(readiness.expected_tables),
+                "check_count": len(readiness.checks),
+                "secrets_masked": "***" in readiness.database_url,
+                "requires_governance_review_before_external_delivery": True,
+            },
+            readiness=readiness,
+        )

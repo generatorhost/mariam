@@ -147,6 +147,17 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: data platform readiness")
 
+    data_platform_export = request_json(
+        "/api/runtime/data-platform/readiness/export",
+        "POST",
+        {},
+    )["export_package"]
+    assert_condition(
+        data_platform_export["package_manifest"]["secrets_masked"] is True,
+        "DB MARIAM data platform readiness export did not mask secrets.",
+    )
+    print("[verify] ok: data platform readiness export")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),

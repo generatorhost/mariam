@@ -40,6 +40,13 @@ def command_center_data_platform_readiness(
     return asdict(service.data_platform_readiness())
 
 
+@router.post("/data-platform/readiness/export")
+def export_command_center_data_platform_readiness(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return {"export_package": asdict(service.export_data_platform_readiness())}
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

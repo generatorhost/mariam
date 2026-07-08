@@ -62,6 +62,10 @@ async function loadDataPlatformReadiness() {
   return apiGet('/api/runtime/data-platform/readiness');
 }
 
+async function exportDataPlatformReadiness() {
+  return apiRequest('/api/runtime/data-platform/readiness/export', {});
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1686,6 +1690,7 @@ function SystemReadinessPanel({ refreshVersion }) {
 
 function DataPlatformReadinessPanel({ refreshVersion }) {
   const [readiness, setReadiness] = useState(null);
+  const [exportPackage, setExportPackage] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
 
@@ -1705,6 +1710,19 @@ function DataPlatformReadinessPanel({ refreshVersion }) {
     refreshReadiness();
   }, [refreshReadiness, refreshVersion]);
 
+  async function handleDataPlatformExport() {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await exportDataPlatformReadiness();
+      setExportPackage(body.export_package);
+      setStatus('ready');
+    } catch (readinessError) {
+      setStatus('error');
+      setError(readinessError.message);
+    }
+  }
+
   return (
     <section className="panel mission-panel">
       <div>
@@ -1714,7 +1732,19 @@ function DataPlatformReadinessPanel({ refreshVersion }) {
       <button onClick={refreshReadiness} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh DB MARIAM Readiness'}
       </button>
+      <button onClick={handleDataPlatformExport} disabled={status === 'loading' || !readiness}>
+        Export DB Readiness
+      </button>
       {error && <p className="error">{error}</p>}
+      {exportPackage && (
+        <div className="mission-result">
+          <strong>DB Readiness Export Ready</strong>
+          <span>{exportPackage.export_id}</span>
+          <p>
+            {exportPackage.status} / {exportPackage.package_manifest.expected_table_count} tables
+          </p>
+        </div>
+      )}
       {readiness && (
         <>
           <div className="mission-result">

@@ -73,6 +73,12 @@ DB MARIAM migration and repository boundary readiness can be reviewed through:
 GET /api/runtime/data-platform/readiness
 ```
 
+DB MARIAM readiness can also be exported as a JSON review package without exposing secrets:
+
+```http
+POST /api/runtime/data-platform/readiness/export
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http
