@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.core.data_records import (
     ArtifactStoreRecord,
@@ -112,6 +112,9 @@ class LogsStoreRecordRepository(Protocol):
     def exists(self, log_id: str, correlation_id: str, status: str = "recorded") -> bool:
         pass
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        pass
+
 
 class ArtifactLineageRecordRepository(Protocol):
     def ensure_schema(self) -> None:
@@ -121,6 +124,9 @@ class ArtifactLineageRecordRepository(Protocol):
         pass
 
     def exists(self, lineage_id: str, artifact_id: str, status: str = "recorded") -> bool:
+        pass
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
         pass
 
 
@@ -720,6 +726,29 @@ class CursorLogsStoreRecordRepository:
         )
         return self._cursor.fetchone() is not None
 
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                log_id,
+                source,
+                severity,
+                message,
+                correlation_id,
+                context,
+                status,
+                data_platform,
+                created_at
+            FROM logs_store_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]
+
 
 class CursorArtifactLineageRecordRepository:
     def __init__(self, cursor) -> None:
@@ -787,3 +816,27 @@ class CursorArtifactLineageRecordRepository:
             (lineage_id, artifact_id, "DB MARIAM", status),
         )
         return self._cursor.fetchone() is not None
+
+    def list_recent(self, limit: int = 10) -> list[dict[str, Any]]:
+        self.ensure_schema()
+        self._cursor.execute(
+            """
+            SELECT
+                lineage_id,
+                artifact_id,
+                mission_id,
+                parent_artifact_id,
+                transformation,
+                produced_by,
+                lineage_metadata,
+                status,
+                data_platform,
+                created_at
+            FROM artifact_lineage_records
+            WHERE data_platform = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            ("DB MARIAM", limit),
+        )
+        return [dict(row) for row in self._cursor.fetchall()]

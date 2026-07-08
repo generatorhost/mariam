@@ -184,6 +184,26 @@ class LiveRepositoryWriteStatusResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class LogsStoreReadStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
+class ArtifactLineageReadStatusResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    record_count: int
+    records: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
 class CompletionAreaResponse(BaseModel):
     name: str
     completion_percent: int
@@ -505,6 +525,20 @@ def command_center_data_platform_live_repository_write_smoke(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
 ) -> LiveRepositoryWriteStatusResponse:
     return asdict(service.live_repository_write_status())
+
+
+@router.get("/data-platform/logs-store", response_model=LogsStoreReadStatusResponse)
+def command_center_data_platform_logs_store(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> LogsStoreReadStatusResponse:
+    return asdict(service.logs_store_read_status())
+
+
+@router.get("/data-platform/artifact-lineage", response_model=ArtifactLineageReadStatusResponse)
+def command_center_data_platform_artifact_lineage(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> ArtifactLineageReadStatusResponse:
+    return asdict(service.artifact_lineage_read_status())
 
 
 @router.get("/frontend/regression-snapshot", response_model=FrontendRegressionSnapshotResponse)

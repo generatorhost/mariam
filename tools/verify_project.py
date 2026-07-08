@@ -177,6 +177,8 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/docker-persistence",
         "/api/runtime/data-platform/live-db-smoke",
         "/api/runtime/data-platform/docker-container-execution",
+        "/api/runtime/data-platform/logs-store",
+        "/api/runtime/data-platform/artifact-lineage",
         "/api/runtime/frontend/regression-snapshot",
         "/api/runtime/frontend/visual-contract",
         "/api/runtime/frontend/browser-screenshot-plan",
@@ -506,6 +508,26 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: live repository write smoke")
 
+    logs_store_read = request_json("/api/runtime/data-platform/logs-store")
+    artifact_lineage_read = request_json("/api/runtime/data-platform/artifact-lineage")
+    assert_condition(
+        logs_store_read["status"] == "ready"
+        and logs_store_read["data_platform"] == "DB MARIAM"
+        and logs_store_read["record_count"] >= 1
+        and live_repository_write_smoke["logs_store_record_id"]
+        in [record["log_id"] for record in logs_store_read["records"]],
+        "DB MARIAM logs store read API did not return the latest repository smoke log record.",
+    )
+    assert_condition(
+        artifact_lineage_read["status"] == "ready"
+        and artifact_lineage_read["data_platform"] == "DB MARIAM"
+        and artifact_lineage_read["record_count"] >= 1
+        and live_repository_write_smoke["artifact_lineage_record_id"]
+        in [record["lineage_id"] for record in artifact_lineage_read["records"]],
+        "DB MARIAM artifact lineage read API did not return the latest repository smoke lineage record.",
+    )
+    print("[verify] ok: logs store and artifact lineage read APIs")
+
     frontend_regression = request_json("/api/runtime/frontend/regression-snapshot")
     assert_condition(
         frontend_regression["status"] == "ready"
@@ -790,6 +812,12 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/data-platform/live-repository-write-smoke"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/LiveRepositoryWriteStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/logs-store"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LogsStoreReadStatusResponse"
+        and openapi["paths"]["/api/runtime/data-platform/artifact-lineage"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ArtifactLineageReadStatusResponse"
         and openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/FrontendRegressionSnapshotResponse"
@@ -1014,7 +1042,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

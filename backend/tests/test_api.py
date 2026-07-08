@@ -3262,6 +3262,16 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/LiveRepositoryWriteStatusResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/data-platform/logs-store"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/LogsStoreReadStatusResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/data-platform/artifact-lineage"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ArtifactLineageReadStatusResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/FrontendRegressionSnapshotResponse"
@@ -3293,6 +3303,8 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "DockerContainerExecutionStatusResponse" in openapi["components"]["schemas"]
     assert "LiveDatabaseWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LiveRepositoryWriteStatusResponse" in openapi["components"]["schemas"]
+    assert "LogsStoreReadStatusResponse" in openapi["components"]["schemas"]
+    assert "ArtifactLineageReadStatusResponse" in openapi["components"]["schemas"]
     live_repository_properties = openapi["components"]["schemas"]["LiveRepositoryWriteStatusResponse"][
         "properties"
     ]
@@ -3333,7 +3345,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3581,7 +3593,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3848,6 +3860,50 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert "live_logs_store_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_lineage_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
+
+
+def test_data_platform_logs_store_and_artifact_lineage_read_apis_return_recent_records() -> None:
+    client = TestClient(create_app())
+
+    smoke_response = client.post("/api/runtime/data-platform/live-repository-write-smoke")
+    smoke = smoke_response.json()
+
+    logs_response = client.get("/api/runtime/data-platform/logs-store")
+    lineage_response = client.get("/api/runtime/data-platform/artifact-lineage")
+
+    assert smoke_response.status_code == 200
+    assert smoke["status"] == "ready"
+    assert logs_response.status_code == 200
+    assert lineage_response.status_code == 200
+    logs_status = logs_response.json()
+    lineage_status = lineage_response.json()
+    assert logs_status["title"] == "DB MARIAM Logs Store Read API"
+    assert logs_status["status"] == "ready"
+    assert logs_status["data_platform"] == "DB MARIAM"
+    assert logs_status["record_count"] >= 1
+    assert smoke["logs_store_record_id"] in [record["log_id"] for record in logs_status["records"]]
+    log_record = next(
+        record for record in logs_status["records"] if record["log_id"] == smoke["logs_store_record_id"]
+    )
+    assert log_record["source"] == "db-mariam-repository-smoke"
+    assert log_record["context"]["verification"] == "repository-write-smoke"
+    assert all(check["status"] == "ready" for check in logs_status["checks"])
+    assert lineage_status["title"] == "DB MARIAM Artifact Lineage Read API"
+    assert lineage_status["status"] == "ready"
+    assert lineage_status["data_platform"] == "DB MARIAM"
+    assert lineage_status["record_count"] >= 1
+    assert smoke["artifact_lineage_record_id"] in [
+        record["lineage_id"] for record in lineage_status["records"]
+    ]
+    lineage_record = next(
+        record
+        for record in lineage_status["records"]
+        if record["lineage_id"] == smoke["artifact_lineage_record_id"]
+    )
+    assert lineage_record["artifact_id"] == smoke["artifact_id"]
+    assert lineage_record["mission_id"] == smoke["mission_id"]
+    assert lineage_record["lineage_metadata"]["verification"] == "repository-write-smoke"
+    assert all(check["status"] == "ready" for check in lineage_status["checks"])
 
 
 def test_mission_list_reads_saved_mission_history() -> None:
