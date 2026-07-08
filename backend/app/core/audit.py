@@ -63,6 +63,32 @@ class ReviewerWorkloadReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class GovernanceSLAItem(BaseModel):
+    target_type: str
+    target_id: str
+    reviewer_id: str
+    approval_role: str
+    age_minutes: int
+    sla_minutes: int
+    escalation_after_minutes: int
+    status: str
+    escalation_required: bool
+    data_platform: str = "DB MARIAM"
+
+
+class GovernanceSLAReport(BaseModel):
+    title: str
+    status: str
+    generated_at: datetime
+    sla_minutes: int
+    escalation_after_minutes: int
+    due_soon_count: int
+    overdue_count: int
+    escalation_required_count: int
+    items: list[GovernanceSLAItem]
+    data_platform: str = "DB MARIAM"
+
+
 class AuditRecord(BaseModel):
     audit_id: str
     actor_id: str

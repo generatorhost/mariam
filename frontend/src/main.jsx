@@ -695,6 +695,11 @@ async function loadReviewerWorkload() {
   return body.workload_report;
 }
 
+async function loadGovernanceSLA() {
+  const body = await apiGet('/api/audit/governance-sla');
+  return body.sla_report;
+}
+
 async function escalateReviewerWorkload() {
   return apiRequest('/api/audit/escalations', {
     escalated_by: 'command-center-governance',
@@ -3657,6 +3662,7 @@ function AuditPanel({ onActionComplete }) {
   const [assignmentRecord, setAssignmentRecord] = useState(null);
   const [notificationRecord, setNotificationRecord] = useState(null);
   const [workloadReport, setWorkloadReport] = useState(null);
+  const [slaReport, setSlaReport] = useState(null);
   const [escalationRecord, setEscalationRecord] = useState(null);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
@@ -3666,6 +3672,7 @@ function AuditPanel({ onActionComplete }) {
     setError('');
     try {
       setWorkloadReport(await loadReviewerWorkload());
+      setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
     } catch (auditError) {
       setStatus('error');
@@ -3676,6 +3683,18 @@ function AuditPanel({ onActionComplete }) {
   useEffect(() => {
     refreshReviewerWorkload();
   }, [refreshReviewerWorkload]);
+
+  const refreshGovernanceSLA = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setSlaReport(await loadGovernanceSLA());
+      setStatus('ready');
+    } catch (auditError) {
+      setStatus('error');
+      setError(auditError.message);
+    }
+  }, []);
 
   async function handleAudit() {
     setStatus('loading');
@@ -3698,6 +3717,7 @@ function AuditPanel({ onActionComplete }) {
       const body = await assignApproval();
       setAssignmentRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
+      setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -3713,6 +3733,7 @@ function AuditPanel({ onActionComplete }) {
       const body = await routeGovernanceNotification();
       setNotificationRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
+      setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -3728,6 +3749,7 @@ function AuditPanel({ onActionComplete }) {
       const body = await escalateReviewerWorkload();
       setEscalationRecord(body.audit_record);
       setWorkloadReport(await loadReviewerWorkload());
+      setSlaReport(await loadGovernanceSLA());
       setStatus('ready');
       onActionComplete();
     } catch (auditError) {
@@ -3753,6 +3775,9 @@ function AuditPanel({ onActionComplete }) {
       </button>
       <button onClick={refreshReviewerWorkload} disabled={status === 'loading'}>
         {status === 'loading' ? 'Refreshing...' : 'Refresh Reviewer Workload'}
+      </button>
+      <button onClick={refreshGovernanceSLA} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Refreshing...' : 'Refresh Governance SLA'}
       </button>
       <button onClick={handleReviewerEscalation} disabled={status === 'loading'}>
         {status === 'loading' ? 'Escalating...' : 'Escalate Reviewer Workload'}
@@ -3843,6 +3868,35 @@ function AuditPanel({ onActionComplete }) {
             <strong>{escalationRecord.data_platform}</strong>.
           </p>
         </div>
+      )}
+      {slaReport && (
+        <>
+          <div className="mission-result">
+            <h3>Governance SLA</h3>
+            <p>
+              <strong>{slaReport.status}</strong> / SLA{' '}
+              <strong>{slaReport.sla_minutes}</strong> minutes / escalation after{' '}
+              <strong>{slaReport.escalation_after_minutes}</strong> minutes.
+            </p>
+            <p>
+              Due soon: <strong>{slaReport.due_soon_count}</strong> / overdue:{' '}
+              <strong>{slaReport.overdue_count}</strong> / escalation required:{' '}
+              <strong>{slaReport.escalation_required_count}</strong>.
+            </p>
+          </div>
+          <div className="mission-history">
+            {slaReport.items.map((item) => (
+              <article key={`${item.target_type}-${item.target_id}-${item.reviewer_id}`}>
+                <strong>{item.reviewer_id}</strong>
+                <span>{item.status}</span>
+                <p>
+                  {item.target_type}:{item.target_id} age {item.age_minutes} minutes,
+                  escalation required: {String(item.escalation_required)}
+                </p>
+              </article>
+            ))}
+          </div>
+        </>
       )}
     </section>
   );

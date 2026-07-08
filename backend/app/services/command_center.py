@@ -780,10 +780,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=74,
+                completion_percent=76,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, workload escalation, human identity enforcement, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
-                next_step="Add SLA timers and escalation aging rules.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, notification routing, reviewer workload reporting, governance SLA aging, workload escalation, human identity enforcement, quality review, delivery packaging, and client confirmation are covered by tests and smoke verification.",
+                next_step="Add delivery evidence bundle signing before client confirmation.",
             ),
             CompletionArea(
                 name="Verification automation",
@@ -1713,6 +1713,7 @@ class CommandCenterSummaryService:
             "Start CRM Mission",
             "Route Notification",
             "Refresh Reviewer Workload",
+            "Refresh Governance SLA",
             "Escalate Reviewer Workload",
             "Refresh Frontend Regression",
             "Refresh Visual Contract",

@@ -242,6 +242,12 @@ GET /api/audit/reviewer-workload
 POST /api/audit/escalations
 ```
 
+Governance SLA aging reports track approval age, due-soon status, overdue status, and escalation rules:
+
+```http
+GET /api/audit/governance-sla
+```
+
 Plugin workspaces expose dashboard, settings, Chief Agent, swarm, timeline, actions, and DB MARIAM data boundaries through:
 
 ```http

@@ -392,6 +392,7 @@ def verify_api_smoke_flow() -> None:
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"]
         and "Refresh Visual Contract" in frontend_regression["controls_checked"]
+        and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"],
         "Frontend regression snapshot did not pass.",
@@ -498,6 +499,15 @@ def verify_api_smoke_flow() -> None:
         and any(item["reviewer_id"] == "quality-reviewer-01" for item in reviewer_workload["items"]),
         "Reviewer workload report did not include the assigned reviewer.",
     )
+    governance_sla = request_json("/api/audit/governance-sla")["sla_report"]
+    assert_condition(
+        governance_sla["status"] in {"ready", "escalation_required"}
+        and governance_sla["sla_minutes"] == 240
+        and governance_sla["escalation_after_minutes"] == 480
+        and any(item["target_id"] == "verification-artifact-review" for item in governance_sla["items"]),
+        "Governance SLA report did not expose assignment aging rules.",
+    )
+    print("[verify] ok: governance SLA aging")
     escalation_record = request_json(
         "/api/audit/escalations",
         "POST",
@@ -533,7 +543,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
+        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

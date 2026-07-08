@@ -1586,6 +1586,38 @@ def test_governance_reviewer_workload_reports_assignments_and_escalations() -> N
     assert escalated_reviewer["escalation_count"] >= 1
 
 
+def test_governance_sla_report_tracks_assignment_aging_rules() -> None:
+    client = TestClient(create_app())
+
+    assignment_response = client.post(
+        "/api/audit/approval-assignments",
+        json={
+            "assigned_by": "governance-lead",
+            "assignee_id": "quality-reviewer-sla",
+            "target_type": "artifact",
+            "target_id": "artifact-sla-target-01",
+            "approval_role": "quality-reviewer",
+            "reason": "Assign SLA-tracked artifact review.",
+            "evidence": {"assignment_source": "sla-test"},
+        },
+    )
+    assert assignment_response.status_code == 200
+
+    response = client.get("/api/audit/governance-sla")
+
+    assert response.status_code == 200
+    report = response.json()["sla_report"]
+    assert report["title"] == "Governance SLA and Escalation Aging Report"
+    assert report["status"] == "ready"
+    assert report["sla_minutes"] == 240
+    assert report["escalation_after_minutes"] == 480
+    assert report["data_platform"] == "DB MARIAM"
+    item = next(item for item in report["items"] if item["target_id"] == "artifact-sla-target-01")
+    assert item["reviewer_id"] == "quality-reviewer-sla"
+    assert item["status"] == "on_track"
+    assert item["escalation_required"] is False
+
+
 def test_rejected_artifact_can_request_revision_and_return_to_approval() -> None:
     client = TestClient(create_app())
     mission_id = client.post(
@@ -2796,8 +2828,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
-    assert roadmap["items"][0]["priority"] == "high"
+    assert roadmap["items"][0]["area"] == "Frontend Command Center"
+    assert roadmap["items"][0]["priority"] == "medium"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -2818,6 +2850,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Run DB MARIAM Write Smoke" in snapshot["controls_checked"]
     assert "Run Repository Write Smoke" in snapshot["controls_checked"]
     assert "Refresh Reviewer Workload" in snapshot["controls_checked"]
+    assert "Refresh Governance SLA" in snapshot["controls_checked"]
     assert "Escalate Reviewer Workload" in snapshot["controls_checked"]
     assert "Refresh Visual Contract" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
@@ -2879,7 +2912,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
+    assert export_package["package_manifest"]["first_priority_area"] == "Frontend Command Center"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

@@ -52,6 +52,11 @@ def reviewer_workload(service: AuditService = Depends(get_audit_service)) -> dic
     return {"workload_report": service.reviewer_workload().model_dump(mode="json")}
 
 
+@router.get("/governance-sla")
+def governance_sla(service: AuditService = Depends(get_audit_service)) -> dict:
+    return {"sla_report": service.governance_sla_report().model_dump(mode="json")}
+
+
 @router.post("/escalations")
 def escalate_reviewer_workload(
     request: EscalationRequest,

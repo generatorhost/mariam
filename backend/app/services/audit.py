@@ -1,8 +1,12 @@
+from datetime import UTC, datetime
+
 from app.core.audit import (
     ApprovalAssignmentRequest,
     AuditRecord,
     AuditRecordRequest,
     EscalationRequest,
+    GovernanceSLAItem,
+    GovernanceSLAReport,
     NotificationRoutingRequest,
     ReviewerWorkloadItem,
     ReviewerWorkloadReport,
@@ -148,6 +152,69 @@ class AuditService:
             status="attention_required" if overloaded_reviewers else "ready",
             reviewer_count=len(items),
             overloaded_reviewers=overloaded_reviewers,
+            items=items,
+        )
+
+    def governance_sla_report(
+        self,
+        sla_minutes: int = 240,
+        escalation_after_minutes: int = 480,
+    ) -> GovernanceSLAReport:
+        now = datetime.now(UTC)
+        routed_targets = {
+            (record.target_type, record.target_id)
+            for record in self.list()
+            if record.action == "governance.route_notification"
+        }
+        escalated_targets = {
+            (record.target_type, record.target_id)
+            for record in self.list()
+            if record.action == "governance.escalate_reviewer_workload"
+        }
+        items = []
+        for record in self.list():
+            if record.action != "governance.assign_approval":
+                continue
+            age_minutes = max(0, int((now - record.created_at).total_seconds() // 60))
+            target = (record.target_type, record.target_id)
+            escalation_required = age_minutes >= escalation_after_minutes or (
+                age_minutes >= sla_minutes and target not in routed_targets
+            )
+            if target in escalated_targets:
+                status = "escalated"
+                escalation_required = False
+            elif age_minutes >= escalation_after_minutes:
+                status = "overdue"
+            elif age_minutes >= sla_minutes:
+                status = "due_soon"
+            else:
+                status = "on_track"
+            items.append(
+                GovernanceSLAItem(
+                    target_type=record.target_type,
+                    target_id=record.target_id,
+                    reviewer_id=str(record.evidence.get("assignee_id", "unassigned")),
+                    approval_role=str(record.evidence.get("approval_role", "governance-reviewer")),
+                    age_minutes=age_minutes,
+                    sla_minutes=sla_minutes,
+                    escalation_after_minutes=escalation_after_minutes,
+                    status=status,
+                    escalation_required=escalation_required,
+                )
+            )
+        due_soon_count = sum(1 for item in items if item.status == "due_soon")
+        overdue_count = sum(1 for item in items if item.status == "overdue")
+        escalation_required_count = sum(1 for item in items if item.escalation_required)
+        report_status = "escalation_required" if escalation_required_count else "ready"
+        return GovernanceSLAReport(
+            title="Governance SLA and Escalation Aging Report",
+            status=report_status,
+            generated_at=now,
+            sla_minutes=sla_minutes,
+            escalation_after_minutes=escalation_after_minutes,
+            due_soon_count=due_soon_count,
+            overdue_count=overdue_count,
+            escalation_required_count=escalation_required_count,
             items=items,
         )
 
