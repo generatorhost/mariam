@@ -202,6 +202,19 @@ class DataPlatformReadinessExportPackage:
     data_platform: str = "DB MARIAM"
 
 
+@dataclass
+class MigrationRunnerStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    migration_count: int
+    ordered_migrations: list[str]
+    table_definitions: int
+    index_definitions: int
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -535,10 +548,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=58,
+                completion_percent=60,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness is exposed by API, and local development still supports in-memory fallback.",
-                next_step="Add migration runner status, seed data, backup checks, and per-plugin schema isolation.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness and migration runner status are exposed by API, and local development still supports in-memory fallback.",
+                next_step="Add seed data, backup checks, and per-plugin schema isolation.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -736,4 +749,56 @@ class CommandCenterSummaryService:
                 "requires_governance_review_before_external_delivery": True,
             },
             readiness=readiness,
+        )
+
+    def migration_runner_status(self) -> MigrationRunnerStatus:
+        migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
+        migration_files = sorted(migration_dir.glob("*.sql"))
+        ordered_names = [migration_file.name for migration_file in migration_files]
+        numeric_prefixes = [
+            int(name.split("_", 1)[0])
+            for name in ordered_names
+            if name.split("_", 1)[0].isdigit()
+        ]
+        migration_text = "\n".join(
+            migration_file.read_text(encoding="utf-8") for migration_file in migration_files
+        )
+        expected_sequence = list(range(1, len(numeric_prefixes) + 1))
+        checks = [
+            DataPlatformCheck(
+                name="migration_directory",
+                status="ready" if migration_dir.exists() else "blocked",
+                detail=f"Migration directory found at {migration_dir}.",
+            ),
+            DataPlatformCheck(
+                name="migration_files_present",
+                status="ready" if migration_files else "blocked",
+                detail=f"{len(migration_files)} SQL migration files are available.",
+            ),
+            DataPlatformCheck(
+                name="numeric_order",
+                status="ready" if numeric_prefixes == expected_sequence else "blocked",
+                detail=f"Migration numeric prefixes: {numeric_prefixes}.",
+            ),
+            DataPlatformCheck(
+                name="idempotent_create_tables",
+                status="ready" if "CREATE TABLE IF NOT EXISTS" in migration_text else "blocked",
+                detail="Migrations use CREATE TABLE IF NOT EXISTS for repeatable local startup.",
+            ),
+            DataPlatformCheck(
+                name="index_definitions",
+                status="ready" if "CREATE INDEX IF NOT EXISTS" in migration_text else "blocked",
+                detail="Migrations define indexes with IF NOT EXISTS.",
+            ),
+        ]
+        return MigrationRunnerStatus(
+            title="DB MARIAM Migration Runner Status",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            migration_count=len(migration_files),
+            ordered_migrations=ordered_names,
+            table_definitions=migration_text.count("CREATE TABLE IF NOT EXISTS"),
+            index_definitions=migration_text.count("CREATE INDEX IF NOT EXISTS"),
+            checks=checks,
         )

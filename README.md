@@ -79,6 +79,12 @@ DB MARIAM readiness can also be exported as a JSON review package without exposi
 POST /api/runtime/data-platform/readiness/export
 ```
 
+Migration runner status verifies ordered DB MARIAM migration files before database changes are applied:
+
+```http
+GET /api/runtime/data-platform/migration-runner
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

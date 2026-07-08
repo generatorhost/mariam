@@ -94,6 +94,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/summary",
         "/api/runtime/readiness",
         "/api/runtime/data-platform/readiness",
+        "/api/runtime/data-platform/migration-runner",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -157,6 +158,13 @@ def verify_api_smoke_flow() -> None:
         "DB MARIAM data platform readiness export did not mask secrets.",
     )
     print("[verify] ok: data platform readiness export")
+
+    migration_runner = request_json("/api/runtime/data-platform/migration-runner")
+    assert_condition(
+        migration_runner["status"] == "ready" and migration_runner["migration_count"] >= 1,
+        "DB MARIAM migration runner status did not pass.",
+    )
+    print("[verify] ok: migration runner status")
 
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(

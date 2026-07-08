@@ -66,6 +66,10 @@ async function exportDataPlatformReadiness() {
   return apiRequest('/api/runtime/data-platform/readiness/export', {});
 }
 
+async function loadMigrationRunnerStatus() {
+  return apiGet('/api/runtime/data-platform/migration-runner');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -1773,6 +1777,64 @@ function DataPlatformReadinessPanel({ refreshVersion }) {
   );
 }
 
+function MigrationRunnerPanel({ refreshVersion }) {
+  const [runnerStatus, setRunnerStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshRunnerStatus = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setRunnerStatus(await loadMigrationRunnerStatus());
+      setStatus('ready');
+    } catch (runnerError) {
+      setStatus('error');
+      setError(runnerError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshRunnerStatus();
+  }, [refreshRunnerStatus, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Migration Runner</h2>
+        <p>Verify ordered DB MARIAM migration files before applying database changes.</p>
+      </div>
+      <button onClick={refreshRunnerStatus} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Migration Runner'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {runnerStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{runnerStatus.status}</strong>
+            <span>{runnerStatus.data_platform}</span>
+            <p>{runnerStatus.migration_count} migrations ordered for review</p>
+          </div>
+          <div className="status-grid">
+            <div><strong>{runnerStatus.table_definitions}</strong><span>Tables</span></div>
+            <div><strong>{runnerStatus.index_definitions}</strong><span>Indexes</span></div>
+            <div><strong>{runnerStatus.ordered_migrations.length}</strong><span>Files</span></div>
+          </div>
+          <div className="mission-history">
+            {runnerStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -2528,6 +2590,7 @@ function App() {
         <SystemStatusPanel refreshVersion={refreshVersion} />
         <SystemReadinessPanel refreshVersion={refreshVersion} />
         <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
+        <MigrationRunnerPanel refreshVersion={refreshVersion} />
         <VerificationReportPanel refreshVersion={refreshVersion} />
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
         <UsageGuidePanel refreshVersion={refreshVersion} />

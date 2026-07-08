@@ -2450,6 +2450,23 @@ def test_data_platform_readiness_can_be_exported_without_secrets() -> None:
     assert "mariam:mariam" not in export_package["readiness"]["database_url"]
 
 
+def test_data_platform_migration_runner_reports_ordered_migrations() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/data-platform/migration-runner")
+
+    assert response.status_code == 200
+    status = response.json()
+    assert status["title"] == "DB MARIAM Migration Runner Status"
+    assert status["status"] == "ready"
+    assert status["data_platform"] == "DB MARIAM"
+    assert status["migration_count"] >= 6
+    assert status["ordered_migrations"][0] == "0001_initial.sql"
+    assert status["table_definitions"] >= 10
+    assert status["index_definitions"] >= 1
+    assert all(check["status"] == "ready" for check in status["checks"])
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

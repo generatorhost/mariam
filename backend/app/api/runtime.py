@@ -47,6 +47,13 @@ def export_command_center_data_platform_readiness(
     return {"export_package": asdict(service.export_data_platform_readiness())}
 
 
+@router.get("/data-platform/migration-runner")
+def command_center_data_platform_migration_runner(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.migration_runner_status())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
