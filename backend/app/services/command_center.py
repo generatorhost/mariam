@@ -1314,10 +1314,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=93,
+                completion_percent=94,
                 status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, reviewer decision evidence export packages, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, and reviewer decision outcome filters by reviewer and decision are covered by tests and smoke verification.",
-                next_step="Add typed API response models for governance workload, SLA, and decision history endpoints.",
+                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, persistent reviewer decision outcomes, reviewer decision evidence export packages, notification routing, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, reviewer decision outcome filters by reviewer and decision, and typed API response models for governance workload, SLA, decision history, reviewer decision, escalation, assignment, notification, and evidence export endpoints are covered by tests and smoke verification.",
+                next_step="Add export packages for governance workload and SLA review evidence.",
             ),
             CompletionArea(
                 name="Verification automation",
