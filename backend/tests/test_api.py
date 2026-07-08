@@ -3103,8 +3103,8 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Verification automation"
-    assert roadmap["items"][0]["priority"] == "medium"
+    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
 
@@ -3131,6 +3131,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert "Refresh Screenshot Plan" in snapshot["controls_checked"]
     assert "Refresh Screenshot Capture" in snapshot["controls_checked"]
     assert "Refresh Verification Automation" in snapshot["controls_checked"]
+    assert "Latest CI run result ingestion" in snapshot["controls_checked"]
     assert "Filter delivery SLA by state" in snapshot["controls_checked"]
     assert "Filter delivery SLA by reviewer queue" in snapshot["controls_checked"]
     assert "mariam.commandCenter.preferences.v1" in snapshot["controls_checked"]
@@ -3230,7 +3231,13 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["ci_badge"]["badge_url"].endswith("/actions/workflows/verify.yml/badge.svg?branch=main")
     assert contract["ci_badge"]["actions_url"].endswith("/actions/workflows/verify.yml")
     assert contract["latest_run_status"]["polling_status"] == "configured"
+    assert contract["latest_run_status"]["ingestion_status"] == "ready"
     assert "actions/workflows/verify.yml/runs" in contract["latest_run_status"]["api_url"]
+    assert contract["ci_run_ingestion"]["ingestion_status"] == "ready"
+    assert contract["ci_run_ingestion"]["mode"] == "github_actions_api_contract_with_local_fallback"
+    assert contract["ci_run_ingestion"]["latest_run"]["name"] == "Mariam Verify"
+    assert "status" in contract["ci_run_ingestion"]["parsed_fields"]
+    assert "conclusion" in contract["ci_run_ingestion"]["parsed_fields"]
     assert contract["local_history_comparison"]["status"] in {"insufficient_history", "stable", "changed"}
     assert "snapshot_count" in contract["local_history_comparison"]
     assert "npm run verify" in contract["required_commands"]
@@ -3262,9 +3269,10 @@ def test_runtime_verification_automation_contract_records_local_coverage() -> No
     assert contract["persisted_verification_run_count"] == len(contract["persisted_verification_runs"])
     assert "ci_badge_metadata_ready" in [check["name"] for check in contract["checks"]]
     assert "latest_ci_run_polling_configured" in [check["name"] for check in contract["checks"]]
+    assert "latest_ci_run_result_ingestion_ready" in [check["name"] for check in contract["checks"]]
     assert "local_verification_history_comparison_ready" in [check["name"] for check in contract["checks"]]
     assert "persisted_local_verification_runs_ready" in [check["name"] for check in contract["checks"]]
-    assert contract["next_ci_step"] == "Add CI run result ingestion from the GitHub Actions API."
+    assert contract["next_ci_step"] == "Add verification quality gates for minimum coverage and artifact freshness."
     assert Path(contract["artifact_path"]).exists()
     assert Path(contract["persisted_run_log_path"]).exists()
 
@@ -3305,7 +3313,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Verification automation"
+    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

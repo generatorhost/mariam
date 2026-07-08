@@ -3281,8 +3281,21 @@ function VerificationAutomationPanel({ refreshVersion }) {
           {contract.latest_run_status && (
             <div className="mission-result">
               <strong>Latest CI run polling</strong>
-              <span>{contract.latest_run_status.polling_status}</span>
+              <span>
+                {contract.latest_run_status.polling_status} / {contract.latest_run_status.ingestion_status}
+              </span>
               <p>{contract.latest_run_status.api_url}</p>
+            </div>
+          )}
+          {contract.ci_run_ingestion && (
+            <div className="mission-result">
+              <strong>Latest CI run result ingestion</strong>
+              <span>{contract.ci_run_ingestion.ingestion_status}</span>
+              <p>
+                {contract.ci_run_ingestion.latest_run?.name} /{' '}
+                {contract.ci_run_ingestion.latest_run?.status} /{' '}
+                {contract.ci_run_ingestion.latest_run?.conclusion}
+              </p>
             </div>
           )}
           {contract.local_history_comparison && (

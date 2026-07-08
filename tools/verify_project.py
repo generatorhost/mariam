@@ -494,6 +494,7 @@ def verify_api_smoke_flow() -> None:
         and "Refresh Governance SLA" in frontend_regression["controls_checked"]
         and "Run Repository Write Smoke" in frontend_regression["controls_checked"]
         and "Refresh Verification Automation" in frontend_regression["controls_checked"]
+        and "Latest CI run result ingestion" in frontend_regression["controls_checked"]
         and "mariam.commandCenter.preferences.v1" in frontend_regression["controls_checked"]
         and "deliverySlaStateFilter" in frontend_regression["controls_checked"]
         and "deliveryReviewerQueueFilter" in frontend_regression["controls_checked"]
@@ -591,6 +592,10 @@ def verify_api_smoke_flow() -> None:
             check["name"] == "latest_ci_run_polling_configured" and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
+        and any(
+            check["name"] == "latest_ci_run_result_ingestion_ready" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and verification_automation["ci_artifact_retention"]["retention_days"] == 14
         and verification_automation["ci_artifact_retention"]["artifact_name"]
         == "mariam-frontend-regression-artifacts"
@@ -598,8 +603,12 @@ def verify_api_smoke_flow() -> None:
             "/actions/workflows/verify.yml/badge.svg?branch=main"
         )
         and verification_automation["latest_run_status"]["polling_status"] == "configured"
+        and verification_automation["latest_run_status"]["ingestion_status"] == "ready"
         and "actions/workflows/verify.yml/runs"
         in verification_automation["latest_run_status"]["api_url"]
+        and verification_automation["ci_run_ingestion"]["ingestion_status"] == "ready"
+        and verification_automation["ci_run_ingestion"]["latest_run"]["name"] == "Mariam Verify"
+        and "conclusion" in verification_automation["ci_run_ingestion"]["parsed_fields"]
         and verification_automation["local_history_comparison"]["status"]
         in {"insufficient_history", "stable", "changed"}
         and "snapshot_count" in verification_automation["local_history_comparison"]
@@ -788,7 +797,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

@@ -130,6 +130,7 @@ class VerificationAutomationResponse(BaseModel):
     ci_artifact_retention: dict[str, Any]
     ci_badge: dict[str, Any]
     latest_run_status: dict[str, Any]
+    ci_run_ingestion: dict[str, Any]
     local_history_comparison: dict[str, Any]
     local_automation_status: str
     ci_status: str

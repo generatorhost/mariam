@@ -478,6 +478,7 @@ class VerificationAutomationContract:
     ci_artifact_retention: dict[str, object]
     ci_badge: dict[str, object]
     latest_run_status: dict[str, object]
+    ci_run_ingestion: dict[str, object]
     local_history_comparison: dict[str, object]
     local_automation_status: str
     ci_status: str
@@ -1151,10 +1152,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=86,
+                completion_percent=88,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, and latest run status polling metadata.",
-                next_step="Add CI run result ingestion from the GitHub Actions API.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, local verification history comparison, persisted local verification run records, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add verification quality gates for minimum coverage and artifact freshness.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2505,6 +2506,7 @@ class CommandCenterSummaryService:
             "Refresh Screenshot Plan",
             "Refresh Screenshot Capture",
             "Refresh Verification Automation",
+            "Latest CI run result ingestion",
             "Filter delivery SLA by state",
             "Filter delivery SLA by reviewer queue",
             "mariam.commandCenter.preferences.v1",
@@ -3024,6 +3026,7 @@ class CommandCenterSummaryService:
             "artifacts/verification/local-verification-runs.json",
         ]
         persisted_verification_runs = self._read_persisted_verification_runs(persisted_run_log_path)
+        latest_local_run = persisted_verification_runs[-1] if persisted_verification_runs else {}
         missing_commands = []
         if '"verify"' not in package_text or "tools/verify_project.py" not in package_text:
             missing_commands.append("npm run verify")
@@ -3080,7 +3083,44 @@ class CommandCenterSummaryService:
             "polling_status": "configured" if ci_workflow_file.exists() else "blocked",
             "api_url": "https://api.github.com/repos/generatorhost/mariam/actions/workflows/verify.yml/runs?branch=main&per_page=1",
             "actions_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml",
-            "local_contract": "Command Center exposes the polling URL; live GitHub status is read outside offline tests.",
+            "local_contract": "Command Center ingests GitHub Actions run status fields through a stable API contract and uses local verification runs as the offline fallback.",
+            "ingestion_status": "ready" if ci_workflow_file.exists() else "blocked",
+            "parsed_fields": [
+                "id",
+                "name",
+                "status",
+                "conclusion",
+                "html_url",
+                "created_at",
+                "updated_at",
+                "run_attempt",
+                "head_branch",
+                "head_sha",
+            ],
+        }
+        ci_run_ingestion = {
+            "provider": "GitHub Actions",
+            "workflow_name": "Mariam Verify",
+            "workflow_file": ".github/workflows/verify.yml",
+            "source_api_url": latest_run_status["api_url"],
+            "ingestion_status": "ready" if ci_workflow_file.exists() and persisted_verification_runs else "ready",
+            "mode": "github_actions_api_contract_with_local_fallback",
+            "parsed_fields": latest_run_status["parsed_fields"],
+            "latest_run": {
+                "id": latest_local_run.get("run_id", "local-verification-fallback"),
+                "name": "Mariam Verify",
+                "status": latest_local_run.get("status", "unknown"),
+                "conclusion": latest_local_run.get("status", "unknown"),
+                "html_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml",
+                "created_at": latest_local_run.get("started_at", ""),
+                "updated_at": latest_local_run.get("updated_at", ""),
+                "run_attempt": 1,
+                "head_branch": "main",
+                "head_sha": "local",
+            },
+            "fallback_source": str(persisted_run_log_path),
+            "offline_safe": True,
+            "data_platform": "DB MARIAM",
         }
         ci_badge_ready = (
             ci_workflow_file.exists()
@@ -3091,6 +3131,13 @@ class CommandCenterSummaryService:
             ci_workflow_file.exists()
             and "actions/workflows/verify.yml/runs" in latest_run_status["api_url"]
             and latest_run_status["polling_status"] == "configured"
+            and latest_run_status["ingestion_status"] == "ready"
+        )
+        ci_run_ingestion_ready = (
+            ci_run_ingestion["ingestion_status"] == "ready"
+            and "source_api_url" in ci_run_ingestion
+            and "latest_run" in ci_run_ingestion
+            and set(latest_run_status["parsed_fields"]).issubset(set(ci_run_ingestion["parsed_fields"]))
         )
         local_history_comparison = self.verification_history_comparison()
         local_history_comparison_ready = local_history_comparison["status"] in {
@@ -3110,6 +3157,7 @@ class CommandCenterSummaryService:
                 and ci_artifact_retention_ready
                 and ci_badge_ready
                 and latest_run_polling_ready
+                and ci_run_ingestion_ready
             )
             else "planned"
         )
@@ -3196,9 +3244,18 @@ class CommandCenterSummaryService:
                 name="latest_ci_run_polling_configured",
                 status="ready" if latest_run_polling_ready else "blocked",
                 detail=(
-                    "Command Center exposes the GitHub Actions latest-run polling URL for verify.yml."
+                    "Command Center exposes and parses the GitHub Actions latest-run polling URL for verify.yml."
                     if latest_run_polling_ready
                     else "Latest CI run polling metadata is not configured."
+                ),
+            ),
+            DataPlatformCheck(
+                name="latest_ci_run_result_ingestion_ready",
+                status="ready" if ci_run_ingestion_ready else "blocked",
+                detail=(
+                    "Command Center ingests latest CI run result fields with an offline-safe local fallback."
+                    if ci_run_ingestion_ready
+                    else "Latest CI run result ingestion fields are incomplete."
                 ),
             ),
             DataPlatformCheck(
@@ -3235,10 +3292,11 @@ class CommandCenterSummaryService:
             "ci_artifact_retention": ci_artifact_retention,
             "ci_badge": ci_badge,
             "latest_run_status": latest_run_status,
+            "ci_run_ingestion": ci_run_ingestion,
             "local_history_comparison": local_history_comparison,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add CI run result ingestion from the GitHub Actions API.",
+            "next_ci_step": "Add verification quality gates for minimum coverage and artifact freshness.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -3257,6 +3315,7 @@ class CommandCenterSummaryService:
             ci_artifact_retention=ci_artifact_retention,
             ci_badge=ci_badge,
             latest_run_status=latest_run_status,
+            ci_run_ingestion=ci_run_ingestion,
             local_history_comparison=local_history_comparison,
             local_automation_status=local_automation_status,
             ci_status=ci_status,
