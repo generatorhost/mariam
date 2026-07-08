@@ -124,6 +124,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
+            "artifacts/ci-artifact-replay/ci-artifact-replay-report.json",
             "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/verification/governed-write-api-schema-snapshots.sha256",
             "artifacts/verification/verification-automation-contract.json",
@@ -235,6 +236,22 @@ def verify_command_center_keyboard_focus_smoke() -> None:
         "Command Center keyboard focus smoke did not pass.",
     )
     print("[verify] ok: command center keyboard focus smoke")
+
+
+def verify_ci_artifact_replay() -> None:
+    run_command([sys.executable, "tools/verify_ci_artifact_replay.py"], ROOT)
+    report_path = ROOT / "artifacts" / "ci-artifact-replay" / "ci-artifact-replay-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        report["status"] == "ready"
+        and report["data_platform"] == "DB MARIAM"
+        and report["checks"]["json_artifacts_replayed"] is True
+        and report["checks"]["png_artifacts_replayed"] is True
+        and report["checks"]["keyboard_focus_smoke_replayed"] is True
+        and report["checks"]["db_mariam_preserved"] is True,
+        "CI frontend artifact replay did not pass.",
+    )
+    print("[verify] ok: CI frontend artifact replay")
 
 
 def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, Any]:
@@ -796,6 +813,7 @@ def verify_api_smoke_flow() -> None:
     verify_delivery_governance_export_visual()
     verify_command_center_export_click_smoke()
     verify_command_center_keyboard_focus_smoke()
+    verify_ci_artifact_replay()
     frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
     assert_condition(
         frontend_screenshot_capture["status"] == "ready"
@@ -864,9 +882,19 @@ def verify_api_smoke_flow() -> None:
         in verification_automation["required_commands"]
         and "node tools/verify_command_center_keyboard_focus_smoke.mjs"
         in verification_automation["required_commands"]
+        and "py -3.11 tools/verify_ci_artifact_replay.py"
+        in verification_automation["required_commands"]
         and "npm run verify:schema-diff" in verification_automation["required_commands"]
         and any(
             check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "ci_frontend_artifact_download" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and any(
+            check["name"] == "ci_frontend_artifact_replay" and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
         and any(
@@ -888,6 +916,12 @@ def verify_api_smoke_flow() -> None:
         and verification_automation["ci_artifact_retention"]["retention_days"] == 14
         and verification_automation["ci_artifact_retention"]["artifact_name"]
         == "mariam-frontend-regression-artifacts"
+        and verification_automation["ci_artifact_retention"]["download_path"].endswith(
+            "mariam-frontend-regression-artifacts"
+        )
+        and verification_automation["ci_artifact_retention"]["replay_report"].endswith(
+            "ci-artifact-replay-report.json"
+        )
         and verification_automation["ci_badge"]["badge_url"].endswith(
             "/actions/workflows/verify.yml/badge.svg?branch=main"
         )
@@ -958,6 +992,8 @@ def verify_api_smoke_flow() -> None:
         and "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-export-click-smoke-after.png"
+        in verification_automation["required_artifacts"]
+        and "artifacts/ci-artifact-replay/ci-artifact-replay-report.json"
         in verification_automation["required_artifacts"]
         and "artifacts/verification/governed-write-api-schema-snapshots.json"
         in verification_automation["required_artifacts"]
@@ -1374,7 +1410,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

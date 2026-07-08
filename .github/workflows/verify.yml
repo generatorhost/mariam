@@ -48,3 +48,12 @@ jobs:
             artifacts/frontend-regression/*.png
           if-no-files-found: error
           retention-days: 14
+
+      - name: Download frontend regression artifacts for replay
+        uses: actions/download-artifact@v4
+        with:
+          name: mariam-frontend-regression-artifacts
+          path: artifacts/ci-artifact-replay/mariam-frontend-regression-artifacts
+
+      - name: Replay downloaded frontend regression artifacts
+        run: python tools/verify_ci_artifact_replay.py

@@ -1321,10 +1321,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=93,
+                completion_percent=94,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata, Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add CI artifact download and replay verification for frontend regression artifacts.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, CI frontend artifact replay, local verification history comparison, persisted local verification run records, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
+                next_step="Add failure-summary export for CI and local verification runs.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -3638,6 +3638,7 @@ class CommandCenterSummaryService:
             "py -3.11 tools/verify_delivery_governance_export_visual.py",
             "node tools/verify_command_center_export_click_smoke.mjs",
             "node tools/verify_command_center_keyboard_focus_smoke.mjs",
+            "py -3.11 tools/verify_ci_artifact_replay.py",
             "npm run verify:schema-diff",
         ]
         required_endpoints = [
@@ -3675,6 +3676,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
+            "artifacts/ci-artifact-replay/ci-artifact-replay-report.json",
             "artifacts/verification/governed-write-api-schema-snapshots.json",
             "artifacts/verification/governed-write-api-schema-snapshots.sha256",
             "artifacts/verification/verification-automation-contract.json",
@@ -3702,6 +3704,8 @@ class CommandCenterSummaryService:
             missing_commands.append("node tools/verify_command_center_export_click_smoke.mjs")
         if "tools/verify_command_center_keyboard_focus_smoke.mjs" not in verification_text:
             missing_commands.append("node tools/verify_command_center_keyboard_focus_smoke.mjs")
+        if "tools/verify_ci_artifact_replay.py" not in verification_text:
+            missing_commands.append("py -3.11 tools/verify_ci_artifact_replay.py")
         if (
             "verify:schema-diff" not in package_text
             or "tools/check_governed_write_schema_diff.py" not in verification_text
@@ -3742,6 +3746,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-keyboard-focus-smoke.json",
             "artifacts/frontend-regression/command-center-export-click-smoke-governance-before.png",
             "artifacts/frontend-regression/command-center-export-click-smoke-after.png",
+            "artifacts/ci-artifact-replay/ci-artifact-replay-report.json",
         }
         for artifact in required_artifacts:
             artifact_file = root / artifact
@@ -3860,6 +3865,15 @@ class CommandCenterSummaryService:
             and "if-no-files-found: error" in ci_workflow_text
         )
         ci_artifact_retention_ready = "retention-days: 14" in ci_workflow_text
+        ci_artifact_download_ready = (
+            "actions/download-artifact@v4" in ci_workflow_text
+            and "mariam-frontend-regression-artifacts" in ci_workflow_text
+            and "artifacts/ci-artifact-replay/mariam-frontend-regression-artifacts" in ci_workflow_text
+        )
+        ci_artifact_replay_ready = (
+            "tools/verify_ci_artifact_replay.py" in ci_workflow_text
+            and "tools/verify_ci_artifact_replay.py" in verification_text
+        )
         ci_artifact_retention = {
             "artifact_name": "mariam-frontend-regression-artifacts",
             "retention_days": 14,
@@ -3870,6 +3884,8 @@ class CommandCenterSummaryService:
                 "artifacts/frontend-regression/*.png",
             ],
             "if_no_files_found": "error",
+            "download_path": "artifacts/ci-artifact-replay/mariam-frontend-regression-artifacts",
+            "replay_report": "artifacts/ci-artifact-replay/ci-artifact-replay-report.json",
         }
         ci_badge = {
             "label": "Mariam Verify",
@@ -3957,6 +3973,8 @@ class CommandCenterSummaryService:
                 ci_workflow_ready
                 and ci_artifact_upload_ready
                 and ci_artifact_retention_ready
+                and ci_artifact_download_ready
+                and ci_artifact_replay_ready
                 and ci_badge_ready
                 and latest_run_polling_ready
                 and ci_run_ingestion_ready
@@ -4092,6 +4110,25 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="ci_frontend_artifact_download",
+                status="ready" if ci_artifact_download_ready else "blocked",
+                detail=(
+                    "GitHub Actions downloads the uploaded frontend regression artifact for replay."
+                    if ci_artifact_download_ready
+                    else "CI workflow does not download frontend regression artifacts for replay."
+                ),
+            ),
+            DataPlatformCheck(
+                name="ci_frontend_artifact_replay",
+                status=(
+                    "ready"
+                    if ci_artifact_replay_ready
+                    and "py -3.11 tools/verify_ci_artifact_replay.py" not in missing_commands
+                    else "blocked"
+                ),
+                detail="CI and local verification replay downloaded frontend regression artifacts before accepting the run.",
+            ),
+            DataPlatformCheck(
                 name="ci_badge_metadata_ready",
                 status="ready" if ci_badge_ready else "blocked",
                 detail=(
@@ -4201,7 +4238,7 @@ class CommandCenterSummaryService:
             "artifact_freshness": artifact_freshness,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add CI artifact download and replay verification for frontend regression artifacts.",
+            "next_ci_step": "Add failure-summary export for CI and local verification runs.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
