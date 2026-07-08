@@ -695,6 +695,27 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/verification-automation"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/VerificationAutomationResponse"
+        and openapi["paths"]["/api/runtime/verification-report"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationReportResponse"
+        and openapi["paths"]["/api/runtime/verification-report/record"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationSnapshotRecordResponse"
+        and openapi["paths"]["/api/runtime/verification-report/snapshots"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationSnapshotsResponse"
+        and openapi["paths"]["/api/runtime/diagnostics"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DiagnosticsResponse"
+        and openapi["paths"]["/api/runtime/diagnostics/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DiagnosticsExportResponse"
+        and openapi["paths"]["/api/runtime/usage-guide"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/UsageGuideResponse"
+        and openapi["paths"]["/api/runtime/usage-guide/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/UsageGuideExportResponse"
         and openapi["paths"]["/api/runtime/delivery-evidence-report"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DeliveryEvidenceReportResponse"
@@ -724,7 +745,19 @@ def verify_api_smoke_flow() -> None:
         == "#/components/schemas/LiveDatabaseWriteStatusResponse"
         and openapi["paths"]["/api/runtime/data-platform/live-repository-write-smoke"]["post"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
-        == "#/components/schemas/LiveRepositoryWriteStatusResponse",
+        == "#/components/schemas/LiveRepositoryWriteStatusResponse"
+        and openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendRegressionSnapshotResponse"
+        and openapi["paths"]["/api/runtime/frontend/visual-contract"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendVisualContractResponse"
+        and openapi["paths"]["/api/runtime/frontend/browser-screenshot-plan"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendBrowserScreenshotPlanResponse"
+        and openapi["paths"]["/api/runtime/frontend/browser-screenshot-capture"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendBrowserScreenshotCaptureResponse",
         "Governed runtime endpoints did not publish typed response models.",
     )
     print("[verify] ok: governed runtime typed response models")
@@ -911,7 +944,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

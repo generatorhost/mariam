@@ -1147,10 +1147,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=90,
+                completion_percent=92,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, and live repository write smoke endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
-                next_step="Add typed API response models for frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
+                next_step="Add typed API response models for runtime events and event publish endpoints.",
             ),
             CompletionArea(
                 name="Frontend Command Center",

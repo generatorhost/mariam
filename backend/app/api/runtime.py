@@ -274,6 +274,124 @@ class DeliveryEvidenceReportResponse(BaseModel):
     checks: list[RuntimeCheckResponse]
 
 
+class FrontendRegressionSnapshotResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_file: str
+    artifact_path: str
+    controls_checked: list[str]
+    missing_controls: list[str]
+    viewport_contracts: list[str]
+    missing_viewports: list[str]
+    keyboard_traversal_targets: list[str]
+    missing_keyboard_traversal_targets: list[str]
+    error_contracts: list[str]
+    missing_error_contracts: list[str]
+    checks: list[RuntimeCheckResponse]
+
+
+class FrontendVisualContractResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_files: list[str]
+    artifact_path: str
+    design_tokens_checked: list[str]
+    missing_design_tokens: list[str]
+    layout_contracts_checked: list[str]
+    missing_layout_contracts: list[str]
+    breakpoint_contracts_checked: list[str]
+    missing_breakpoint_contracts: list[str]
+    screenshot_targets: list[str]
+    checks: list[RuntimeCheckResponse]
+
+
+class FrontendBrowserScreenshotPlanResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    source_file: str
+    artifact_path: str
+    viewport_targets: list[dict[str, Any]]
+    critical_sections: list[str]
+    screenshot_artifacts: list[str]
+    required_browser_checks: list[str]
+    checks: list[RuntimeCheckResponse]
+
+
+class FrontendBrowserScreenshotCaptureResponse(BaseModel):
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    artifact_path: str
+    artifact_count: int
+    artifacts: list[dict[str, Any]]
+    thumbnail_previews: list[dict[str, Any]]
+    checks: list[RuntimeCheckResponse]
+
+
+class VerificationReportResponse(BaseModel):
+    status: str
+    readiness_status: str
+    ready_checks: int
+    total_checks: int
+    summary: dict[str, Any]
+    smoke_flow: str
+    required_endpoints: list[str]
+
+
+class VerificationSnapshotRecordResponse(BaseModel):
+    audit_record: dict[str, Any]
+
+
+class VerificationSnapshotsResponse(BaseModel):
+    snapshots: list[dict[str, Any]]
+
+
+class DiagnosticsResponse(BaseModel):
+    status: str
+    generated_at: str
+    data_platform: str
+    verification_report: VerificationReportResponse
+    readiness_checks: list[RuntimeCheckResponse]
+    recent_audit_records: list[dict[str, Any]]
+    recent_events: list[dict[str, Any]]
+
+
+class DiagnosticsExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
+class UsageGuideStepResponse(BaseModel):
+    action: str
+    frontend_control: str
+    api_endpoint: str
+    backend_handler: str
+    service_effect: str
+    data_platform_effect: str
+    result: str
+    verification_signal: str
+
+
+class UsageGuideResponse(BaseModel):
+    title: str
+    version: str
+    status: str
+    data_platform: str
+    generated_at: str
+    operating_rule: str
+    steps: list[UsageGuideStepResponse]
+
+
+class UsageGuideExportResponse(BaseModel):
+    export_package: dict[str, Any]
+
+
 @router.get("/summary")
 def command_center_summary(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
@@ -385,38 +503,38 @@ def command_center_data_platform_live_repository_write_smoke(
     return asdict(service.live_repository_write_status())
 
 
-@router.get("/frontend/regression-snapshot")
+@router.get("/frontend/regression-snapshot", response_model=FrontendRegressionSnapshotResponse)
 def command_center_frontend_regression_snapshot(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> FrontendRegressionSnapshotResponse:
     return asdict(service.frontend_regression_snapshot())
 
 
-@router.get("/frontend/visual-contract")
+@router.get("/frontend/visual-contract", response_model=FrontendVisualContractResponse)
 def command_center_frontend_visual_contract(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> FrontendVisualContractResponse:
     return asdict(service.frontend_visual_contract())
 
 
-@router.get("/frontend/browser-screenshot-plan")
+@router.get("/frontend/browser-screenshot-plan", response_model=FrontendBrowserScreenshotPlanResponse)
 def command_center_frontend_browser_screenshot_plan(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> FrontendBrowserScreenshotPlanResponse:
     return asdict(service.frontend_browser_screenshot_plan())
 
 
-@router.get("/frontend/browser-screenshot-capture")
+@router.get("/frontend/browser-screenshot-capture", response_model=FrontendBrowserScreenshotCaptureResponse)
 def command_center_frontend_browser_screenshot_capture(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> FrontendBrowserScreenshotCaptureResponse:
     return asdict(service.frontend_browser_screenshot_capture_report())
 
 
-@router.get("/verification-report")
+@router.get("/verification-report", response_model=VerificationReportResponse)
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> VerificationReportResponse:
     return service.verification_report().__dict__
 
 
@@ -434,20 +552,20 @@ def command_center_delivery_evidence_report(
     return asdict(service.delivery_evidence_report())
 
 
-@router.post("/verification-report/record")
+@router.post("/verification-report/record", response_model=VerificationSnapshotRecordResponse)
 def record_command_center_verification_report(
     request: VerificationSnapshotRequest,
     authorization=Depends(require_permission("diagnostics.export", "runtime_verification_report")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> VerificationSnapshotRecordResponse:
     audit_record = service.record_verification_snapshot(request.actor_id, request.evidence)
     return {"audit_record": audit_record.model_dump(mode="json")}
 
 
-@router.get("/verification-report/snapshots")
+@router.get("/verification-report/snapshots", response_model=VerificationSnapshotsResponse)
 def list_command_center_verification_snapshots(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> VerificationSnapshotsResponse:
     return {
         "snapshots": [
             snapshot.model_dump(mode="json")
@@ -456,17 +574,17 @@ def list_command_center_verification_snapshots(
     }
 
 
-@router.get("/diagnostics")
+@router.get("/diagnostics", response_model=DiagnosticsResponse)
 def command_center_diagnostics(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DiagnosticsResponse:
     return asdict(service.diagnostics())
 
 
-@router.get("/usage-guide")
+@router.get("/usage-guide", response_model=UsageGuideResponse)
 def command_center_usage_guide(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> UsageGuideResponse:
     return asdict(service.usage_guide())
 
 
@@ -500,19 +618,19 @@ def export_command_center_completion_report(
     return {"export_package": asdict(service.export_completion_report())}
 
 
-@router.post("/usage-guide/export")
+@router.post("/usage-guide/export", response_model=UsageGuideExportResponse)
 def export_command_center_usage_guide(
     authorization=Depends(require_permission("diagnostics.export", "usage_guide")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> UsageGuideExportResponse:
     return {"export_package": asdict(service.export_usage_guide())}
 
 
-@router.post("/diagnostics/export")
+@router.post("/diagnostics/export", response_model=DiagnosticsExportResponse)
 def export_command_center_diagnostics(
     authorization=Depends(require_permission("diagnostics.export", "runtime_diagnostics")),
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
-) -> dict:
+) -> DiagnosticsExportResponse:
     return {"export_package": asdict(service.export_diagnostics())}
 
 

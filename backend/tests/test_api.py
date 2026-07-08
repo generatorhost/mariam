@@ -3114,6 +3114,41 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/VerificationAutomationResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/verification-report"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationReportResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/verification-report/record"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationSnapshotRecordResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/verification-report/snapshots"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/VerificationSnapshotsResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/diagnostics"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DiagnosticsResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/diagnostics/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/DiagnosticsExportResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/usage-guide"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/UsageGuideResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/usage-guide/export"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/UsageGuideExportResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/delivery-evidence-report"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DeliveryEvidenceReportResponse"
@@ -3178,6 +3213,26 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/LiveRepositoryWriteStatusResponse"
     )
+    assert (
+        openapi["paths"]["/api/runtime/frontend/regression-snapshot"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendRegressionSnapshotResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/frontend/visual-contract"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendVisualContractResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/frontend/browser-screenshot-plan"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendBrowserScreenshotPlanResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/frontend/browser-screenshot-capture"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/FrontendBrowserScreenshotCaptureResponse"
+    )
     assert "CompletionAreaResponse" in openapi["components"]["schemas"]
     assert "RuntimeCheckResponse" in openapi["components"]["schemas"]
     assert "DataPlatformReadinessResponse" in openapi["components"]["schemas"]
@@ -3190,6 +3245,10 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     assert "DockerContainerExecutionStatusResponse" in openapi["components"]["schemas"]
     assert "LiveDatabaseWriteStatusResponse" in openapi["components"]["schemas"]
     assert "LiveRepositoryWriteStatusResponse" in openapi["components"]["schemas"]
+    assert "VerificationReportResponse" in openapi["components"]["schemas"]
+    assert "DiagnosticsResponse" in openapi["components"]["schemas"]
+    assert "UsageGuideResponse" in openapi["components"]["schemas"]
+    assert "FrontendRegressionSnapshotResponse" in openapi["components"]["schemas"]
 
 
 def test_runtime_completion_report_can_be_exported_as_review_package() -> None:
@@ -3219,7 +3278,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3447,7 +3506,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
