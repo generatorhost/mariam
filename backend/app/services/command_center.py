@@ -331,9 +331,13 @@ class LiveRepositoryWriteStatus:
     mission_id: str
     artifact_id: str
     delivery_id: str
+    plugin_id: str
+    runtime_object_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
+    plugin_written: bool
+    runtime_object_written: bool
     checks: list[DataPlatformCheck]
 
 
@@ -788,10 +792,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=76,
+                completion_percent=78,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery repository write smoke.",
-                next_step="Add persistent repository smoke writes for plugin manifests and runtime objects.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery/plugin/runtime-object repository write smoke.",
+                next_step="Add live repository smoke writes for AI resource routes and quality review records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1543,10 +1547,14 @@ class CommandCenterSummaryService:
         mission_id = str(uuid4())
         artifact_id = str(uuid4())
         delivery_id = str(uuid4())
+        plugin_id = f"repository-smoke-{uuid4()}"
+        runtime_object_id = str(uuid4())
         generated_at = datetime.now(UTC).isoformat()
         mission_written = False
         artifact_written = False
         delivery_written = False
+        plugin_written = False
+        runtime_object_written = False
         database_error = ""
         try:
             import psycopg
@@ -1555,6 +1563,68 @@ class CommandCenterSummaryService:
 
             with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
                 with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO plugin_manifests (
+                            plugin_id,
+                            name,
+                            version,
+                            dashboard_route,
+                            api_prefix,
+                            data_boundary,
+                            manifest,
+                            status
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            plugin_id,
+                            "DB MARIAM Repository Smoke Plugin",
+                            "0.1.0",
+                            f"/plugins/{plugin_id}",
+                            f"/api/plugins/{plugin_id}",
+                            "private-plugin-tables",
+                            Jsonb(
+                                {
+                                    "plugin_id": plugin_id,
+                                    "verification": "repository-write-smoke",
+                                    "data_platform": "DB MARIAM",
+                                }
+                            ),
+                            "registered",
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO runtime_objects (
+                            id,
+                            object_type,
+                            name,
+                            status,
+                            version,
+                            manifest,
+                            created_at,
+                            updated_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            runtime_object_id,
+                            "provider",
+                            "DB MARIAM Repository Smoke Runtime Object",
+                            "enabled",
+                            "0.1.0",
+                            Jsonb(
+                                {
+                                    "provider_type": "repository_smoke_provider",
+                                    "verification": "repository-write-smoke",
+                                    "data_platform": "DB MARIAM",
+                                }
+                            ),
+                            datetime.now(UTC),
+                            datetime.now(UTC),
+                        ),
+                    )
                     cursor.execute(
                         """
                         INSERT INTO missions (
@@ -1660,6 +1730,24 @@ class CommandCenterSummaryService:
                         (delivery_id, artifact_id, mission_id),
                     )
                     delivery_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        """
+                        SELECT plugin_id
+                        FROM plugin_manifests
+                        WHERE plugin_id = %s AND status = %s
+                        """,
+                        (plugin_id, "registered"),
+                    )
+                    plugin_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        """
+                        SELECT id
+                        FROM runtime_objects
+                        WHERE id = %s AND object_type = %s AND status = %s
+                        """,
+                        (runtime_object_id, "provider", "enabled"),
+                    )
+                    runtime_object_written = cursor.fetchone() is not None
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
 
@@ -1692,6 +1780,24 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="live_plugin_manifest_repository_write",
+                status="ready" if plugin_written else "blocked",
+                detail=(
+                    f"Plugin manifest repository smoke record {plugin_id} was written and read from DB MARIAM."
+                    if plugin_written
+                    else f"Plugin manifest repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_runtime_object_repository_write",
+                status="ready" if runtime_object_written else "blocked",
+                detail=(
+                    f"Runtime object repository smoke record {runtime_object_id} was written and read from DB MARIAM."
+                    if runtime_object_written
+                    else f"Runtime object repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
                 name="repository_write_database_name",
                 status="ready" if "db_mariam" in settings.database_url else "blocked",
                 detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
@@ -1705,9 +1811,13 @@ class CommandCenterSummaryService:
             mission_id=mission_id,
             artifact_id=artifact_id,
             delivery_id=delivery_id,
+            plugin_id=plugin_id,
+            runtime_object_id=runtime_object_id,
             mission_written=mission_written,
             artifact_written=artifact_written,
             delivery_written=delivery_written,
+            plugin_written=plugin_written,
+            runtime_object_written=runtime_object_written,
             checks=checks,
         )
 

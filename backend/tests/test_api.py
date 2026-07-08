@@ -2908,7 +2908,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3017,7 +3017,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3212,7 +3212,7 @@ def test_data_platform_live_write_smoke_writes_audit_and_event_records() -> None
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
-def test_data_platform_live_repository_write_smoke_writes_mission_artifact_delivery() -> None:
+def test_data_platform_live_repository_write_smoke_writes_core_repositories() -> None:
     client = TestClient(create_app())
 
     response = client.post("/api/runtime/data-platform/live-repository-write-smoke")
@@ -3225,9 +3225,13 @@ def test_data_platform_live_repository_write_smoke_writes_mission_artifact_deliv
     assert status["mission_written"] is True
     assert status["artifact_written"] is True
     assert status["delivery_written"] is True
+    assert status["plugin_written"] is True
+    assert status["runtime_object_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
+    assert status["plugin_id"].startswith("repository-smoke-")
+    assert status["runtime_object_id"]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
