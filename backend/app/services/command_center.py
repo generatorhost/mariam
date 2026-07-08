@@ -1232,10 +1232,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Frontend Command Center",
-                completion_percent=91,
+                completion_percent=92,
                 status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, visual interaction smoke coverage for reviewer evidence export, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add visual interaction smoke coverage for delivery governance export controls.",
+                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
+                next_step="Add browser-level click smoke coverage for Command Center export buttons.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
@@ -3437,6 +3437,7 @@ class CommandCenterSummaryService:
             "npm.cmd run build",
             "py -3.11 tools/capture_frontend_screenshots.py",
             "py -3.11 tools/verify_governance_export_interaction.py",
+            "py -3.11 tools/verify_delivery_governance_export_visual.py",
         ]
         required_endpoints = [
             "/api/health",
@@ -3461,6 +3462,7 @@ class CommandCenterSummaryService:
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
+            "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
@@ -3483,6 +3485,8 @@ class CommandCenterSummaryService:
             missing_commands.append("py -3.11 tools/capture_frontend_screenshots.py")
         if "tools/verify_governance_export_interaction.py" not in verification_text:
             missing_commands.append("py -3.11 tools/verify_governance_export_interaction.py")
+        if "tools/verify_delivery_governance_export_visual.py" not in verification_text:
+            missing_commands.append("py -3.11 tools/verify_delivery_governance_export_visual.py")
         missing_endpoints = [
             endpoint for endpoint in required_endpoints if endpoint not in verification_text
         ]
@@ -3511,6 +3515,7 @@ class CommandCenterSummaryService:
         generated_during_verification = {
             "artifacts/verification/verification-automation-contract.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
+            "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
         }
         for artifact in required_artifacts:
             artifact_file = root / artifact
@@ -3764,6 +3769,16 @@ class CommandCenterSummaryService:
                     else "blocked"
                 ),
                 detail="Verification automation exercises the reviewer decision evidence export control and writes an interaction artifact.",
+            ),
+            DataPlatformCheck(
+                name="delivery_governance_export_visual_smoke_included",
+                status=(
+                    "ready"
+                    if "py -3.11 tools/verify_delivery_governance_export_visual.py"
+                    not in missing_commands
+                    else "blocked"
+                ),
+                detail="Verification automation exercises the delivery governance evidence export control and writes a visual interaction artifact.",
             ),
             DataPlatformCheck(
                 name="critical_endpoints_covered",

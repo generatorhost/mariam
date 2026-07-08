@@ -113,6 +113,7 @@ def record_local_verification_run(run_id: str, status: str, checks_completed: li
             "artifacts/frontend-regression/command-center-browser-screenshot-plan.json",
             "artifacts/frontend-regression/command-center-browser-screenshot-capture.json",
             "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json",
+            "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json",
             "artifacts/frontend-regression/desktop-command-center.png",
             "artifacts/frontend-regression/tablet-command-center.png",
             "artifacts/frontend-regression/mobile-command-center.png",
@@ -159,6 +160,27 @@ def verify_governance_export_interaction() -> None:
         "Governance reviewer decision evidence export interaction smoke did not pass.",
     )
     print("[verify] ok: governance export interaction smoke")
+
+
+def verify_delivery_governance_export_visual() -> None:
+    run_command([sys.executable, "tools/verify_delivery_governance_export_visual.py"], ROOT)
+    report_path = (
+        ROOT
+        / "artifacts"
+        / "frontend-regression"
+        / "command-center-delivery-governance-export-visual-smoke.json"
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert_condition(
+        report["status"] == "ready"
+        and report["data_platform"] == "DB MARIAM"
+        and report["checks"]["export_button_visible"] is True
+        and report["checks"]["success_state_visible"] is True
+        and report["checks"]["export_ready_for_review"] is True
+        and report["checks"]["export_governance_gated"] is True,
+        "Delivery governance export visual interaction smoke did not pass.",
+    )
+    print("[verify] ok: delivery governance export visual smoke")
 
 
 def verify_api_smoke_flow() -> None:
@@ -594,6 +616,7 @@ def verify_api_smoke_flow() -> None:
     print("[verify] ok: frontend browser screenshot plan")
     verify_frontend_screenshot_capture()
     verify_governance_export_interaction()
+    verify_delivery_governance_export_visual()
     frontend_screenshot_capture = request_json("/api/runtime/frontend/browser-screenshot-capture")
     assert_condition(
         frontend_screenshot_capture["status"] == "ready"
@@ -641,6 +664,8 @@ def verify_api_smoke_flow() -> None:
         and "py -3.11 tools/capture_frontend_screenshots.py"
         in verification_automation["required_commands"]
         and "py -3.11 tools/verify_governance_export_interaction.py"
+        in verification_automation["required_commands"]
+        and "py -3.11 tools/verify_delivery_governance_export_visual.py"
         in verification_automation["required_commands"]
         and any(
             check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
@@ -705,11 +730,18 @@ def verify_api_smoke_flow() -> None:
             check["name"] == "artifact_freshness_quality_gate" and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
+        and any(
+            check["name"] == "delivery_governance_export_visual_smoke_included"
+            and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
         and verification_automation["persisted_run_log_path"].endswith("local-verification-runs.json")
         and isinstance(verification_automation["persisted_verification_runs"], list)
         and "artifacts/verification/local-verification-runs.json"
         in verification_automation["required_artifacts"]
         and "artifacts/frontend-regression/command-center-governance-export-interaction-smoke.json"
+        in verification_automation["required_artifacts"]
+        and "artifacts/frontend-regression/command-center-delivery-governance-export-visual-smoke.json"
         in verification_automation["required_artifacts"]
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
@@ -1046,7 +1078,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Frontend Command Center",
+        and implementation_roadmap["items"][0]["area"] == "Verification automation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
