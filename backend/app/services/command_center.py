@@ -333,11 +333,15 @@ class LiveRepositoryWriteStatus:
     delivery_id: str
     plugin_id: str
     runtime_object_id: str
+    ai_resource_route_id: str
+    quality_review_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
     plugin_written: bool
     runtime_object_written: bool
+    ai_resource_route_written: bool
+    quality_review_written: bool
     checks: list[DataPlatformCheck]
 
 
@@ -792,10 +796,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=78,
+                completion_percent=80,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery/plugin/runtime-object repository write smoke.",
-                next_step="Add live repository smoke writes for AI resource routes and quality review records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke.",
+                next_step="Add live repository smoke writes for communication and document records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1549,12 +1553,16 @@ class CommandCenterSummaryService:
         delivery_id = str(uuid4())
         plugin_id = f"repository-smoke-{uuid4()}"
         runtime_object_id = str(uuid4())
+        ai_resource_route_id = str(uuid4())
+        quality_review_id = str(uuid4())
         generated_at = datetime.now(UTC).isoformat()
         mission_written = False
         artifact_written = False
         delivery_written = False
         plugin_written = False
         runtime_object_written = False
+        ai_resource_route_written = False
+        quality_review_written = False
         database_error = ""
         try:
             import psycopg
@@ -1712,6 +1720,68 @@ class CommandCenterSummaryService:
                         ),
                     )
                     cursor.execute(
+                        """
+                        INSERT INTO ai_resource_routes (
+                            route_id,
+                            capability,
+                            selected_provider_id,
+                            policy,
+                            reason,
+                            requested_by,
+                            data_platform,
+                            fallback_provider_ids,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            ai_resource_route_id,
+                            "text_generation",
+                            "ollama-local",
+                            "repository_write_smoke_selects_local_provider",
+                            "Verify AI resource route repository persistence.",
+                            "db-mariam-repository-smoke",
+                            "DB MARIAM",
+                            ["openai-compatible"],
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO artifact_quality_reviews (
+                            review_id,
+                            artifact_id,
+                            mission_id,
+                            plugin_id,
+                            passed,
+                            score,
+                            checks,
+                            data_platform,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            quality_review_id,
+                            artifact_id,
+                            mission_id,
+                            "crm",
+                            True,
+                            100,
+                            Jsonb(
+                                [
+                                    {
+                                        "name": "repository_smoke_quality_trace",
+                                        "passed": True,
+                                        "message": "Quality review record written by DB MARIAM smoke.",
+                                    }
+                                ]
+                            ),
+                            "DB MARIAM",
+                            datetime.now(UTC),
+                        ),
+                    )
+                    cursor.execute(
                         "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
                         (mission_id, "DB MARIAM"),
                     )
@@ -1748,6 +1818,24 @@ class CommandCenterSummaryService:
                         (runtime_object_id, "provider", "enabled"),
                     )
                     runtime_object_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        """
+                        SELECT route_id
+                        FROM ai_resource_routes
+                        WHERE route_id = %s AND data_platform = %s AND selected_provider_id = %s
+                        """,
+                        (ai_resource_route_id, "DB MARIAM", "ollama-local"),
+                    )
+                    ai_resource_route_written = cursor.fetchone() is not None
+                    cursor.execute(
+                        """
+                        SELECT review_id
+                        FROM artifact_quality_reviews
+                        WHERE review_id = %s AND artifact_id = %s AND score = %s
+                        """,
+                        (quality_review_id, artifact_id, 100),
+                    )
+                    quality_review_written = cursor.fetchone() is not None
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
 
@@ -1798,6 +1886,24 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="live_ai_resource_route_repository_write",
+                status="ready" if ai_resource_route_written else "blocked",
+                detail=(
+                    f"AI resource route smoke record {ai_resource_route_id} was written and read from DB MARIAM."
+                    if ai_resource_route_written
+                    else f"AI resource route repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_artifact_quality_review_repository_write",
+                status="ready" if quality_review_written else "blocked",
+                detail=(
+                    f"Artifact quality review smoke record {quality_review_id} was written and read from DB MARIAM."
+                    if quality_review_written
+                    else f"Artifact quality review repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
                 name="repository_write_database_name",
                 status="ready" if "db_mariam" in settings.database_url else "blocked",
                 detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
@@ -1813,11 +1919,15 @@ class CommandCenterSummaryService:
             delivery_id=delivery_id,
             plugin_id=plugin_id,
             runtime_object_id=runtime_object_id,
+            ai_resource_route_id=ai_resource_route_id,
+            quality_review_id=quality_review_id,
             mission_written=mission_written,
             artifact_written=artifact_written,
             delivery_written=delivery_written,
             plugin_written=plugin_written,
             runtime_object_written=runtime_object_written,
+            ai_resource_route_written=ai_resource_route_written,
+            quality_review_written=quality_review_written,
             checks=checks,
         )
 

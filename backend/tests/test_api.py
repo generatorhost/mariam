@@ -2957,7 +2957,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3074,7 +3074,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3284,11 +3284,17 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["delivery_written"] is True
     assert status["plugin_written"] is True
     assert status["runtime_object_written"] is True
+    assert status["ai_resource_route_written"] is True
+    assert status["quality_review_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
     assert status["plugin_id"].startswith("repository-smoke-")
     assert status["runtime_object_id"]
+    assert status["ai_resource_route_id"]
+    assert status["quality_review_id"]
+    assert "live_ai_resource_route_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_artifact_quality_review_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
