@@ -10,9 +10,19 @@ from uuid import uuid4
 
 from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
-from app.core.data_records import CommunicationRecord, DocumentRecord
+from app.core.data_records import (
+    CapabilityGraphRecord,
+    CommunicationRecord,
+    DocumentRecord,
+    WorkflowRecord,
+)
 from app.core.events import InMemoryEventBus
-from app.repositories.data_records import CursorCommunicationRecordRepository, CursorDocumentRecordRepository
+from app.repositories.data_records import (
+    CursorCapabilityGraphRecordRepository,
+    CursorCommunicationRecordRepository,
+    CursorDocumentRecordRepository,
+    CursorWorkflowRecordRepository,
+)
 from app.services.ai_resources import AIResourceManager
 from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
@@ -342,6 +352,8 @@ class LiveRepositoryWriteStatus:
     quality_review_id: str
     communication_record_id: str
     document_record_id: str
+    workflow_record_id: str
+    capability_graph_record_id: str
     mission_written: bool
     artifact_written: bool
     delivery_written: bool
@@ -351,6 +363,8 @@ class LiveRepositoryWriteStatus:
     quality_review_written: bool
     communication_record_written: bool
     document_record_written: bool
+    workflow_record_written: bool
+    capability_graph_record_written: bool
     checks: list[DataPlatformCheck]
 
 
@@ -1072,10 +1086,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=84,
+                completion_percent=86,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication and document records.",
-                next_step="Add repository abstraction classes for workflow and capability graph records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication, document, workflow, and capability graph records.",
+                next_step="Add repository abstraction classes for vector index and artifact store records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1202,6 +1216,8 @@ class CommandCenterSummaryService:
             "ai_resource_routes",
             "communication_records",
             "document_records",
+            "workflow_records",
+            "capability_graph_records",
             "audit_log",
         ]
         migration_dir = Path(__file__).resolve().parents[3] / "database" / "migrations"
@@ -1835,6 +1851,8 @@ class CommandCenterSummaryService:
         quality_review_id = str(uuid4())
         communication_record_id = str(uuid4())
         document_record_id = str(uuid4())
+        workflow_record_id = str(uuid4())
+        capability_graph_record_id = str(uuid4())
         generated_at = datetime.now(UTC).isoformat()
         mission_written = False
         artifact_written = False
@@ -1845,6 +1863,8 @@ class CommandCenterSummaryService:
         quality_review_written = False
         communication_record_written = False
         document_record_written = False
+        workflow_record_written = False
+        capability_graph_record_written = False
         database_error = ""
         try:
             import psycopg
@@ -1855,8 +1875,12 @@ class CommandCenterSummaryService:
                 with connection.cursor() as cursor:
                     communication_repository = CursorCommunicationRecordRepository(cursor)
                     document_repository = CursorDocumentRecordRepository(cursor)
+                    workflow_repository = CursorWorkflowRecordRepository(cursor)
+                    capability_graph_repository = CursorCapabilityGraphRecordRepository(cursor)
                     communication_repository.ensure_schema()
                     document_repository.ensure_schema()
+                    workflow_repository.ensure_schema()
+                    capability_graph_repository.ensure_schema()
                     cursor.execute(
                         """
                         INSERT INTO plugin_manifests (
@@ -2096,6 +2120,44 @@ class CommandCenterSummaryService:
                             },
                         )
                     )
+                    workflow_repository.save(
+                        WorkflowRecord(
+                            workflow_id=workflow_record_id,
+                            plugin_id="crm",
+                            name="DB MARIAM Repository Smoke Workflow",
+                            steps=[
+                                {"name": "intake", "status": "ready"},
+                                {"name": "quality_review", "status": "ready"},
+                                {"name": "delivery", "status": "ready"},
+                            ],
+                            metadata={
+                                "mission_id": mission_id,
+                                "artifact_id": artifact_id,
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
+                    capability_graph_repository.save(
+                        CapabilityGraphRecord(
+                            capability_id=capability_graph_record_id,
+                            name="DB MARIAM Repository Smoke Capability Graph",
+                            capability_type="repository-smoke",
+                            nodes=[
+                                {"id": "crm-chief", "type": "agent"},
+                                {"id": "quality-review", "type": "capability"},
+                                {"id": "delivery", "type": "capability"},
+                            ],
+                            edges=[
+                                {"from": "crm-chief", "to": "quality-review", "type": "governs"},
+                                {"from": "quality-review", "to": "delivery", "type": "approves"},
+                            ],
+                            metadata={
+                                "mission_id": mission_id,
+                                "plugin_id": "crm",
+                                "verification": "repository-write-smoke",
+                            },
+                        )
+                    )
                     cursor.execute(
                         "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
                         (mission_id, "DB MARIAM"),
@@ -2153,6 +2215,8 @@ class CommandCenterSummaryService:
                     quality_review_written = cursor.fetchone() is not None
                     communication_record_written = communication_repository.exists(communication_record_id)
                     document_record_written = document_repository.exists(document_record_id, artifact_id)
+                    workflow_record_written = workflow_repository.exists(workflow_record_id)
+                    capability_graph_record_written = capability_graph_repository.exists(capability_graph_record_id)
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
 
@@ -2239,6 +2303,24 @@ class CommandCenterSummaryService:
                 ),
             ),
             DataPlatformCheck(
+                name="live_workflow_record_repository_write",
+                status="ready" if workflow_record_written else "blocked",
+                detail=(
+                    f"Workflow record smoke record {workflow_record_id} was written and read from DB MARIAM."
+                    if workflow_record_written
+                    else f"Workflow record repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
+                name="live_capability_graph_record_repository_write",
+                status="ready" if capability_graph_record_written else "blocked",
+                detail=(
+                    f"Capability graph record smoke record {capability_graph_record_id} was written and read from DB MARIAM."
+                    if capability_graph_record_written
+                    else f"Capability graph repository smoke write failed: {database_error}"
+                ),
+            ),
+            DataPlatformCheck(
                 name="repository_write_database_name",
                 status="ready" if "db_mariam" in settings.database_url else "blocked",
                 detail="Repository write smoke targets the db_mariam database configured for DB MARIAM.",
@@ -2258,6 +2340,8 @@ class CommandCenterSummaryService:
             quality_review_id=quality_review_id,
             communication_record_id=communication_record_id,
             document_record_id=document_record_id,
+            workflow_record_id=workflow_record_id,
+            capability_graph_record_id=capability_graph_record_id,
             mission_written=mission_written,
             artifact_written=artifact_written,
             delivery_written=delivery_written,
@@ -2267,6 +2351,8 @@ class CommandCenterSummaryService:
             quality_review_written=quality_review_written,
             communication_record_written=communication_record_written,
             document_record_written=document_record_written,
+            workflow_record_written=workflow_record_written,
+            capability_graph_record_written=capability_graph_record_written,
             checks=checks,
         )
 

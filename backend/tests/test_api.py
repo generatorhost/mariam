@@ -3056,7 +3056,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3238,7 +3238,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3258,7 +3258,12 @@ def test_data_platform_readiness_reports_db_mariam_boundaries() -> None:
     assert {"missions", "artifacts", "delivery_packages", "audit_log"}.issubset(
         set(readiness["expected_tables"])
     )
-    assert {"communication_records", "document_records"}.issubset(set(readiness["expected_tables"]))
+    assert {
+        "communication_records",
+        "document_records",
+        "workflow_records",
+        "capability_graph_records",
+    }.issubset(set(readiness["expected_tables"]))
     assert all(check["status"] == "ready" for check in readiness["checks"])
 
 
@@ -3453,6 +3458,8 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["quality_review_written"] is True
     assert status["communication_record_written"] is True
     assert status["document_record_written"] is True
+    assert status["workflow_record_written"] is True
+    assert status["capability_graph_record_written"] is True
     assert status["mission_id"]
     assert status["artifact_id"]
     assert status["delivery_id"]
@@ -3462,10 +3469,14 @@ def test_data_platform_live_repository_write_smoke_writes_core_repositories() ->
     assert status["quality_review_id"]
     assert status["communication_record_id"]
     assert status["document_record_id"]
+    assert status["workflow_record_id"]
+    assert status["capability_graph_record_id"]
     assert "live_ai_resource_route_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_artifact_quality_review_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_communication_record_repository_write" in [check["name"] for check in status["checks"]]
     assert "live_document_record_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_workflow_record_repository_write" in [check["name"] for check in status["checks"]]
+    assert "live_capability_graph_record_repository_write" in [check["name"] for check in status["checks"]]
     assert all(check["status"] == "ready" for check in status["checks"])
 
 
@@ -3660,7 +3671,30 @@ def test_communication_and_document_schema_targets_db_mariam() -> None:
     assert "artifact_id UUID REFERENCES artifacts" in upgrade
 
 
-def test_communication_and_document_repositories_are_explicit_abstractions() -> None:
+def test_workflow_and_capability_graph_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    upgrade_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0008_workflow_capability_graph_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    upgrade = upgrade_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS workflow_records" in migration
+    assert "CREATE TABLE IF NOT EXISTS capability_graph_records" in migration
+    assert "steps JSONB NOT NULL DEFAULT '[]'::jsonb" in migration
+    assert "nodes JSONB NOT NULL DEFAULT '[]'::jsonb" in migration
+    assert "edges JSONB NOT NULL DEFAULT '[]'::jsonb" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_workflow_records_plugin_created" in migration
+    assert "idx_capability_graph_records_type_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS workflow_records" in upgrade
+    assert "CREATE TABLE IF NOT EXISTS capability_graph_records" in upgrade
+
+
+def test_data_record_repositories_are_explicit_abstractions() -> None:
     root = Path(__file__).resolve().parents[2]
     backend_root = root / "backend"
     repository_source = (backend_root / "app" / "repositories" / "data_records.py").read_text(
@@ -3673,12 +3707,20 @@ def test_communication_and_document_repositories_are_explicit_abstractions() -> 
 
     assert "class CommunicationRecordRepository" in repository_source
     assert "class DocumentRecordRepository" in repository_source
+    assert "class WorkflowRecordRepository" in repository_source
+    assert "class CapabilityGraphRecordRepository" in repository_source
     assert "class CursorCommunicationRecordRepository" in repository_source
     assert "class CursorDocumentRecordRepository" in repository_source
+    assert "class CursorWorkflowRecordRepository" in repository_source
+    assert "class CursorCapabilityGraphRecordRepository" in repository_source
     assert "class CommunicationRecord" in core_source
     assert "class DocumentRecord" in core_source
+    assert "class WorkflowRecord" in core_source
+    assert "class CapabilityGraphRecord" in core_source
     assert "CursorCommunicationRecordRepository(cursor)" in command_center_source
     assert "CursorDocumentRecordRepository(cursor)" in command_center_source
+    assert "CursorWorkflowRecordRepository(cursor)" in command_center_source
+    assert "CursorCapabilityGraphRecordRepository(cursor)" in command_center_source
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:

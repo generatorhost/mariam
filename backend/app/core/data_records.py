@@ -26,3 +26,26 @@ class DocumentRecord(BaseModel):
     data_platform: str = "DB MARIAM"
     metadata: dict[str, object] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class WorkflowRecord(BaseModel):
+    workflow_id: str
+    plugin_id: str
+    name: str
+    status: str = "active"
+    steps: list[dict[str, object]] = Field(default_factory=list)
+    data_platform: str = "DB MARIAM"
+    metadata: dict[str, object] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class CapabilityGraphRecord(BaseModel):
+    capability_id: str
+    name: str
+    capability_type: str
+    status: str = "available"
+    nodes: list[dict[str, object]] = Field(default_factory=list)
+    edges: list[dict[str, object]] = Field(default_factory=list)
+    data_platform: str = "DB MARIAM"
+    metadata: dict[str, object] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
