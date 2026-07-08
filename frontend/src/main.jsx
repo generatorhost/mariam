@@ -160,6 +160,10 @@ async function loadLiveDbSmoke() {
   return apiGet('/api/runtime/data-platform/live-db-smoke');
 }
 
+async function loadDockerContainerExecution() {
+  return apiGet('/api/runtime/data-platform/docker-container-execution');
+}
+
 async function loadVerificationReport() {
   return apiGet('/api/runtime/verification-report');
 }
@@ -2372,6 +2376,68 @@ function LiveDbSmokePanel({ refreshVersion }) {
   );
 }
 
+function DockerContainerExecutionPanel({ refreshVersion }) {
+  const [executionStatus, setExecutionStatus] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshDockerExecution = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setExecutionStatus(await loadDockerContainerExecution());
+      setStatus('ready');
+    } catch (executionError) {
+      setStatus('error');
+      setError(executionError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDockerExecution();
+  }, [refreshDockerExecution, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Docker Container Execution</h2>
+        <p>Verify the DB MARIAM postgres container is running and accepting connections.</p>
+      </div>
+      <button onClick={refreshDockerExecution} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Checking...' : 'Refresh Docker Execution'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {executionStatus && (
+        <>
+          <div className="mission-result">
+            <strong>{executionStatus.status}</strong>
+            <span>{executionStatus.data_platform}</span>
+            <p>
+              Postgres running: <strong>{String(executionStatus.postgres_running)}</strong> /
+              pg_isready: <strong>{String(executionStatus.pg_isready)}</strong>
+            </p>
+            <p>{executionStatus.services.join(', ')}</p>
+          </div>
+          <div className="terms">
+            {executionStatus.execution_commands.map((command) => (
+              <span key={command}>{command}</span>
+            ))}
+          </div>
+          <div className="mission-history">
+            {executionStatus.checks.map((check) => (
+              <article key={check.name}>
+                <strong>{check.name}</strong>
+                <span>{check.status}</span>
+                <p>{check.detail}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function VerificationReportPanel({ refreshVersion }) {
   const [report, setReport] = useState(null);
   const [auditRecord, setAuditRecord] = useState(null);
@@ -3319,6 +3385,7 @@ function App() {
           <PluginSchemaIsolationPanel refreshVersion={refreshVersion} />
           <DockerPersistencePanel refreshVersion={refreshVersion} />
           <LiveDbSmokePanel refreshVersion={refreshVersion} />
+          <DockerContainerExecutionPanel refreshVersion={refreshVersion} />
         </section>
         <section id="verification" className="workspace-section">
           <VerificationReportPanel refreshVersion={refreshVersion} />

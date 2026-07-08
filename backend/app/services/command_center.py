@@ -296,6 +296,19 @@ class LiveDatabaseSmokeStatus:
     checks: list[DataPlatformCheck]
 
 
+@dataclass
+class DockerContainerExecutionStatus:
+    title: str
+    status: str
+    generated_at: str
+    data_platform: str
+    postgres_running: bool
+    pg_isready: bool
+    services: list[str]
+    execution_commands: list[str]
+    checks: list[DataPlatformCheck]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -418,6 +431,7 @@ class CommandCenterSummaryService:
                 "/api/artifacts/deliveries",
                 "/api/audit",
                 "/api/runtime/events",
+                "/api/runtime/data-platform/docker-container-execution",
                 "/api/plugins",
                 "/api/runtime-objects",
                 "/api/ai-resources/providers",
@@ -649,10 +663,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=70,
+                completion_percent=72,
                 status="partial",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, and live DB smoke readiness.",
-                next_step="Add live Docker database container execution verification.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, and Docker postgres container execution verification.",
+                next_step="Add persistent repository smoke writes against the live Docker database.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1239,6 +1253,60 @@ class CommandCenterSummaryService:
             docker_available=docker_available,
             compose_config_valid=compose_config_valid,
             smoke_command="docker compose up -d postgres && docker compose exec postgres pg_isready -d db_mariam",
+            checks=checks,
+        )
+
+    def docker_container_execution_status(self) -> DockerContainerExecutionStatus:
+        root = Path(__file__).resolve().parents[3]
+        services_result = self._run_readonly_command(["docker", "compose", "config", "--services"], root)
+        ps_result = self._run_readonly_command(["docker", "compose", "ps", "postgres", "--format", "json"], root)
+        pg_isready_result = self._run_readonly_command(
+            ["docker", "compose", "exec", "-T", "postgres", "pg_isready", "-d", "db_mariam"],
+            root,
+        )
+        services = [line.strip() for line in str(services_result["detail"]).splitlines() if line.strip()]
+        postgres_running = '"State":"running"' in str(ps_result["detail"]) or '"State": "running"' in str(
+            ps_result["detail"]
+        )
+        pg_isready = pg_isready_result["returncode"] == 0 and "accepting connections" in str(
+            pg_isready_result["detail"]
+        )
+        expected_services = {"postgres", "redis", "minio", "backend", "frontend"}
+        checks = [
+            DataPlatformCheck(
+                name="compose_services_resolved",
+                status="ready" if expected_services.issubset(set(services)) else "blocked",
+                detail=f"Compose services: {', '.join(services)}.",
+            ),
+            DataPlatformCheck(
+                name="postgres_container_running",
+                status="ready" if postgres_running else "blocked",
+                detail=str(ps_result["detail"]),
+            ),
+            DataPlatformCheck(
+                name="postgres_pg_isready",
+                status="ready" if pg_isready else "blocked",
+                detail=str(pg_isready_result["detail"]),
+            ),
+            DataPlatformCheck(
+                name="db_mariam_target_database",
+                status="ready" if pg_isready else "blocked",
+                detail="pg_isready targets the DB MARIAM database name: db_mariam.",
+            ),
+        ]
+        return DockerContainerExecutionStatus(
+            title="DB MARIAM Docker Container Execution Verification",
+            status="ready" if all(check.status == "ready" for check in checks) else "blocked",
+            generated_at=datetime.now(UTC).isoformat(),
+            data_platform="DB MARIAM",
+            postgres_running=postgres_running,
+            pg_isready=pg_isready,
+            services=services,
+            execution_commands=[
+                "docker compose up -d postgres",
+                "docker compose ps postgres --format json",
+                "docker compose exec -T postgres pg_isready -d db_mariam",
+            ],
             checks=checks,
         )
 

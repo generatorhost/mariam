@@ -96,6 +96,13 @@ def command_center_data_platform_live_db_smoke(
     return asdict(service.live_database_smoke_status())
 
 
+@router.get("/data-platform/docker-container-execution")
+def command_center_data_platform_docker_container_execution(
+    service: CommandCenterSummaryService = Depends(get_command_center_summary_service),
+) -> dict:
+    return asdict(service.docker_container_execution_status())
+
+
 @router.get("/verification-report")
 def command_center_verification_report(
     service: CommandCenterSummaryService = Depends(get_command_center_summary_service),

@@ -121,6 +121,12 @@ Live DB smoke readiness verifies Docker and Compose configuration before running
 GET /api/runtime/data-platform/live-db-smoke
 ```
 
+Docker container execution verifies the DB MARIAM Postgres container is running and `pg_isready` accepts `db_mariam` connections:
+
+```http
+GET /api/runtime/data-platform/docker-container-execution
+```
+
 The Command Center also exposes **Verification Report**, backed by:
 
 ```http

@@ -101,6 +101,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/data-platform/plugin-schema-isolation",
         "/api/runtime/data-platform/docker-persistence",
         "/api/runtime/data-platform/live-db-smoke",
+        "/api/runtime/data-platform/docker-container-execution",
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
@@ -271,6 +272,15 @@ def verify_api_smoke_flow() -> None:
     )
     print("[verify] ok: live DB smoke readiness")
 
+    docker_execution = request_json("/api/runtime/data-platform/docker-container-execution")
+    assert_condition(
+        docker_execution["status"] == "ready"
+        and docker_execution["postgres_running"] is True
+        and docker_execution["pg_isready"] is True,
+        "DB MARIAM Docker container execution verification did not pass.",
+    )
+    print("[verify] ok: docker container execution")
+
     usage_guide = request_json("/api/runtime/usage-guide")
     assert_condition(
         any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
@@ -359,7 +369,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
+        and implementation_roadmap["items"][0]["area"] == "Governance and delivery workflow",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")
