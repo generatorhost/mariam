@@ -4,16 +4,23 @@ from app.core.artifacts import (
     Artifact,
     ArtifactApprovalRequest,
     ArtifactDeliveryRequest,
+    ArtifactQualityReview,
+    ArtifactQualityReviewRequest,
     ArtifactRejectionRequest,
     ArtifactStatus,
     DeliveryConfirmationRequest,
     DeliveryPackage,
+    create_artifact_quality_review,
     create_delivery_package,
     create_artifact_from_mission,
 )
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
-from app.repositories.artifacts import ArtifactRepository, DeliveryPackageRepository
+from app.repositories.artifacts import (
+    ArtifactQualityReviewRepository,
+    ArtifactRepository,
+    DeliveryPackageRepository,
+)
 from app.services.audit import AuditService
 from app.services.missions import MissionService
 
@@ -24,12 +31,14 @@ class ArtifactService:
         event_bus: InMemoryEventBus,
         repository: ArtifactRepository,
         delivery_repository: DeliveryPackageRepository,
+        quality_review_repository: ArtifactQualityReviewRepository,
         audit_service: AuditService,
         mission_service: MissionService,
     ) -> None:
         self._event_bus = event_bus
         self._repository = repository
         self._delivery_repository = delivery_repository
+        self._quality_review_repository = quality_review_repository
         self._audit_service = audit_service
         self._mission_service = mission_service
 
@@ -128,7 +137,16 @@ class ArtifactService:
         artifact = self._get(artifact_id)
         if artifact.status != ArtifactStatus.approved:
             raise ValueError(f"Artifact {artifact_id} must be approved before delivery packaging.")
+        quality_review = self._quality_review_repository.latest_for_artifact(artifact_id)
+        if quality_review is None or not quality_review.passed:
+            raise ValueError(f"Artifact {artifact_id} must pass quality review before delivery packaging.")
         delivery_package = create_delivery_package(artifact, request.destination)
+        delivery_package.package_manifest.update(
+            {
+                "quality_review_id": quality_review.review_id,
+                "quality_score": quality_review.score,
+            }
+        )
         saved_delivery = self._delivery_repository.save(delivery_package)
         self._audit_service.record(
             AuditRecordRequest(
@@ -166,6 +184,48 @@ class ArtifactService:
 
     def list_delivery_packages(self) -> list[DeliveryPackage]:
         return self._delivery_repository.list()
+
+    def review_quality(
+        self,
+        artifact_id: str,
+        request: ArtifactQualityReviewRequest,
+    ) -> ArtifactQualityReview:
+        artifact = self._get(artifact_id)
+        review = create_artifact_quality_review(artifact)
+        saved_review = self._quality_review_repository.save(review)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.reviewed_by,
+                action="artifact.quality_review",
+                target_type="artifact",
+                target_id=artifact_id,
+                decision="approved" if saved_review.passed else "rejected",
+                evidence={
+                    "review_id": saved_review.review_id,
+                    "mission_id": saved_review.mission_id,
+                    "plugin_id": saved_review.plugin_id,
+                    "score": str(saved_review.score),
+                    "data_platform": saved_review.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "artifact.quality_reviewed",
+            "artifact-service",
+            {
+                "review_id": saved_review.review_id,
+                "artifact_id": saved_review.artifact_id,
+                "mission_id": saved_review.mission_id,
+                "plugin_id": saved_review.plugin_id,
+                "passed": saved_review.passed,
+                "score": saved_review.score,
+            },
+        )
+        return saved_review
+
+    def list_quality_reviews(self) -> list[ArtifactQualityReview]:
+        return self._quality_review_repository.list()
 
     def confirm_delivery(
         self,

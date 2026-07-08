@@ -68,6 +68,13 @@ async function loadDeliveryPackages() {
   );
 }
 
+async function loadQualityReviews() {
+  const body = await apiGet('/api/artifacts/quality-reviews');
+  return (body.quality_reviews || []).sort(
+    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime(),
+  );
+}
+
 async function loadAuditRecords() {
   const body = await apiGet('/api/audit');
   return (body.audit_records || []).sort(
@@ -158,6 +165,13 @@ async function rejectArtifact(artifactId) {
     rejected_by: 'command-center-artifact-governance',
     reason: 'Artifact needs revisions before client delivery.',
     evidence: { review: 'Rejected from Command Center artifact panel' },
+  });
+}
+
+async function reviewArtifactQuality(artifactId) {
+  return apiRequest(`/api/artifacts/${artifactId}/quality-review`, {
+    reviewed_by: 'command-center-quality-governance',
+    evidence: { quality: 'Reviewed from Command Center artifact panel' },
   });
 }
 
@@ -1207,9 +1221,11 @@ function AuditHistoryPanel({ refreshVersion }) {
 function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
   const [missions, setMissions] = useState([]);
   const [deliveryPackages, setDeliveryPackages] = useState([]);
+  const [qualityReviews, setQualityReviews] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [artifact, setArtifact] = useState(null);
+  const [qualityReview, setQualityReview] = useState(null);
   const [deliveryPackage, setDeliveryPackage] = useState(null);
 
   const refreshMissions = useCallback(async () => {
@@ -1236,10 +1252,23 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     }
   }, []);
 
+  const refreshQualityReviews = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setQualityReviews((await loadQualityReviews()).slice(0, 5));
+      setStatus('ready');
+    } catch (qualityError) {
+      setStatus('error');
+      setError(qualityError.message);
+    }
+  }, []);
+
   useEffect(() => {
     refreshMissions();
     refreshDeliveryPackages();
-  }, [refreshMissions, refreshDeliveryPackages, refreshVersion]);
+    refreshQualityReviews();
+  }, [refreshMissions, refreshDeliveryPackages, refreshQualityReviews, refreshVersion]);
 
   async function handleHistoryDecision(missionId, decision) {
     setStatus('loading');
@@ -1264,6 +1293,8 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       const body = await generateArtifactFromMission(missionId);
       setArtifact(body.artifact);
+      setQualityReview(null);
+      setDeliveryPackage(null);
       onActionComplete();
       setStatus('ready');
     } catch (artifactError) {
@@ -1281,11 +1312,28 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
         ? await approveArtifact(artifact.artifact_id)
         : await rejectArtifact(artifact.artifact_id);
       setArtifact(body.artifact);
+      setQualityReview(null);
       onActionComplete();
       setStatus('ready');
     } catch (artifactError) {
       setStatus('error');
       setError(artifactError.message);
+    }
+  }
+
+  async function handleQualityReview() {
+    if (!artifact) return;
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await reviewArtifactQuality(artifact.artifact_id);
+      setQualityReview(body.quality_review);
+      await refreshQualityReviews();
+      onActionComplete();
+      setStatus('ready');
+    } catch (qualityError) {
+      setStatus('error');
+      setError(qualityError.message);
     }
   }
 
@@ -1347,11 +1395,24 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
           )}
           {artifact.status === 'approved' && (
             <div className="mission-actions">
-              <button onClick={handleDeliveryPackaging} disabled={status === 'loading'}>
+              <button onClick={handleQualityReview} disabled={status === 'loading'}>
+                Run Quality Review
+              </button>
+              <button
+                onClick={handleDeliveryPackaging}
+                disabled={status === 'loading' || !qualityReview?.passed}
+              >
                 Package Delivery
               </button>
             </div>
           )}
+        </div>
+      )}
+      {qualityReview && (
+        <div className="mission-result">
+          <strong>{qualityReview.passed ? 'Quality Review Passed' : 'Quality Review Failed'}</strong>
+          <span>{qualityReview.score}%</span>
+          <p>{qualityReview.review_id}</p>
         </div>
       )}
       {deliveryPackage && (
@@ -1365,6 +1426,23 @@ function MissionHistoryPanel({ refreshVersion, onActionComplete }) {
         <button onClick={refreshDeliveryPackages} disabled={status === 'loading'}>
           Refresh Delivery Packages
         </button>
+        <button onClick={refreshQualityReviews} disabled={status === 'loading'}>
+          Refresh Quality Reviews
+        </button>
+      </div>
+      <div className="mission-history">
+        {qualityReviews.length ? (
+          qualityReviews.map((item) => (
+            <article key={item.review_id}>
+              <strong>{item.passed ? 'passed' : 'failed'}</strong>
+              <span>{item.score}%</span>
+              <p>{item.plugin_id} / artifact {item.artifact_id}</p>
+              <time>{new Date(item.created_at).toLocaleString()}</time>
+            </article>
+          ))
+        ) : (
+          <p>No quality reviews recorded yet.</p>
+        )}
       </div>
       <div className="mission-history">
         {deliveryPackages.length ? (

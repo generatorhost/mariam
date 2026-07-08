@@ -4,11 +4,14 @@ from app.core.config import get_settings
 from app.core.events import InMemoryEventBus
 from app.repositories.audit import AuditRepository, InMemoryAuditRepository, PostgresAuditRepository
 from app.repositories.artifacts import (
+    ArtifactQualityReviewRepository,
     ArtifactRepository,
     DeliveryPackageRepository,
     InMemoryArtifactRepository,
+    InMemoryArtifactQualityReviewRepository,
     InMemoryDeliveryPackageRepository,
     PostgresArtifactRepository,
+    PostgresArtifactQualityReviewRepository,
     PostgresDeliveryPackageRepository,
 )
 from app.repositories.ai_resource_routes import (
@@ -120,6 +123,7 @@ def get_artifact_service() -> ArtifactService:
         get_event_bus(),
         get_artifact_repository(),
         get_delivery_package_repository(),
+        get_artifact_quality_review_repository(),
         get_audit_service(),
         get_mission_service(),
     )
@@ -139,6 +143,14 @@ def get_delivery_package_repository() -> DeliveryPackageRepository:
     if settings.mission_store == "postgres":
         return PostgresDeliveryPackageRepository(settings.database_url)
     return InMemoryDeliveryPackageRepository()
+
+
+@lru_cache
+def get_artifact_quality_review_repository() -> ArtifactQualityReviewRepository:
+    settings = get_settings()
+    if settings.mission_store == "postgres":
+        return PostgresArtifactQualityReviewRepository(settings.database_url)
+    return InMemoryArtifactQualityReviewRepository()
 
 
 @lru_cache

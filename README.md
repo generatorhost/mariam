@@ -73,10 +73,11 @@ The current rebuild foundation supports a small end-to-end mission flow:
 16. Pending Mission History records expose **Approve** and **Reject** actions so older awaiting missions can still pass through governance.
 17. Press **Generate Artifact** on a pending mission to create a review artifact in `DB MARIAM`.
 18. Press **Approve Artifact** or **Reject Artifact** to record delivery governance before client export.
-19. Press **Package Delivery** after artifact approval to create a client delivery package.
-20. Press **Refresh Delivery Packages** to read stored delivery packages from `DB MARIAM`.
-21. Press **Confirm Client Delivery** on a ready package to record final client delivery.
-22. Audit History reads `GET /api/audit` and refreshes automatically after governance decisions.
+19. Press **Run Quality Review** after artifact approval to record a quality gate.
+20. Press **Package Delivery** after a passing quality review to create a client delivery package.
+21. Press **Refresh Delivery Packages** to read stored delivery packages from `DB MARIAM`.
+22. Press **Confirm Client Delivery** on a ready package to record final client delivery.
+23. Audit History reads `GET /api/audit` and refreshes automatically after governance decisions.
 
 ## First AI Resource Flow
 

@@ -649,8 +649,22 @@ POST /api/artifacts/from-mission/{mission_id}
 5. The backend emits `artifact.approved` or `artifact.rejected`.
 6. The frontend displays the final artifact status.
 
+### Run Artifact Quality Review
+1. User presses `Run Quality Review` after approving an artifact.
+2. The frontend sends:
+
+```http
+POST /api/artifacts/{artifact_id}/quality-review
+```
+
+3. The backend evaluates content presence, mission traceability, delivery governance instruction, and incomplete markers.
+4. The backend stores the quality review in `DB MARIAM`.
+5. The backend records `artifact.quality_review` in the audit log.
+6. The backend emits `artifact.quality_reviewed`.
+7. The frontend displays pass/fail status, score, and review id.
+
 ### Package Delivery
-1. User presses `Package Delivery` after approving an artifact.
+1. User presses `Package Delivery` after approving an artifact and passing quality review.
 2. The frontend sends:
 
 ```http
@@ -658,12 +672,13 @@ POST /api/artifacts/{artifact_id}/package-delivery
 ```
 
 3. The backend verifies that the artifact status is `approved`.
-4. The backend creates a delivery package with `ready_for_client_delivery` status.
-5. The backend stores the delivery package in `DB MARIAM`.
-6. The backend records `artifact.package_delivery` in the audit log.
-7. The backend emits `artifact.delivery_packaged`.
-8. The frontend displays delivery id, destination, and delivery status.
-9. The frontend refreshes delivery package history.
+4. The backend verifies that the latest artifact quality review passed.
+5. The backend creates a delivery package with `ready_for_client_delivery` status and quality evidence.
+6. The backend stores the delivery package in `DB MARIAM`.
+7. The backend records `artifact.package_delivery` in the audit log.
+8. The backend emits `artifact.delivery_packaged`.
+9. The frontend displays delivery id, destination, and delivery status.
+10. The frontend refreshes delivery package history.
 
 ### Refresh Delivery Packages
 1. User presses `Refresh Delivery Packages`.
@@ -727,6 +742,7 @@ The migration adds:
 - `missions`
 - `mission_steps`
 - `artifacts`
+- `artifact_quality_reviews`
 - `delivery_packages`
 
 These tables are the first executable Mission DB boundary.
@@ -774,6 +790,7 @@ pytest
 - Pressing each frontend action button has a real backend result.
 - Frontend exposes status, mission, AI routing, plugin registration, runtime object, and audit flows.
 - Delivery packages can be read back from persisted history.
+- Artifact delivery packaging requires a passing quality review.
 - Ready delivery packages can be confirmed as delivered to the client.
 - Audit records are available from `GET /api/audit`.
 - Frontend Audit History displays recent governance decisions.

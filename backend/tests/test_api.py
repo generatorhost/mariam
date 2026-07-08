@@ -1068,6 +1068,27 @@ def test_approved_artifact_can_be_packaged_for_delivery() -> None:
         },
     )
 
+    premature_delivery_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/package-delivery",
+        json={
+            "packaged_by": "delivery-governance",
+            "destination": "client-review-channel",
+            "evidence": {"delivery": "missing-quality-review"},
+        },
+    )
+    assert premature_delivery_response.status_code == 400
+    assert "must pass quality review" in premature_delivery_response.json()["detail"]
+
+    quality_response = client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/quality-review",
+        json={
+            "reviewed_by": "quality-governance",
+            "evidence": {"quality": "passed"},
+        },
+    )
+    assert quality_response.status_code == 200
+    assert quality_response.json()["quality_review"]["passed"] is True
+
     delivery_response = client.post(
         f"/api/artifacts/{artifact['artifact_id']}/package-delivery",
         json={
@@ -1083,11 +1104,16 @@ def test_approved_artifact_can_be_packaged_for_delivery() -> None:
     assert delivery_package["mission_id"] == mission_id
     assert delivery_package["status"] == "ready_for_client_delivery"
     assert delivery_package["data_platform"] == "DB MARIAM"
+    assert delivery_package["package_manifest"]["quality_score"] == 100
 
+    quality_list_response = client.get("/api/artifacts/quality-reviews")
     delivery_list_response = client.get("/api/artifacts/deliveries")
     audit_response = client.get("/api/audit")
     event_response = client.get("/api/runtime/events")
 
+    assert quality_response.json()["quality_review"]["review_id"] in [
+        item["review_id"] for item in quality_list_response.json()["quality_reviews"]
+    ]
     assert delivery_package["delivery_id"] in [
         item["delivery_id"] for item in delivery_list_response.json()["delivery_packages"]
     ]
@@ -1119,6 +1145,13 @@ def test_delivery_package_can_be_confirmed_to_client_with_audit() -> None:
         json={
             "approved_by": "artifact-governance",
             "evidence": {"review": "artifact-approved"},
+        },
+    )
+    client.post(
+        f"/api/artifacts/{artifact['artifact_id']}/quality-review",
+        json={
+            "reviewed_by": "quality-governance",
+            "evidence": {"quality": "passed"},
         },
     )
     delivery_package = client.post(
@@ -2282,6 +2315,25 @@ def test_delivery_package_schema_targets_db_mariam() -> None:
     assert "idx_delivery_packages_plugin_status" in migration
     assert "CREATE TABLE IF NOT EXISTS delivery_packages" in delivery_upgrade
     assert "artifact_id UUID NOT NULL REFERENCES artifacts" in delivery_upgrade
+
+
+def test_artifact_quality_review_schema_targets_db_mariam() -> None:
+    migration_path = Path(__file__).resolve().parents[2] / "database" / "migrations" / "0001_initial.sql"
+    quality_path = (
+        Path(__file__).resolve().parents[2]
+        / "database"
+        / "migrations"
+        / "0006_artifact_quality_review_storage.sql"
+    )
+    migration = migration_path.read_text(encoding="utf-8")
+    quality_upgrade = quality_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS artifact_quality_reviews" in migration
+    assert "checks JSONB NOT NULL DEFAULT '[]'::jsonb" in migration
+    assert "data_platform TEXT NOT NULL DEFAULT 'DB MARIAM'" in migration
+    assert "idx_artifact_quality_reviews_artifact_created" in migration
+    assert "CREATE TABLE IF NOT EXISTS artifact_quality_reviews" in quality_upgrade
+    assert "artifact_id UUID NOT NULL REFERENCES artifacts" in quality_upgrade
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:

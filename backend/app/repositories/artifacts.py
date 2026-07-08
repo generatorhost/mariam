@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.core.artifacts import Artifact, ArtifactStatus, DeliveryPackage
+from app.core.artifacts import Artifact, ArtifactQualityReview, ArtifactStatus, DeliveryPackage
 
 
 class ArtifactRepository(Protocol):
@@ -28,6 +28,17 @@ class DeliveryPackageRepository(Protocol):
         pass
 
     def list(self) -> list[DeliveryPackage]:
+        pass
+
+
+class ArtifactQualityReviewRepository(Protocol):
+    def save(self, review: ArtifactQualityReview) -> ArtifactQualityReview:
+        pass
+
+    def latest_for_artifact(self, artifact_id: str) -> ArtifactQualityReview | None:
+        pass
+
+    def list(self) -> list[ArtifactQualityReview]:
         pass
 
 
@@ -67,6 +78,25 @@ class InMemoryDeliveryPackageRepository:
 
     def list(self) -> list[DeliveryPackage]:
         return list(self._delivery_packages.values())
+
+
+class InMemoryArtifactQualityReviewRepository:
+    def __init__(self) -> None:
+        self._reviews: dict[str, ArtifactQualityReview] = {}
+
+    def save(self, review: ArtifactQualityReview) -> ArtifactQualityReview:
+        self._reviews[review.review_id] = review
+        return review
+
+    def latest_for_artifact(self, artifact_id: str) -> ArtifactQualityReview | None:
+        reviews = [
+            review for review in self._reviews.values()
+            if review.artifact_id == artifact_id
+        ]
+        return max(reviews, key=lambda review: review.created_at, default=None)
+
+    def list(self) -> list[ArtifactQualityReview]:
+        return list(self._reviews.values())
 
 
 class PostgresArtifactRepository:
@@ -236,6 +266,88 @@ class PostgresDeliveryPackageRepository:
                 destination=row["destination"],
                 status=row["status"],
                 package_manifest=dict(row["package_manifest"]),
+                data_platform=row["data_platform"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+
+class PostgresArtifactQualityReviewRepository:
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+
+    def save(self, review: ArtifactQualityReview) -> ArtifactQualityReview:
+        import psycopg
+        from psycopg.types.json import Jsonb
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO artifact_quality_reviews (
+                        review_id,
+                        artifact_id,
+                        mission_id,
+                        plugin_id,
+                        passed,
+                        score,
+                        checks,
+                        data_platform,
+                        created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        review.review_id,
+                        review.artifact_id,
+                        review.mission_id,
+                        review.plugin_id,
+                        review.passed,
+                        review.score,
+                        Jsonb(review.checks),
+                        review.data_platform,
+                        review.created_at,
+                    ),
+                )
+        return review
+
+    def latest_for_artifact(self, artifact_id: str) -> ArtifactQualityReview | None:
+        reviews = [review for review in self.list() if review.artifact_id == artifact_id]
+        return max(reviews, key=lambda review: review.created_at, default=None)
+
+    def list(self) -> list[ArtifactQualityReview]:
+        import psycopg
+        from psycopg.rows import dict_row
+
+        with psycopg.connect(self._database_url, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT
+                        review_id,
+                        artifact_id,
+                        mission_id,
+                        plugin_id,
+                        passed,
+                        score,
+                        checks,
+                        data_platform,
+                        created_at
+                    FROM artifact_quality_reviews
+                    ORDER BY created_at DESC
+                    """
+                )
+                rows = cursor.fetchall()
+        return [
+            ArtifactQualityReview(
+                review_id=str(row["review_id"]),
+                artifact_id=str(row["artifact_id"]),
+                mission_id=str(row["mission_id"]),
+                plugin_id=row["plugin_id"],
+                passed=row["passed"],
+                score=row["score"],
+                checks=list(row["checks"]),
                 data_platform=row["data_platform"],
                 created_at=row["created_at"],
             )

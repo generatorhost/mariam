@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.artifacts import (
     ArtifactApprovalRequest,
     ArtifactDeliveryRequest,
+    ArtifactQualityReviewRequest,
     ArtifactRejectionRequest,
     DeliveryConfirmationRequest,
 )
@@ -23,6 +24,16 @@ def list_delivery_packages(service: ArtifactService = Depends(get_artifact_servi
         "delivery_packages": [
             delivery_package.model_dump(mode="json")
             for delivery_package in service.list_delivery_packages()
+        ]
+    }
+
+
+@router.get("/quality-reviews")
+def list_quality_reviews(service: ArtifactService = Depends(get_artifact_service)) -> dict:
+    return {
+        "quality_reviews": [
+            quality_review.model_dump(mode="json")
+            for quality_review in service.list_quality_reviews()
         ]
     }
 
@@ -50,6 +61,19 @@ def generate_artifact_from_mission(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"artifact": artifact.model_dump(mode="json")}
+
+
+@router.post("/{artifact_id}/quality-review")
+def review_artifact_quality(
+    artifact_id: str,
+    request: ArtifactQualityReviewRequest,
+    service: ArtifactService = Depends(get_artifact_service),
+) -> dict:
+    try:
+        quality_review = service.review_quality(artifact_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"quality_review": quality_review.model_dump(mode="json")}
 
 
 @router.post("/{artifact_id}/approve")

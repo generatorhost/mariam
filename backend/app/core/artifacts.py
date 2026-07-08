@@ -28,6 +28,11 @@ class ArtifactDeliveryRequest(BaseModel):
     evidence: dict[str, str] = Field(default_factory=dict)
 
 
+class ArtifactQualityReviewRequest(BaseModel):
+    reviewed_by: str = Field(default="quality-governance", min_length=2)
+    evidence: dict[str, str] = Field(default_factory=dict)
+
+
 class DeliveryConfirmationRequest(BaseModel):
     delivered_by: str = Field(default="delivery-governance", min_length=2)
     client_reference: str = Field(default="client-confirmed-receipt", min_length=3)
@@ -57,6 +62,18 @@ class DeliveryPackage(BaseModel):
     created_at: datetime
 
 
+class ArtifactQualityReview(BaseModel):
+    review_id: str
+    artifact_id: str
+    mission_id: str
+    plugin_id: str
+    passed: bool
+    score: int
+    checks: list[dict[str, str | bool]]
+    data_platform: str = "DB MARIAM"
+    created_at: datetime
+
+
 def create_artifact_from_mission(
     mission_id: str,
     plugin_id: str,
@@ -73,6 +90,43 @@ def create_artifact_from_mission(
             "Delivery is blocked until governance approval."
         ),
         status=ArtifactStatus.awaiting_approval,
+        created_at=datetime.now(UTC),
+    )
+
+
+def create_artifact_quality_review(artifact: Artifact) -> ArtifactQualityReview:
+    checks: list[dict[str, str | bool]] = [
+        {
+            "name": "content_present",
+            "passed": bool(artifact.content.strip()),
+            "message": "Artifact must contain reviewable content.",
+        },
+        {
+            "name": "mission_traceability",
+            "passed": bool(artifact.mission_id and artifact.plugin_id),
+            "message": "Artifact must remain traceable to mission and plugin.",
+        },
+        {
+            "name": "governance_instruction_present",
+            "passed": "Delivery is blocked until governance approval." in artifact.content,
+            "message": "Artifact must preserve delivery governance instruction.",
+        },
+        {
+            "name": "no_incomplete_marker",
+            "passed": "incomplete" not in artifact.content.lower(),
+            "message": "Artifact must not contain an explicit incomplete marker.",
+        },
+    ]
+    passed_checks = sum(1 for check in checks if check["passed"])
+    score = int((passed_checks / len(checks)) * 100)
+    return ArtifactQualityReview(
+        review_id=str(uuid4()),
+        artifact_id=artifact.artifact_id,
+        mission_id=artifact.mission_id,
+        plugin_id=artifact.plugin_id,
+        passed=score == 100,
+        score=score,
+        checks=checks,
         created_at=datetime.now(UTC),
     )
 

@@ -74,6 +74,18 @@ CREATE TABLE IF NOT EXISTS delivery_packages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS artifact_quality_reviews (
+    review_id UUID PRIMARY KEY,
+    artifact_id UUID NOT NULL REFERENCES artifacts (artifact_id) ON DELETE CASCADE,
+    mission_id UUID NOT NULL REFERENCES missions (mission_id) ON DELETE CASCADE,
+    plugin_id TEXT NOT NULL,
+    passed BOOLEAN NOT NULL,
+    score INTEGER NOT NULL,
+    checks JSONB NOT NULL DEFAULT '[]'::jsonb,
+    data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS ai_resource_routes (
     route_id UUID PRIMARY KEY,
     capability TEXT NOT NULL,
@@ -111,6 +123,9 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_mission_status
 
 CREATE INDEX IF NOT EXISTS idx_delivery_packages_plugin_status
     ON delivery_packages (plugin_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_artifact_quality_reviews_artifact_created
+    ON artifact_quality_reviews (artifact_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_ai_resource_routes_capability_created
     ON ai_resource_routes (capability, created_at DESC);
