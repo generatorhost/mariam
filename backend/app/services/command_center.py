@@ -10,7 +10,9 @@ from uuid import uuid4
 
 from app.core.config import get_settings
 from app.core.audit import AuditRecord, AuditRecordRequest
+from app.core.data_records import CommunicationRecord, DocumentRecord
 from app.core.events import InMemoryEventBus
+from app.repositories.data_records import CursorCommunicationRecordRepository, CursorDocumentRecordRepository
 from app.services.ai_resources import AIResourceManager
 from app.services.artifacts import ArtifactService
 from app.services.audit import AuditService
@@ -984,10 +986,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=82,
+                completion_percent=84,
                 status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, and live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review/communication/document repository write smoke.",
-                next_step="Add repository abstraction classes for communication and document records.",
+                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, and repository abstraction classes for communication and document records.",
+                next_step="Add repository abstraction classes for workflow and capability graph records.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
@@ -1765,37 +1767,10 @@ class CommandCenterSummaryService:
 
             with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
                 with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS communication_records (
-                            record_id UUID PRIMARY KEY,
-                            channel TEXT NOT NULL,
-                            direction TEXT NOT NULL,
-                            participant TEXT NOT NULL,
-                            subject TEXT NOT NULL,
-                            message TEXT NOT NULL,
-                            status TEXT NOT NULL,
-                            data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
-                            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-                            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                        )
-                        """
-                    )
-                    cursor.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS document_records (
-                            document_id UUID PRIMARY KEY,
-                            artifact_id UUID REFERENCES artifacts (artifact_id) ON DELETE SET NULL,
-                            title TEXT NOT NULL,
-                            document_type TEXT NOT NULL,
-                            storage_uri TEXT NOT NULL,
-                            status TEXT NOT NULL,
-                            data_platform TEXT NOT NULL DEFAULT 'DB MARIAM',
-                            metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-                            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                        )
-                        """
-                    )
+                    communication_repository = CursorCommunicationRecordRepository(cursor)
+                    document_repository = CursorDocumentRecordRepository(cursor)
+                    communication_repository.ensure_schema()
+                    document_repository.ensure_schema()
                     cursor.execute(
                         """
                         INSERT INTO plugin_manifests (
@@ -2006,73 +1981,34 @@ class CommandCenterSummaryService:
                             datetime.now(UTC),
                         ),
                     )
-                    cursor.execute(
-                        """
-                        INSERT INTO communication_records (
-                            record_id,
-                            channel,
-                            direction,
-                            participant,
-                            subject,
-                            message,
-                            status,
-                            data_platform,
-                            metadata,
-                            created_at
+                    communication_repository.save(
+                        CommunicationRecord(
+                            record_id=communication_record_id,
+                            channel="command-center",
+                            direction="outbound",
+                            participant="repository-smoke-client",
+                            subject="DB MARIAM repository smoke communication",
+                            message="Communication record written by the DB MARIAM repository smoke verification.",
+                            metadata={
+                                "mission_id": mission_id,
+                                "artifact_id": artifact_id,
+                                "verification": "repository-write-smoke",
+                            },
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        (
-                            communication_record_id,
-                            "command-center",
-                            "outbound",
-                            "repository-smoke-client",
-                            "DB MARIAM repository smoke communication",
-                            "Communication record written by the DB MARIAM repository smoke verification.",
-                            "recorded",
-                            "DB MARIAM",
-                            Jsonb(
-                                {
-                                    "mission_id": mission_id,
-                                    "artifact_id": artifact_id,
-                                    "verification": "repository-write-smoke",
-                                }
-                            ),
-                            datetime.now(UTC),
-                        ),
                     )
-                    cursor.execute(
-                        """
-                        INSERT INTO document_records (
-                            document_id,
-                            artifact_id,
-                            title,
-                            document_type,
-                            storage_uri,
-                            status,
-                            data_platform,
-                            metadata,
-                            created_at
+                    document_repository.save(
+                        DocumentRecord(
+                            document_id=document_record_id,
+                            artifact_id=artifact_id,
+                            title="DB MARIAM Repository Smoke Document",
+                            document_type="delivery-evidence",
+                            storage_uri=f"db-mariam://artifacts/{artifact_id}/documents/{document_record_id}",
+                            metadata={
+                                "mission_id": mission_id,
+                                "plugin_id": "crm",
+                                "verification": "repository-write-smoke",
+                            },
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        (
-                            document_record_id,
-                            artifact_id,
-                            "DB MARIAM Repository Smoke Document",
-                            "delivery-evidence",
-                            f"db-mariam://artifacts/{artifact_id}/documents/{document_record_id}",
-                            "indexed",
-                            "DB MARIAM",
-                            Jsonb(
-                                {
-                                    "mission_id": mission_id,
-                                    "plugin_id": "crm",
-                                    "verification": "repository-write-smoke",
-                                }
-                            ),
-                            datetime.now(UTC),
-                        ),
                     )
                     cursor.execute(
                         "SELECT mission_id FROM missions WHERE mission_id = %s AND data_platform = %s",
@@ -2129,24 +2065,8 @@ class CommandCenterSummaryService:
                         (quality_review_id, artifact_id, 100),
                     )
                     quality_review_written = cursor.fetchone() is not None
-                    cursor.execute(
-                        """
-                        SELECT record_id
-                        FROM communication_records
-                        WHERE record_id = %s AND data_platform = %s AND status = %s
-                        """,
-                        (communication_record_id, "DB MARIAM", "recorded"),
-                    )
-                    communication_record_written = cursor.fetchone() is not None
-                    cursor.execute(
-                        """
-                        SELECT document_id
-                        FROM document_records
-                        WHERE document_id = %s AND artifact_id = %s AND data_platform = %s
-                        """,
-                        (document_record_id, artifact_id, "DB MARIAM"),
-                    )
-                    document_record_written = cursor.fetchone() is not None
+                    communication_record_written = communication_repository.exists(communication_record_id)
+                    document_record_written = document_repository.exists(document_record_id, artifact_id)
         except Exception as error:  # pragma: no cover - exercised through API smoke when DB is unavailable.
             database_error = str(error)
 

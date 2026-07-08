@@ -3037,7 +3037,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
+    assert roadmap["items"][0]["area"] == "Governance and delivery workflow"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3188,7 +3188,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
+    assert export_package["package_manifest"]["first_priority_area"] == "Governance and delivery workflow"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
@@ -3608,6 +3608,27 @@ def test_communication_and_document_schema_targets_db_mariam() -> None:
     assert "CREATE TABLE IF NOT EXISTS communication_records" in upgrade
     assert "CREATE TABLE IF NOT EXISTS document_records" in upgrade
     assert "artifact_id UUID REFERENCES artifacts" in upgrade
+
+
+def test_communication_and_document_repositories_are_explicit_abstractions() -> None:
+    root = Path(__file__).resolve().parents[2]
+    backend_root = root / "backend"
+    repository_source = (backend_root / "app" / "repositories" / "data_records.py").read_text(
+        encoding="utf-8"
+    )
+    core_source = (backend_root / "app" / "core" / "data_records.py").read_text(encoding="utf-8")
+    command_center_source = (
+        backend_root / "app" / "services" / "command_center.py"
+    ).read_text(encoding="utf-8")
+
+    assert "class CommunicationRecordRepository" in repository_source
+    assert "class DocumentRecordRepository" in repository_source
+    assert "class CursorCommunicationRecordRepository" in repository_source
+    assert "class CursorDocumentRecordRepository" in repository_source
+    assert "class CommunicationRecord" in core_source
+    assert "class DocumentRecord" in core_source
+    assert "CursorCommunicationRecordRepository(cursor)" in command_center_source
+    assert "CursorDocumentRecordRepository(cursor)" in command_center_source
 
 
 def test_runtime_event_schema_targets_db_mariam() -> None:
