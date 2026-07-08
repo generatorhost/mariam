@@ -17,6 +17,28 @@ class VerificationSnapshotRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class RuntimeEventPublishRequest(BaseModel):
+    name: str = Field(default="runtime.event", min_length=2)
+    source: str = Field(default="api", min_length=2)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class RuntimeEventResponse(BaseModel):
+    name: str
+    source: str
+    payload: dict[str, Any]
+    event_id: str
+    created_at: str
+
+
+class RuntimeEventsResponse(BaseModel):
+    events: list[RuntimeEventResponse]
+
+
+class RuntimeEventPublishResponse(BaseModel):
+    event: RuntimeEventResponse
+
+
 class RuntimeCheckResponse(BaseModel):
     name: str
     status: str
@@ -684,20 +706,30 @@ def export_command_center_diagnostics(
     return {"export_package": asdict(service.export_diagnostics())}
 
 
-@router.get("/events")
-def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> dict:
-    return {"events": [event.__dict__ for event in event_bus.list_events()]}
+def serialize_runtime_event(event) -> dict[str, Any]:
+    return {
+        "name": event.name,
+        "source": event.source,
+        "payload": event.payload,
+        "event_id": event.event_id,
+        "created_at": event.created_at.isoformat(),
+    }
 
 
-@router.post("/events")
+@router.get("/events", response_model=RuntimeEventsResponse)
+def list_events(event_bus: InMemoryEventBus = Depends(get_event_bus)) -> RuntimeEventsResponse:
+    return {"events": [serialize_runtime_event(event) for event in event_bus.list_events()]}
+
+
+@router.post("/events", response_model=RuntimeEventPublishResponse)
 def publish_event(
-    payload: dict,
+    request: RuntimeEventPublishRequest,
     authorization=Depends(require_permission("runtime.event.publish", "runtime_event")),
     event_bus: InMemoryEventBus = Depends(get_event_bus),
-) -> dict:
+) -> RuntimeEventPublishResponse:
     event = event_bus.publish(
-        name=str(payload.get("name", "runtime.event")),
-        source=str(payload.get("source", "api")),
-        payload=dict(payload.get("payload", {})),
+        name=request.name,
+        source=request.source,
+        payload=request.payload,
     )
-    return {"event": event.__dict__}
+    return {"event": serialize_runtime_event(event)}

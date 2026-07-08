@@ -201,6 +201,7 @@ def write_governed_write_schema_snapshot(openapi: dict[str, Any]) -> dict[str, A
         ("POST", "/api/runtime/data-platform/migration-runner/export"),
         ("POST", "/api/runtime/data-platform/live-write-smoke"),
         ("POST", "/api/runtime/data-platform/live-repository-write-smoke"),
+        ("POST", "/api/runtime/events"),
         ("POST", "/api/audit/approval-assignments"),
         ("POST", "/api/audit/notifications/route"),
         ("POST", "/api/audit/reviewer-decisions"),
@@ -720,7 +721,7 @@ def verify_api_smoke_flow() -> None:
     governed_write_schema_snapshot = write_governed_write_schema_snapshot(openapi)
     assert_condition(
         governed_write_schema_snapshot["status"] == "ready"
-        and governed_write_schema_snapshot["snapshot_count"] >= 25
+        and governed_write_schema_snapshot["snapshot_count"] >= 26
         and governed_write_schema_snapshot["missing_operations"] == []
         and all(
             snapshot["response_schema"] != {"type": "none"}
@@ -897,6 +898,12 @@ def verify_api_smoke_flow() -> None:
         and openapi["paths"]["/api/runtime/verification-report/snapshots"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/VerificationSnapshotsResponse"
+        and openapi["paths"]["/api/runtime/events"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/RuntimeEventsResponse"
+        and openapi["paths"]["/api/runtime/events"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/RuntimeEventPublishResponse"
         and openapi["paths"]["/api/runtime/diagnostics"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DiagnosticsResponse"
@@ -1090,6 +1097,15 @@ def verify_api_smoke_flow() -> None:
         "Reviewer workload did not include the persisted decision outcome.",
     )
     decision_events = request_json("/api/runtime/events")["events"]
+    published_event = request_json(
+        "/api/runtime/events",
+        "POST",
+        {
+            "name": "runtime.verify.event_schema_snapshot",
+            "source": "verify-project",
+            "payload": {"data_platform": "DB MARIAM", "verification": "typed-event-contract"},
+        },
+    )["event"]
     assert_condition(
         any(
             event["name"] == "governance.reviewer_decision_recorded"
@@ -1097,6 +1113,13 @@ def verify_api_smoke_flow() -> None:
             for event in decision_events
         ),
         "Runtime events did not include reviewer decision outcome evidence.",
+    )
+    assert_condition(
+        published_event["name"] == "runtime.verify.event_schema_snapshot"
+        and published_event["source"] == "verify-project"
+        and published_event["payload"]["data_platform"] == "DB MARIAM"
+        and published_event["event_id"],
+        "Runtime event publish endpoint did not return the typed published event.",
     )
     governance_decision_export = request_json(
         "/api/audit/governance-decision-evidence/export",
@@ -1172,7 +1195,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

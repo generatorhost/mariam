@@ -2907,11 +2907,20 @@ def test_runtime_event_endpoint_reads_saved_event_history() -> None:
         },
     )
     event_id = publish_response.json()["event"]["event_id"]
+    event_body = publish_response.json()["event"]
 
     list_response = client.get("/api/runtime/events")
 
+    assert publish_response.status_code == 200
+    assert event_body["name"] == "runtime.audit.test"
+    assert event_body["source"] == "test-suite"
+    assert event_body["payload"]["data_platform"] == "DB MARIAM"
+    assert event_body["created_at"]
+    assert list_response.status_code == 200
+    assert isinstance(list_response.json()["events"], list)
     assert event_id in [event["event_id"] for event in list_response.json()["events"]]
     event = next(event for event in list_response.json()["events"] if event["event_id"] == event_id)
+    assert set(event) == {"name", "source", "payload", "event_id", "created_at"}
     assert event["payload"]["data_platform"] == "DB MARIAM"
 
 
@@ -3189,6 +3198,16 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
         == "#/components/schemas/VerificationSnapshotsResponse"
     )
     assert (
+        openapi["paths"]["/api/runtime/events"]["get"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/RuntimeEventsResponse"
+    )
+    assert (
+        openapi["paths"]["/api/runtime/events"]["post"]["responses"]["200"]
+        ["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/RuntimeEventPublishResponse"
+    )
+    assert (
         openapi["paths"]["/api/runtime/diagnostics"]["get"]["responses"]["200"]
         ["content"]["application/json"]["schema"]["$ref"]
         == "#/components/schemas/DiagnosticsResponse"
@@ -3310,6 +3329,10 @@ def test_runtime_governed_endpoints_publish_typed_response_models() -> None:
     )
     assert "CompletionAreaResponse" in openapi["components"]["schemas"]
     assert "RuntimeCheckResponse" in openapi["components"]["schemas"]
+    assert "RuntimeEventPublishRequest" in openapi["components"]["schemas"]
+    assert "RuntimeEventResponse" in openapi["components"]["schemas"]
+    assert "RuntimeEventsResponse" in openapi["components"]["schemas"]
+    assert "RuntimeEventPublishResponse" in openapi["components"]["schemas"]
     assert "DataPlatformReadinessResponse" in openapi["components"]["schemas"]
     assert "MigrationRunnerStatusResponse" in openapi["components"]["schemas"]
     assert "SeedDataStatusResponse" in openapi["components"]["schemas"]
@@ -3363,7 +3386,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -3625,7 +3648,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 
