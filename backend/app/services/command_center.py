@@ -69,6 +69,29 @@ class DiagnosticsExportPackage:
     data_platform: str = "DB MARIAM"
 
 
+@dataclass
+class UsageGuideStep:
+    action: str
+    frontend_control: str
+    api_endpoint: str
+    backend_handler: str
+    service_effect: str
+    data_platform_effect: str
+    result: str
+    verification_signal: str
+
+
+@dataclass
+class CommandCenterUsageGuide:
+    title: str
+    version: str
+    status: str
+    data_platform: str
+    generated_at: str
+    operating_rule: str
+    steps: list[UsageGuideStep]
+
+
 class CommandCenterSummaryService:
     def __init__(
         self,
@@ -288,4 +311,79 @@ class CommandCenterSummaryService:
                 "requires_governance_review_before_external_delivery": True,
             },
             diagnostics=diagnostics,
+        )
+
+    def usage_guide(self) -> CommandCenterUsageGuide:
+        return CommandCenterUsageGuide(
+            title="Mariam Command Center End-to-End Usage Guide",
+            version="v1",
+            status="executable",
+            data_platform="DB MARIAM",
+            generated_at=datetime.now(UTC).isoformat(),
+            operating_rule=(
+                "Every visible action must map to a backend API, a governed service effect, "
+                "traceable storage or event evidence, and a clear user-facing result."
+            ),
+            steps=[
+                UsageGuideStep(
+                    action="Refresh system status",
+                    frontend_control="Refresh System Status",
+                    api_endpoint="GET /api/runtime/summary",
+                    backend_handler="command_center_summary",
+                    service_effect="Counts runtime objects, plugins, missions, AI routes, audit records, and events.",
+                    data_platform_effect="Reads registered operational state from DB MARIAM repositories and in-memory runtime services.",
+                    result="The dashboard cards update with live health and activity counts.",
+                    verification_signal="verify_project.py checks /api/runtime/summary during smoke verification.",
+                ),
+                UsageGuideStep(
+                    action="Run readiness check",
+                    frontend_control="Refresh Readiness",
+                    api_endpoint="GET /api/runtime/readiness",
+                    backend_handler="command_center_readiness",
+                    service_effect="Evaluates runtime core, event bus, audit, mission, plugin, runtime object, AI resource, and delivery readiness.",
+                    data_platform_effect="Reads DB MARIAM-backed records where repositories are configured for persistence.",
+                    result="The user sees ready or blocked checks before operating the system.",
+                    verification_signal="Automated verification requires every readiness check to be ready.",
+                ),
+                UsageGuideStep(
+                    action="Create governed mission",
+                    frontend_control="Run Mission",
+                    api_endpoint="POST /api/missions",
+                    backend_handler="create_mission",
+                    service_effect="Creates a mission, assigns Plugin Chief execution context, emits events, and records governance evidence.",
+                    data_platform_effect="Stores mission and artifact state under the DB MARIAM mission boundary.",
+                    result="A mission and draft artifact appear for approval, quality review, and delivery packaging.",
+                    verification_signal="Smoke verification exercises mission to artifact to quality to delivery confirmation.",
+                ),
+                UsageGuideStep(
+                    action="Approve artifact and package delivery",
+                    frontend_control="Approve Artifact / Run Quality Review / Package Delivery",
+                    api_endpoint="POST /api/artifacts/{artifact_id}/approve; POST /quality-review; POST /package-delivery",
+                    backend_handler="approve_artifact, review_artifact_quality, package_artifact_delivery",
+                    service_effect="Moves artifact through approval, quality gate, and client package creation.",
+                    data_platform_effect="Stores approval, quality, delivery package, audit, and event evidence.",
+                    result="A client delivery package becomes ready for confirmation.",
+                    verification_signal="Smoke verification rejects premature delivery packaging and confirms the valid path.",
+                ),
+                UsageGuideStep(
+                    action="Register and govern plugin",
+                    frontend_control="Register CRM Plugin / Validate / Enable / Impact / Approve / Disable",
+                    api_endpoint="POST /api/plugins and governed plugin lifecycle endpoints",
+                    backend_handler="RuntimeRegistry plugin lifecycle handlers",
+                    service_effect="Registers Plugin-managed Business Units with validation, impact analysis, approvals, rollback, DNA export, and restore controls.",
+                    data_platform_effect="Stores plugin manifests, governance stamps, audit records, and runtime events.",
+                    result="Plugins behave as governed apps with dashboard, settings, Chief Agent, swarm, permissions, and rollback evidence.",
+                    verification_signal="Backend tests cover plugin validation, enable, disable, approval, rollback, DNA export, and restore.",
+                ),
+                UsageGuideStep(
+                    action="Export diagnostics",
+                    frontend_control="Export Diagnostics",
+                    api_endpoint="POST /api/runtime/diagnostics/export",
+                    backend_handler="export_command_center_diagnostics",
+                    service_effect="Creates a review-ready diagnostics package with readiness, audit, and event evidence.",
+                    data_platform_effect="Packages DB MARIAM operational evidence without exposing secrets.",
+                    result="The user receives a diagnostics export id with ready_for_review status.",
+                    verification_signal="verify_project.py checks diagnostics export readiness and UI smoke confirms the button result.",
+                ),
+            ],
         )

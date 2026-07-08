@@ -2304,6 +2304,27 @@ def test_runtime_diagnostics_can_be_exported_as_review_package() -> None:
     assert export_package["diagnostics"]["verification_report"]["readiness_status"] == "ready"
 
 
+def test_runtime_usage_guide_maps_buttons_to_backend_results() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/runtime/usage-guide")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Mariam Command Center End-to-End Usage Guide"
+    assert body["status"] == "executable"
+    assert body["data_platform"] == "DB MARIAM"
+    assert "visible action" in body["operating_rule"]
+    assert len(body["steps"]) >= 6
+    actions = {step["action"] for step in body["steps"]}
+    assert "Create governed mission" in actions
+    assert "Export diagnostics" in actions
+    diagnostics_step = next(step for step in body["steps"] if step["action"] == "Export diagnostics")
+    assert diagnostics_step["frontend_control"] == "Export Diagnostics"
+    assert diagnostics_step["api_endpoint"] == "POST /api/runtime/diagnostics/export"
+    assert diagnostics_step["result"] == "The user receives a diagnostics export id with ready_for_review status."
+
+
 def test_mission_list_reads_saved_mission_history() -> None:
     client = TestClient(create_app())
     create_response = client.post(

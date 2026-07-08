@@ -96,6 +96,7 @@ def verify_api_smoke_flow() -> None:
         "/api/runtime/verification-report",
         "/api/runtime/verification-report/snapshots",
         "/api/runtime/diagnostics",
+        "/api/runtime/usage-guide",
         "/api/artifacts",
         "/api/artifacts/quality-reviews",
         "/api/artifacts/deliveries",
@@ -134,6 +135,13 @@ def verify_api_smoke_flow() -> None:
         "Diagnostics export package was not ready for review.",
     )
     print("[verify] ok: diagnostics export")
+
+    usage_guide = request_json("/api/runtime/usage-guide")
+    assert_condition(
+        any(step["frontend_control"] == "Export Diagnostics" for step in usage_guide["steps"]),
+        "Usage guide did not map the diagnostics export button.",
+    )
+    print("[verify] ok: usage guide")
 
     print("[verify] checking mission to delivery flow")
     mission = request_json(

@@ -103,6 +103,12 @@ Runtime diagnostics can be exported as a JSON review package through:
 POST /api/runtime/diagnostics/export
 ```
 
+The executable usage guide maps visible Command Center controls to API calls, backend service effects, DB MARIAM evidence, and user-facing results:
+
+```http
+GET /api/runtime/usage-guide
+```
+
 ## First Executable Flow
 
 The current rebuild foundation supports a small end-to-end mission flow:

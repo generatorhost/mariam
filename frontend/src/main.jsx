@@ -78,6 +78,10 @@ async function loadRuntimeDiagnostics() {
   return apiGet('/api/runtime/diagnostics');
 }
 
+async function loadUsageGuide() {
+  return apiGet('/api/runtime/usage-guide');
+}
+
 async function exportRuntimeDiagnostics() {
   return apiRequest('/api/runtime/diagnostics/export', {});
 }
@@ -1847,6 +1851,60 @@ function RuntimeDiagnosticsPanel({ refreshVersion }) {
   );
 }
 
+function UsageGuidePanel({ refreshVersion }) {
+  const [guide, setGuide] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  const refreshGuide = useCallback(async () => {
+    setStatus('loading');
+    setError('');
+    try {
+      setGuide(await loadUsageGuide());
+      setStatus('ready');
+    } catch (guideError) {
+      setStatus('error');
+      setError(guideError.message);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshGuide();
+  }, [refreshGuide, refreshVersion]);
+
+  return (
+    <section className="panel mission-panel">
+      <div>
+        <h2>Usage Guide</h2>
+        <p>Trace each Command Center button from frontend action to backend result.</p>
+      </div>
+      <button onClick={refreshGuide} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Loading...' : 'Refresh Usage Guide'}
+      </button>
+      {error && <p className="error">{error}</p>}
+      {guide && (
+        <>
+          <div className="mission-result">
+            <strong>{guide.status}</strong>
+            <span>{guide.data_platform}</span>
+            <p>{guide.operating_rule}</p>
+          </div>
+          <div className="mission-history">
+            {guide.steps.map((step) => (
+              <article key={step.action}>
+                <strong>{step.frontend_control}</strong>
+                <span>{step.api_endpoint}</span>
+                <p>{step.service_effect}</p>
+                <p>{step.result}</p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function MissionPanel({ onActionComplete }) {
   const [mission, setMission] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -2176,6 +2234,7 @@ function App() {
         <SystemReadinessPanel refreshVersion={refreshVersion} />
         <VerificationReportPanel refreshVersion={refreshVersion} />
         <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
+        <UsageGuidePanel refreshVersion={refreshVersion} />
         <MissionPanel onActionComplete={refreshCommandCenterSummary} />
         <MissionHistoryPanel
           refreshVersion={refreshVersion}
