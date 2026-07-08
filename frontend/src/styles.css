@@ -56,8 +56,39 @@ a {
   gap: 8px;
 }
 
+.brand-block {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.sidebar-nav a {
+  background: transparent;
+  border-color: transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 9px 10px;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a:focus-visible {
+  background: var(--card2);
+  border-color: var(--border);
+  color: var(--text);
+  outline: none;
+}
+
 .workspace {
   padding: 28px;
+}
+
+.workspace-section {
+  scroll-margin-top: 18px;
 }
 
 .topbar {
@@ -307,6 +338,16 @@ p {
   .topbar {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .sidebar-nav a {
+    background: var(--card2);
+    border-color: var(--border);
   }
 
   .grid {

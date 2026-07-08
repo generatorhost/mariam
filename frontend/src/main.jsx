@@ -18,6 +18,16 @@ const terms = [
   'Governance Gate',
 ];
 
+const commandCenterNav = [
+  { label: 'Status', href: '#status' },
+  { label: 'DB MARIAM', href: '#data-platform' },
+  { label: 'Verification', href: '#verification' },
+  { label: 'Roadmap', href: '#roadmap' },
+  { label: 'Missions', href: '#missions' },
+  { label: 'Plugins', href: '#plugins' },
+  { label: 'Governance', href: '#governance' },
+];
+
 const apiBaseUrl = import.meta.env.VITE_MARIAM_API_BASE_URL || 'http://localhost:8000';
 
 async function apiRequest(path, body, options = {}) {
@@ -2697,6 +2707,18 @@ function AuditPanel({ onActionComplete }) {
   );
 }
 
+function CommandCenterNavigation() {
+  return (
+    <nav className="sidebar-nav" aria-label="Command Center sections">
+      {commandCenterNav.map((item) => (
+        <a key={item.href} href={item.href}>
+          {item.label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 function App() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const refreshCommandCenterSummary = useCallback(() => {
@@ -2706,8 +2728,11 @@ function App() {
   return (
     <main className="shell">
       <aside className="sidebar">
-        <strong>Mariam</strong>
-        <span>Command Center</span>
+        <div className="brand-block">
+          <strong>Mariam</strong>
+          <span>Command Center</span>
+        </div>
+        <CommandCenterNavigation />
       </aside>
       <section className="workspace">
         <header className="topbar">
@@ -2717,7 +2742,7 @@ function App() {
           </div>
           <a href="https://github.com/generatorhost/Mariam-Architecture-Library">Architecture Library</a>
         </header>
-        <section className="grid">
+        <section className="grid" id="status">
           {cards.map((card) => {
             const Icon = card.icon;
             return (
@@ -2729,35 +2754,49 @@ function App() {
             );
           })}
         </section>
-        <SystemStatusPanel refreshVersion={refreshVersion} />
-        <SystemReadinessPanel refreshVersion={refreshVersion} />
-        <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
-        <MigrationRunnerPanel refreshVersion={refreshVersion} />
-        <SeedDataPanel refreshVersion={refreshVersion} />
-        <BackupReadinessPanel refreshVersion={refreshVersion} />
-        <VerificationReportPanel refreshVersion={refreshVersion} />
-        <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
-        <UsageGuidePanel refreshVersion={refreshVersion} />
-        <CompletionReportPanel refreshVersion={refreshVersion} />
-        <ImplementationRoadmapPanel refreshVersion={refreshVersion} />
-        <MissionPanel onActionComplete={refreshCommandCenterSummary} />
-        <MissionHistoryPanel
-          refreshVersion={refreshVersion}
-          onActionComplete={refreshCommandCenterSummary}
-        />
+        <section id="runtime-status" className="workspace-section">
+          <SystemStatusPanel refreshVersion={refreshVersion} />
+          <SystemReadinessPanel refreshVersion={refreshVersion} />
+        </section>
+        <section id="data-platform" className="workspace-section">
+          <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
+          <MigrationRunnerPanel refreshVersion={refreshVersion} />
+          <SeedDataPanel refreshVersion={refreshVersion} />
+          <BackupReadinessPanel refreshVersion={refreshVersion} />
+        </section>
+        <section id="verification" className="workspace-section">
+          <VerificationReportPanel refreshVersion={refreshVersion} />
+          <RuntimeDiagnosticsPanel refreshVersion={refreshVersion} />
+          <UsageGuidePanel refreshVersion={refreshVersion} />
+          <CompletionReportPanel refreshVersion={refreshVersion} />
+        </section>
+        <section id="roadmap" className="workspace-section">
+          <ImplementationRoadmapPanel refreshVersion={refreshVersion} />
+        </section>
+        <section id="missions" className="workspace-section">
+          <MissionPanel onActionComplete={refreshCommandCenterSummary} />
+          <MissionHistoryPanel
+            refreshVersion={refreshVersion}
+            onActionComplete={refreshCommandCenterSummary}
+          />
+        </section>
         <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
         <AIRouteHistoryPanel refreshVersion={refreshVersion} />
-        <PluginPanel onActionComplete={refreshCommandCenterSummary} />
-        <PluginHistoryPanel
-          refreshVersion={refreshVersion}
-          onActionComplete={refreshCommandCenterSummary}
-        />
-        <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
-        <RuntimeObjectHistoryPanel
-          refreshVersion={refreshVersion}
-          onActionComplete={refreshCommandCenterSummary}
-        />
-        <AuditPanel onActionComplete={refreshCommandCenterSummary} />
+        <section id="plugins" className="workspace-section">
+          <PluginPanel onActionComplete={refreshCommandCenterSummary} />
+          <PluginHistoryPanel
+            refreshVersion={refreshVersion}
+            onActionComplete={refreshCommandCenterSummary}
+          />
+          <RuntimeObjectPanel onActionComplete={refreshCommandCenterSummary} />
+          <RuntimeObjectHistoryPanel
+            refreshVersion={refreshVersion}
+            onActionComplete={refreshCommandCenterSummary}
+          />
+        </section>
+        <section id="governance" className="workspace-section">
+          <AuditPanel onActionComplete={refreshCommandCenterSummary} />
+        </section>
         <AuditHistoryPanel refreshVersion={refreshVersion} />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
