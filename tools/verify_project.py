@@ -92,6 +92,7 @@ def verify_api_smoke_flow() -> None:
     read_endpoints = [
         "/api/health",
         "/api/auth/session",
+        "/api/auth/request-context",
         "/api/runtime/summary",
         "/api/runtime/readiness",
         "/api/runtime/data-platform/readiness",
@@ -121,6 +122,35 @@ def verify_api_smoke_flow() -> None:
     for endpoint in read_endpoints:
         require_json(endpoint)
         print(f"[verify] ok: {endpoint}")
+
+    request_context = request_json(
+        "/api/auth/request-context",
+        "GET",
+        None,
+    )["request_context"]
+    assert_condition(
+        request_context["actor_id"] == "command-center-operator"
+        and request_context["actor_matches_session"] is True
+        and request_context["data_platform"] == "DB MARIAM",
+        "Request actor context did not match the current Command Center session.",
+    )
+    header_request = urllib.request.Request(
+        f"{API_BASE_URL}/api/auth/request-context",
+        method="GET",
+        headers={
+            "x-mariam-request-id": "verify-request-context",
+            "x-mariam-actor-id": "command-center-operator",
+        },
+    )
+    with urllib.request.urlopen(header_request, timeout=10) as response:
+        header_context = json.loads(response.read().decode("utf-8"))["request_context"]
+    assert_condition(
+        header_context["request_id"] == "verify-request-context"
+        and header_context["propagation_mode"] == "headers"
+        and header_context["actor_matches_session"] is True,
+        "Request actor context did not propagate actor headers.",
+    )
+    print("[verify] ok: request actor context")
 
     permission_check = request_json(
         "/api/auth/permissions/check",
@@ -307,6 +337,7 @@ def verify_api_smoke_flow() -> None:
         frontend_regression["status"] == "ready"
         and frontend_regression["missing_controls"] == []
         and frontend_regression["missing_viewports"] == []
+        and "Refresh Actor Context" in frontend_regression["controls_checked"]
         and "Enforce Human Identity" in frontend_regression["controls_checked"]
         and "Refresh Docker Execution" in frontend_regression["controls_checked"],
         "Frontend regression snapshot did not pass.",
@@ -401,7 +432,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
+        and implementation_roadmap["items"][0]["area"] == "DB MARIAM persistence boundary",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

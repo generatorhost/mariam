@@ -10,6 +10,19 @@ class UserSession(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class RequestActorContext(BaseModel):
+    request_id: str
+    actor_id: str
+    session_id: str
+    display_name: str
+    roles: list[str]
+    permissions: list[str]
+    actor_matches_session: bool
+    propagation_mode: str
+    headers_used: list[str]
+    data_platform: str = "DB MARIAM"
+
+
 class PermissionCheckRequest(BaseModel):
     permission: str = Field(min_length=3)
     actor_id: str = Field(default="command-center-operator", min_length=2)

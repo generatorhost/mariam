@@ -217,6 +217,12 @@ Plugin workspaces expose dashboard, settings, Chief Agent, swarm, timeline, acti
 GET /api/plugins/{plugin_id}/workspace
 ```
 
+Request-scoped actor context resolves the active actor from optional `x-mariam-request-id` and `x-mariam-actor-id` headers, then compares it with the current Command Center session:
+
+```http
+GET /api/auth/request-context
+```
+
 Backend permission enforcement blocks unauthorized side effects with HTTP 403 and returns a granted enforcement record for authorized actions:
 
 ```http

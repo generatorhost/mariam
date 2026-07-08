@@ -5,6 +5,7 @@ from app.core.auth import (
     PermissionCheckResult,
     PermissionEnforcementRequest,
     PermissionEnforcementResult,
+    RequestActorContext,
     UserSession,
     default_command_center_session,
 )
@@ -13,6 +14,30 @@ from app.core.auth import (
 class AuthService:
     def current_session(self) -> UserSession:
         return default_command_center_session()
+
+    def request_actor_context(
+        self,
+        request_id: str | None = None,
+        actor_id: str | None = None,
+    ) -> RequestActorContext:
+        session = self.current_session()
+        propagated_actor = actor_id or session.user_id
+        headers_used = []
+        if request_id:
+            headers_used.append("x-mariam-request-id")
+        if actor_id:
+            headers_used.append("x-mariam-actor-id")
+        return RequestActorContext(
+            request_id=request_id or "local-command-center-request",
+            actor_id=propagated_actor,
+            session_id=session.session_id,
+            display_name=session.display_name,
+            roles=session.roles,
+            permissions=session.permissions,
+            actor_matches_session=propagated_actor == session.user_id,
+            propagation_mode="headers" if headers_used else "session-default",
+            headers_used=headers_used,
+        )
 
     def check_permission(self, request: PermissionCheckRequest) -> PermissionCheckResult:
         session = self.current_session()

@@ -438,6 +438,7 @@ class CommandCenterSummaryService:
             smoke_flow="mission -> artifact -> rejection revision loop -> quality review -> delivery package -> client delivery confirmation",
             required_endpoints=[
                 "/api/health",
+                "/api/auth/request-context",
                 "/api/runtime/summary",
                 "/api/runtime/readiness",
                 "/api/runtime/verification-report",
@@ -569,6 +570,16 @@ class CommandCenterSummaryService:
                     verification_signal="verify_project.py checks /api/runtime/summary during smoke verification.",
                 ),
                 UsageGuideStep(
+                    action="Refresh request actor context",
+                    frontend_control="Refresh Actor Context",
+                    api_endpoint="GET /api/auth/request-context",
+                    backend_handler="request_actor_context",
+                    service_effect="Resolves the request id and actor id from headers or the active Command Center session.",
+                    data_platform_effect="Keeps the actor context tied to DB MARIAM governance evidence before mutating operations.",
+                    result="The user sees request id, actor id, propagation mode, and whether the actor matches the current session.",
+                    verification_signal="verify_project.py checks default and header-propagated request actor context.",
+                ),
+                UsageGuideStep(
                     action="Run readiness check",
                     frontend_control="Refresh Readiness",
                     api_endpoint="GET /api/runtime/readiness",
@@ -664,10 +675,10 @@ class CommandCenterSummaryService:
         areas = [
             CompletionArea(
                 name="Backend API foundation",
-                completion_percent=72,
+                completion_percent=74,
                 status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, role permission checks, backend permission enforcement, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
-                next_step="Add request-scoped actor identity propagation.",
+                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, runtime, missions, artifacts, audit, plugins, runtime objects, AI resources, diagnostics, and usage guide.",
+                next_step="Add request-scoped authorization dependency enforcement across mutating endpoints.",
             ),
             CompletionArea(
                 name="Frontend Command Center",
@@ -1332,6 +1343,7 @@ class CommandCenterSummaryService:
         source_text = source_file.read_text(encoding="utf-8") if source_file.exists() else ""
         controls_checked = [
             "Refresh System Status",
+            "Refresh Actor Context",
             "Enforce Permission Gate",
             "Enforce Human Identity",
             "Refresh Docker Execution",

@@ -81,6 +81,41 @@ def test_auth_session_exposes_roles_and_permissions() -> None:
     assert session["data_platform"] == "DB MARIAM"
 
 
+def test_auth_request_context_uses_session_default_actor() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/auth/request-context")
+
+    assert response.status_code == 200
+    context = response.json()["request_context"]
+    assert context["request_id"] == "local-command-center-request"
+    assert context["actor_id"] == "command-center-operator"
+    assert context["actor_matches_session"] is True
+    assert context["propagation_mode"] == "session-default"
+    assert context["headers_used"] == []
+    assert context["data_platform"] == "DB MARIAM"
+
+
+def test_auth_request_context_reads_actor_headers() -> None:
+    client = TestClient(create_app())
+
+    response = client.get(
+        "/api/auth/request-context",
+        headers={
+            "x-mariam-request-id": "request-123",
+            "x-mariam-actor-id": "command-center-operator",
+        },
+    )
+
+    assert response.status_code == 200
+    context = response.json()["request_context"]
+    assert context["request_id"] == "request-123"
+    assert context["actor_id"] == "command-center-operator"
+    assert context["actor_matches_session"] is True
+    assert context["propagation_mode"] == "headers"
+    assert set(context["headers_used"]) == {"x-mariam-request-id", "x-mariam-actor-id"}
+
+
 def test_auth_permission_check_reports_allowed_permission() -> None:
     client = TestClient(create_app())
 
@@ -2673,7 +2708,7 @@ def test_runtime_implementation_roadmap_orders_next_work() -> None:
     assert roadmap["title"] == "Mariam Next Implementation Roadmap"
     assert roadmap["status"] == "ready_for_execution"
     assert roadmap["data_platform"] == "DB MARIAM"
-    assert roadmap["items"][0]["area"] == "Backend API foundation"
+    assert roadmap["items"][0]["area"] == "DB MARIAM persistence boundary"
     assert roadmap["items"][0]["priority"] == "high"
     assert "lowest-completion" in roadmap["operating_rule"]
     assert all("acceptance_signal" in item for item in roadmap["items"])
@@ -2689,6 +2724,7 @@ def test_runtime_frontend_regression_snapshot_records_critical_controls() -> Non
     assert snapshot["title"] == "Mariam Command Center Frontend Regression Snapshot"
     assert snapshot["status"] == "ready"
     assert snapshot["data_platform"] == "DB MARIAM"
+    assert "Refresh Actor Context" in snapshot["controls_checked"]
     assert "Enforce Human Identity" in snapshot["controls_checked"]
     assert "Refresh Docker Execution" in snapshot["controls_checked"]
     assert snapshot["missing_controls"] == []
@@ -2709,7 +2745,7 @@ def test_runtime_implementation_roadmap_can_be_exported_as_review_package() -> N
     assert export_package["format"] == "json"
     assert export_package["data_platform"] == "DB MARIAM"
     assert export_package["package_manifest"]["roadmap_status"] == "ready_for_execution"
-    assert export_package["package_manifest"]["first_priority_area"] == "Backend API foundation"
+    assert export_package["package_manifest"]["first_priority_area"] == "DB MARIAM persistence boundary"
     assert export_package["package_manifest"]["item_count"] == len(export_package["roadmap"]["items"])
 
 

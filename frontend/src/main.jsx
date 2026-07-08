@@ -100,6 +100,20 @@ async function loadAuthSession() {
   return body.session;
 }
 
+async function loadRequestActorContext() {
+  const response = await fetch(`${apiBaseUrl}/api/auth/request-context`, {
+    headers: {
+      'x-mariam-request-id': `command-center-${Date.now()}`,
+      'x-mariam-actor-id': 'command-center-operator',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`API request to /api/auth/request-context failed with ${response.status}`);
+  }
+  const body = await response.json();
+  return body.request_context;
+}
+
 async function checkGovernancePermission() {
   const body = await apiRequest('/api/auth/permissions/check', {
     actor_id: 'command-center-operator',
@@ -1864,6 +1878,7 @@ function SystemReadinessPanel({ refreshVersion }) {
 
 function AuthSessionPanel({ refreshVersion }) {
   const [session, setSession] = useState(null);
+  const [requestContext, setRequestContext] = useState(null);
   const [permissionCheck, setPermissionCheck] = useState(null);
   const [permissionEnforcement, setPermissionEnforcement] = useState(null);
   const [humanIdentity, setHumanIdentity] = useState(null);
@@ -1874,11 +1889,13 @@ function AuthSessionPanel({ refreshVersion }) {
     setStatus('loading');
     setError('');
     try {
-      const [loadedSession, loadedPermissionCheck] = await Promise.all([
+      const [loadedSession, loadedRequestContext, loadedPermissionCheck] = await Promise.all([
         loadAuthSession(),
+        loadRequestActorContext(),
         checkGovernancePermission(),
       ]);
       setSession(loadedSession);
+      setRequestContext(loadedRequestContext);
       setPermissionCheck(loadedPermissionCheck);
       setStatus('ready');
     } catch (sessionError) {
@@ -1896,6 +1913,18 @@ function AuthSessionPanel({ refreshVersion }) {
     setError('');
     try {
       setPermissionEnforcement(await enforceGovernancePermission());
+      setStatus('ready');
+    } catch (sessionError) {
+      setStatus('error');
+      setError(sessionError.message);
+    }
+  }
+
+  async function handleRequestContextRefresh() {
+    setStatus('loading');
+    setError('');
+    try {
+      setRequestContext(await loadRequestActorContext());
       setStatus('ready');
     } catch (sessionError) {
       setStatus('error');
@@ -1924,6 +1953,9 @@ function AuthSessionPanel({ refreshVersion }) {
       <button onClick={refreshSession} disabled={status === 'loading'}>
         {status === 'loading' ? 'Checking...' : 'Refresh Session'}
       </button>
+      <button onClick={handleRequestContextRefresh} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Reading...' : 'Refresh Actor Context'}
+      </button>
       <button onClick={handlePermissionEnforcement} disabled={status === 'loading'}>
         {status === 'loading' ? 'Enforcing...' : 'Enforce Permission Gate'}
       </button>
@@ -1941,6 +1973,20 @@ function AuthSessionPanel({ refreshVersion }) {
               {String(permissionCheck.allowed)}
             </p>
           </div>
+          {requestContext && (
+            <div className="mission-result">
+              <strong>Request Actor Context</strong>
+              <span>{requestContext.propagation_mode}</span>
+              <p>
+                Request <strong>{requestContext.request_id}</strong> runs as{' '}
+                <strong>{requestContext.actor_id}</strong>.
+              </p>
+              <p>
+                Actor matches session: <strong>{String(requestContext.actor_matches_session)}</strong>
+              </p>
+              <p>{requestContext.headers_used.join(', ') || 'session-default'}</p>
+            </div>
+          )}
           <div className="terms">
             {session.permissions.map((permission) => (
               <span key={permission}>{permission}</span>
