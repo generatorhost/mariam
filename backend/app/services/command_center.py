@@ -431,6 +431,7 @@ class VerificationAutomationContract:
     required_commands: list[str]
     required_endpoints: list[str]
     required_artifacts: list[str]
+    ci_artifact_retention: dict[str, object]
     local_automation_status: str
     ci_status: str
     next_ci_step: str
@@ -912,10 +913,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=78,
+                completion_percent=80,
                 status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts.",
-                next_step="Add CI artifact retention links to the Command Center verification report.",
+                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, and a GitHub Actions verification workflow that uploads frontend regression artifacts with retention metadata and Command Center artifact links.",
+                next_step="Add CI badge and latest run status polling to the Command Center verification report.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -2529,7 +2530,23 @@ class CommandCenterSummaryService:
             and "artifacts/frontend-regression/*.png" in ci_workflow_text
             and "if-no-files-found: error" in ci_workflow_text
         )
-        ci_status = "ready" if ci_workflow_ready and ci_artifact_upload_ready else "planned"
+        ci_artifact_retention_ready = "retention-days: 14" in ci_workflow_text
+        ci_artifact_retention = {
+            "artifact_name": "mariam-frontend-regression-artifacts",
+            "retention_days": 14,
+            "workflow_file": ".github/workflows/verify.yml",
+            "run_artifacts_url": "https://github.com/generatorhost/mariam/actions/workflows/verify.yml",
+            "paths": [
+                "artifacts/frontend-regression/*.json",
+                "artifacts/frontend-regression/*.png",
+            ],
+            "if_no_files_found": "error",
+        }
+        ci_status = (
+            "ready"
+            if ci_workflow_ready and ci_artifact_upload_ready and ci_artifact_retention_ready
+            else "planned"
+        )
         checks = [
             DataPlatformCheck(
                 name="verification_entrypoint_present",
@@ -2591,6 +2608,15 @@ class CommandCenterSummaryService:
                     else "CI workflow does not publish frontend regression JSON and PNG artifacts."
                 ),
             ),
+            DataPlatformCheck(
+                name="ci_frontend_artifact_retention",
+                status="ready" if ci_artifact_retention_ready else "blocked",
+                detail=(
+                    "GitHub Actions retains frontend regression artifacts for 14 days."
+                    if ci_artifact_retention_ready
+                    else "CI workflow does not declare frontend regression artifact retention."
+                ),
+            ),
         ]
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         local_automation_status = "ready" if all(check.status == "ready" for check in checks) else "blocked"
@@ -2605,9 +2631,10 @@ class CommandCenterSummaryService:
             "required_commands": required_commands,
             "required_endpoints": required_endpoints,
             "required_artifacts": required_artifacts,
+            "ci_artifact_retention": ci_artifact_retention,
             "local_automation_status": local_automation_status,
             "ci_status": ci_status,
-            "next_ci_step": "Add CI artifact retention links to the Command Center verification report.",
+            "next_ci_step": "Add CI badge and latest run status polling to the Command Center verification report.",
             "checks": [check.__dict__ for check in checks],
         }
         artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -2620,6 +2647,7 @@ class CommandCenterSummaryService:
             required_commands=required_commands,
             required_endpoints=required_endpoints,
             required_artifacts=required_artifacts,
+            ci_artifact_retention=ci_artifact_retention,
             local_automation_status=local_automation_status,
             ci_status=ci_status,
             next_ci_step=str(payload["next_ci_step"]),

@@ -512,6 +512,13 @@ def verify_api_smoke_flow() -> None:
             check["name"] == "ci_frontend_artifact_upload" and check["status"] == "ready"
             for check in verification_automation["checks"]
         )
+        and any(
+            check["name"] == "ci_frontend_artifact_retention" and check["status"] == "ready"
+            for check in verification_automation["checks"]
+        )
+        and verification_automation["ci_artifact_retention"]["retention_days"] == 14
+        and verification_automation["ci_artifact_retention"]["artifact_name"]
+        == "mariam-frontend-regression-artifacts"
         and "/api/runtime/frontend/visual-contract" in verification_automation["required_endpoints"]
         and "/api/runtime/frontend/browser-screenshot-plan"
         in verification_automation["required_endpoints"]
@@ -646,7 +653,7 @@ def verify_api_smoke_flow() -> None:
     implementation_roadmap = request_json("/api/runtime/implementation-roadmap")
     assert_condition(
         implementation_roadmap["status"] == "ready_for_execution"
-        and implementation_roadmap["items"][0]["area"] == "Verification automation",
+        and implementation_roadmap["items"][0]["area"] == "Backend API foundation",
         "Implementation roadmap did not expose the expected next execution priority.",
     )
     print("[verify] ok: implementation roadmap")

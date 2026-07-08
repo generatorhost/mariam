@@ -3104,6 +3104,13 @@ function VerificationAutomationPanel({ refreshVersion }) {
             <div><strong>{contract.required_commands.length}</strong><span>Commands</span></div>
             <div><strong>{contract.required_endpoints.length}</strong><span>Endpoints</span></div>
           </div>
+          {contract.ci_artifact_retention && (
+            <div className="mission-result">
+              <strong>{contract.ci_artifact_retention.artifact_name}</strong>
+              <span>{contract.ci_artifact_retention.retention_days} days retention</span>
+              <p>{contract.ci_artifact_retention.run_artifacts_url}</p>
+            </div>
+          )}
           <div className="terms">
             {contract.required_commands.map((command) => (
               <span key={command}>{command}</span>

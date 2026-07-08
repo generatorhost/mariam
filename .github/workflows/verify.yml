@@ -44,3 +44,4 @@ jobs:
             artifacts/frontend-regression/*.json
             artifacts/frontend-regression/*.png
           if-no-files-found: error
+          retention-days: 14
