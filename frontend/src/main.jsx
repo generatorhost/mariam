@@ -479,6 +479,19 @@ async function inspectSeedSourcePath(sourcePath) {
   });
 }
 
+async function runSeedPipeline(sourcePath, activationMode) {
+  return apiRequest('/api/seed-imports/pipeline', {
+    source_path: sourcePath,
+    activation_mode: activationMode,
+    actor_id: 'seed-import-chief',
+    reason: `Run ${activationMode} Seed DNA pipeline for ${sourcePath}.`,
+    evidence: {
+      source: 'command-center-seed-dna-panel',
+      mode: 'operator_selected_pipeline',
+    },
+  });
+}
+
 async function prepareExternalSeedSource(sourceKey, sourceUrl) {
   return apiRequest(`/api/seed-imports/external-sources/${sourceKey}/prepare`, {
     source_path: sourceUrl,
@@ -4900,6 +4913,8 @@ function SeedDNAPanel({ onActionComplete }) {
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
   const [lastRuntimeLoad, setLastRuntimeLoad] = useState(null);
+  const [activationMode, setActivationMode] = useState('extract_only');
+  const [lastPipeline, setLastPipeline] = useState(null);
 
   const refreshImports = useCallback(async () => {
     setStatus('loading');
@@ -4925,6 +4940,7 @@ function SeedDNAPanel({ onActionComplete }) {
       const body = await inspectSeedSourcePath(sourcePath.trim());
       setLastResult(body.seed_import);
       setLastRuntimeLoad(null);
+      setLastPipeline(null);
       setImports(await loadSeedImports());
       setStatus('ready');
       onActionComplete?.();
@@ -4941,6 +4957,7 @@ function SeedDNAPanel({ onActionComplete }) {
       const body = await prepareExternalSeedSource(source.source_key, source.url);
       setLastResult(body.seed_import);
       setLastRuntimeLoad(null);
+      setLastPipeline(null);
       setImports(await loadSeedImports());
       setExternalSources(await loadExternalSeedSources());
       setStatus('ready');
@@ -4984,6 +5001,23 @@ function SeedDNAPanel({ onActionComplete }) {
     }
   }
 
+  async function handleRunPipeline() {
+    setStatus('loading');
+    setError(null);
+    try {
+      const body = await runSeedPipeline(sourcePath.trim(), activationMode);
+      setLastPipeline(body);
+      setLastResult(body.seed_import);
+      setLastRuntimeLoad(body.runtime_load);
+      setImports(await loadSeedImports());
+      setStatus('ready');
+      onActionComplete?.();
+    } catch (pipelineError) {
+      setError(createPanelError(pipelineError, 'Retry selected Seed DNA pipeline', handleRunPipeline));
+      setStatus('error');
+    }
+  }
+
   const activeImport = lastResult || imports.at(-1);
   const extractedDomains = activeImport?.domain_evidence || [];
   const extractedCandidates = activeImport?.plugin_candidates || [];
@@ -5006,8 +5040,21 @@ function SeedDNAPanel({ onActionComplete }) {
             onChange={(event) => setSourcePath(event.target.value)}
             placeholder="C:\\path\\to\\seed-folder-or-package.zip"
           />
+          <select
+            aria-label="Seed DNA activation mode"
+            value={activationMode}
+            onChange={(event) => setActivationMode(event.target.value)}
+          >
+            <option value="extract_only">Extract only</option>
+            <option value="load_runtime">Extract + load Runtime Objects</option>
+            <option value="promote_plugins">Extract + promote Plugins</option>
+            <option value="full">Full: Extract + load + promote</option>
+          </select>
           <button type="button" onClick={handleInspectSourcePath} disabled={status === 'loading' || !sourcePath.trim()}>
             {status === 'loading' ? 'Inspecting...' : 'Inspect Source Path'}
+          </button>
+          <button type="button" onClick={handleRunPipeline} disabled={status === 'loading' || !sourcePath.trim()}>
+            Run Selected DNA Pipeline
           </button>
         </div>
       </div>
@@ -5063,6 +5110,12 @@ function SeedDNAPanel({ onActionComplete }) {
               <p>
                 Runtime load complete: <strong>{lastRuntimeLoad.loaded_runtime_object_ids?.length || 0}</strong>{' '}
                 objects loaded into <strong>{lastRuntimeLoad.runtime_store}</strong>.
+              </p>
+            )}
+            {lastPipeline && (
+              <p>
+                Pipeline mode: <strong>{lastPipeline.activation_mode}</strong> / promoted plugins:{' '}
+                <strong>{lastPipeline.promoted_plugins?.length || 0}</strong>.
               </p>
             )}
           </div>

@@ -46,6 +46,18 @@ Every plugin must declare or implement:
 - tests
 - rollback plan
 
+## DNA Pipeline Contract
+Any local folder, ZIP, GitHub repository, HuggingFace model page, or supported model file may become a plugin source only through the governed DNA pipeline.
+
+The operator must choose one of these modes:
+
+- `extract_only`: create a source inspection record only.
+- `load_runtime`: extract DNA and load DNA objects into the runtime object store.
+- `promote_plugins`: extract DNA and promote plugin candidates as disabled Plugin-managed Business Units.
+- `full`: extract DNA, load runtime objects, and promote plugin candidates.
+
+Generated plugins are never enabled automatically. They remain disabled until validation, readiness, governance, approval, and rollback evidence exist.
+
 ## Database Rule
 Plugin private tables must start with the plugin ID.
 

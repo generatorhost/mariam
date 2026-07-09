@@ -125,6 +125,20 @@ class SeedRuntimeLoadResponse(BaseModel):
     notes: list[str]
 
 
+class SeedPipelineRequest(SeedImportRequest):
+    activation_mode: str = Field(default="extract_only", pattern=r"^(extract_only|load_runtime|promote_plugins|full)$")
+    promote_plugin_ids: list[str] = Field(default_factory=list)
+
+
+class SeedPipelineResponse(BaseModel):
+    activation_mode: str
+    seed_import: SeedImportRecord
+    runtime_load: SeedRuntimeLoadResponse | None = None
+    promoted_plugins: list[dict]
+    data_platform: str = "DB MARIAM"
+    notes: list[str]
+
+
 def create_seed_import_record(
     source_path: str,
     source_name: str,

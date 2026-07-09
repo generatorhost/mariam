@@ -6,6 +6,8 @@ from app.core.seed_imports import (
     SeedImportListResponse,
     SeedImportRequest,
     SeedImportResponse,
+    SeedPipelineRequest,
+    SeedPipelineResponse,
     SeedPluginCandidateListResponse,
     SeedPluginPromotionRequest,
     SeedPluginPromotionResponse,
@@ -52,6 +54,71 @@ def inspect_seed_source(
 ) -> SeedImportResponse:
     try:
         return {"seed_import": service.inspect_source(request)}
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post("/pipeline", response_model=SeedPipelineResponse)
+def run_seed_pipeline(
+    request: SeedPipelineRequest,
+    authorization=Depends(require_permission("plugin.register", "seed_pipeline")),
+    service: SeedImportService = Depends(get_seed_import_service),
+    runtime_objects: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> SeedPipelineResponse:
+    try:
+        seed_import = service.inspect_source(request)
+        runtime_load = None
+        promoted_plugins = []
+        if request.activation_mode in {"load_runtime", "full"}:
+            runtime_requests = service.build_runtime_object_requests(seed_import.source_id)
+            created = [runtime_objects.create(runtime_request) for runtime_request in runtime_requests]
+            runtime_load = service.mark_runtime_loaded(
+                seed_import.source_id,
+                SeedRuntimeLoadRequest(
+                    actor_id=request.actor_id,
+                    reason=f"Pipeline runtime load for {request.source_path}.",
+                    evidence={"activation_mode": request.activation_mode, **request.evidence},
+                ),
+                [item.object_id for item in created],
+            )
+            seed_import = service.get(seed_import.source_id)
+        if request.activation_mode in {"promote_plugins", "full"}:
+            candidate_ids = request.promote_plugin_ids or [candidate.plugin_id for candidate in seed_import.plugin_candidates]
+            for candidate_id in candidate_ids:
+                plugin = service.promote_plugin_candidate(
+                    seed_import.source_id,
+                    candidate_id,
+                    SeedPluginPromotionRequest(
+                        actor_id=request.actor_id,
+                        reason=f"Pipeline plugin promotion for {candidate_id}.",
+                        evidence={"activation_mode": request.activation_mode, **request.evidence},
+                    ),
+                )
+                promoted_plugins.append(
+                    {
+                        "plugin_id": plugin.plugin_id,
+                        "name": plugin.name,
+                        "status": plugin.status,
+                        "api_prefix": plugin.api_prefix,
+                        "dashboard_route": plugin.dashboard_route,
+                        "private_tables": [
+                            f"{plugin.plugin_id}_settings",
+                            f"{plugin.plugin_id}_workflows",
+                            f"{plugin.plugin_id}_artifacts",
+                        ],
+                    }
+                )
+        return SeedPipelineResponse(
+            activation_mode=request.activation_mode,
+            seed_import=seed_import,
+            runtime_load=runtime_load,
+            promoted_plugins=promoted_plugins,
+            notes=[
+                "Pipeline executed according to the selected activation mode.",
+                "Extracted DNA remains traceable to the source import record.",
+                "Promoted plugins are disabled until validation and governance approval.",
+            ],
+        )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 

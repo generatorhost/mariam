@@ -49,14 +49,22 @@ Every feature must follow:
 When using `#seed-dna`:
 
 1. Enter a local path, ZIP path, GitHub URL, or HuggingFace model URL.
-2. Click `Inspect Source Path`.
-3. The UI calls `POST /api/seed-imports/inspect`.
-4. Backend extracts domains, plugin candidates, and DNA objects.
-5. The UI shows extraction mode, scanned files, domains, plugin candidates, DNA object count, and counts by type.
-6. Click `Load Extracted DNA to Runtime Store`.
-7. The UI calls `POST /api/seed-imports/{source_id}/load-runtime-objects`.
-8. Backend creates records in `runtime_objects`.
-9. The UI shows loaded runtime object count.
+2. Choose the activation mode:
+   - `Extract only`
+   - `Extract + load Runtime Objects`
+   - `Extract + promote Plugins`
+   - `Full: Extract + load + promote`
+3. Click `Run Selected DNA Pipeline`.
+4. The UI calls `POST /api/seed-imports/pipeline`.
+5. Backend extracts domains, plugin candidates, and DNA objects.
+6. When selected, backend creates records in `runtime_objects`.
+7. When selected, backend promotes plugin candidates as disabled Plugin-managed Business Units.
+8. The UI shows extraction mode, scanned files, domains, plugin candidates, DNA object count, runtime load count, and promoted plugin count.
+
+Manual step-by-step controls remain available:
+- `Inspect Source Path` calls `POST /api/seed-imports/inspect`.
+- `Load Extracted DNA to Runtime Store` calls `POST /api/seed-imports/{source_id}/load-runtime-objects`.
+- `Promote as disabled Plugin` calls `POST /api/seed-imports/{source_id}/plugin-candidates/{plugin_id}/promote`.
 
 ## Required DNA Object Types
 Seed DNA and future importers must classify evidence into these types when supported:
@@ -86,6 +94,8 @@ Each plugin must declare:
 - tests
 - acceptance criteria
 - rollback plan
+
+Plugins generated from DNA are disabled by default. They must pass validation, governance review, readiness checks, and approval before real activation.
 
 Plugin private tables must start with the plugin ID.
 
