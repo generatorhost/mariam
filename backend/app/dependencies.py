@@ -43,6 +43,11 @@ from app.repositories.plugins import (
     PluginRepository,
     PostgresPluginRepository,
 )
+from app.repositories.remote_execution import (
+    InMemoryRemoteExecutionRepository,
+    PostgresRemoteExecutionRepository,
+    RemoteExecutionRepository,
+)
 from app.repositories.runtime_objects import (
     InMemoryRuntimeObjectRepository,
     PostgresRuntimeObjectRepository,
@@ -65,6 +70,7 @@ from app.services.audit import AuditService
 from app.services.auth import AuthService
 from app.services.command_center import CommandCenterSummaryService
 from app.services.missions import MissionService
+from app.services.remote_execution import RemoteExecutionCommanderService
 from app.services.runtime import RuntimeRegistry
 from app.services.runtime_objects import RuntimeObjectService
 from app.services.seed_imports import SeedImportService
@@ -125,6 +131,23 @@ def get_plugin_repository() -> PluginRepository:
     if settings.plugin_store == "postgres":
         return PostgresPluginRepository(settings.database_url)
     return InMemoryPluginRepository()
+
+
+@lru_cache
+def get_remote_execution_commander_service() -> RemoteExecutionCommanderService:
+    return RemoteExecutionCommanderService(
+        get_event_bus(),
+        get_remote_execution_repository(),
+        get_audit_service(),
+    )
+
+
+@lru_cache
+def get_remote_execution_repository() -> RemoteExecutionRepository:
+    settings = get_settings()
+    if settings.plugin_store == "postgres":
+        return PostgresRemoteExecutionRepository(settings.database_url)
+    return InMemoryRemoteExecutionRepository()
 
 
 @lru_cache

@@ -68,6 +68,9 @@ New types require Architecture Library documentation and tests.
 ## Plugin Rule
 Every plugin is a Plugin-managed Business Unit.
 
+Visual mockups are not plugin architecture. They are only visual seeds. See:
+`docs/PLUGIN_BUSINESS_UNIT_ARCHITECTURE.md`
+
 Each plugin must declare:
 - dashboard
 - settings

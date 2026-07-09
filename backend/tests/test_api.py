@@ -56,6 +56,85 @@ def validate_and_enable_plugin(client: TestClient, plugin_id: str) -> None:
     assert enable_response.status_code == 200
 
 
+def test_remote_execution_commander_manifest_and_dry_run() -> None:
+    client = TestClient(create_app())
+
+    manifest_response = client.get("/api/plugins/remote-execution-commander/manifest")
+    assert manifest_response.status_code == 200
+    manifest = manifest_response.json()
+    assert manifest["plugin_id"] == "remote-execution-commander"
+    assert manifest["chief_agent_role"] == "Remote Execution Chief Agent"
+    assert "remote_execution_commander_jobs" in manifest["private_tables"]
+    assert "dry-run by default" in manifest["governance_gates"]
+
+    dry_run_response = client.post(
+        "/api/plugins/remote-execution-commander/commands",
+        json={
+            "command": "Get-ChildItem",
+            "working_directory": ".",
+            "dry_run": True,
+            "actor_id": "command-center-operator",
+            "reason": "Preview safe repository listing before execution.",
+            "evidence": {"test": "dry_run"},
+        },
+    )
+    assert dry_run_response.status_code == 200
+    dry_run_job = dry_run_response.json()
+    assert dry_run_job["status"] == "dry_run"
+    assert dry_run_job["allowed"] is True
+    assert dry_run_job["stdout"] == "Dry run accepted. Command was not executed."
+    assert dry_run_job["data_platform"] == "DB MARIAM"
+
+
+def test_remote_execution_commander_blocks_unsafe_commands() -> None:
+    client = TestClient(create_app())
+
+    blocked_response = client.post(
+        "/api/plugins/remote-execution-commander/commands",
+        json={
+            "command": "Remove-Item .\\README.md",
+            "working_directory": ".",
+            "dry_run": False,
+            "approval_token": "LOCAL_OPERATOR_APPROVED",
+            "actor_id": "command-center-operator",
+            "reason": "Unsafe command should be rejected.",
+            "evidence": {"test": "blocked_term"},
+        },
+    )
+    assert blocked_response.status_code == 200
+    blocked_job = blocked_response.json()
+    assert blocked_job["status"] == "blocked"
+    assert blocked_job["allowed"] is False
+    assert "blocked command term detected" in blocked_job["safety_notes"][0]
+
+
+def test_remote_execution_commander_executes_approved_readonly_command() -> None:
+    client = TestClient(create_app())
+
+    run_response = client.post(
+        "/api/plugins/remote-execution-commander/commands",
+        json={
+            "command": "Get-ChildItem README.md",
+            "working_directory": ".",
+            "dry_run": False,
+            "approval_token": "LOCAL_OPERATOR_APPROVED",
+            "actor_id": "command-center-operator",
+            "reason": "Run approved read-only repository inspection.",
+            "evidence": {"test": "approved_readonly"},
+        },
+    )
+    assert run_response.status_code == 200
+    job = run_response.json()
+    assert job["allowed"] is True
+    assert job["status"] == "succeeded"
+    assert job["exit_code"] == 0
+    assert "README.md" in job["stdout"]
+
+    jobs_response = client.get("/api/plugins/remote-execution-commander/jobs")
+    assert jobs_response.status_code == 200
+    assert any(item["job_id"] == job["job_id"] for item in jobs_response.json())
+
+
 def test_mayou_seed_import_extracts_living_plugin_candidates() -> None:
     source_path = Path(r"C:\1\mayou-1001")
     assert source_path.exists()

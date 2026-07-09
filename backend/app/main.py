@@ -12,6 +12,7 @@ from app.api import (
     health,
     missions,
     plugins,
+    remote_execution,
     runtime,
     runtime_objects,
     seed_imports,
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_resources.router)
     app.include_router(agents.router)
     app.include_router(missions.router)
+    app.include_router(remote_execution.router)
     app.include_router(plugins.router)
     app.include_router(runtime.router)
     app.include_router(runtime_objects.router)

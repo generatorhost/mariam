@@ -27,6 +27,7 @@ const commandCenterNav = [
   { label: 'Seed DNA', href: '#seed-dna' },
   { label: 'Agent Society', href: '#agent-society' },
   { label: 'Plugins', href: '#plugins' },
+  { label: 'Commander', href: '#remote-commander' },
   { label: 'Governance', href: '#governance' },
 ];
 
@@ -435,6 +436,28 @@ async function loadAIRoutes() {
 async function loadPlugins() {
   const body = await apiGet('/api/plugins');
   return body.plugins || [];
+}
+
+async function loadRemoteCommanderManifest() {
+  return apiGet('/api/plugins/remote-execution-commander/manifest');
+}
+
+async function loadRemoteCommanderJobs() {
+  return apiGet('/api/plugins/remote-execution-commander/jobs');
+}
+
+async function runRemoteCommanderCommand({ command, workingDirectory, dryRun }) {
+  return apiRequest('/api/plugins/remote-execution-commander/commands', {
+    command,
+    working_directory: workingDirectory,
+    dry_run: dryRun,
+    approval_token: dryRun ? null : 'LOCAL_OPERATOR_APPROVED',
+    actor_id: 'command-center-operator',
+    reason: dryRun
+      ? 'Preview governed Remote Execution Commander command.'
+      : 'Run approved governed Remote Execution Commander command.',
+    evidence: { source: 'remote-commander-panel' },
+  });
 }
 
 async function loadSeedImports() {
@@ -5240,6 +5263,137 @@ function AgentSocietyPanel({ onActionComplete }) {
   );
 }
 
+function RemoteCommanderPanel({ onActionComplete }) {
+  const [manifest, setManifest] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [command, setCommand] = useState('Get-ChildItem');
+  const [workingDirectory, setWorkingDirectory] = useState('.');
+  const [dryRun, setDryRun] = useState(true);
+  const [latestJob, setLatestJob] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState(null);
+
+  const refreshCommander = useCallback(async () => {
+    setStatus('loading');
+    setError(null);
+    try {
+      const [manifestPayload, jobsPayload] = await Promise.all([
+        loadRemoteCommanderManifest(),
+        loadRemoteCommanderJobs(),
+      ]);
+      setManifest(manifestPayload);
+      setJobs(jobsPayload.slice(0, 8));
+      setStatus('ready');
+    } catch (loadError) {
+      setError(createPanelError(loadError, 'Retry Remote Commander refresh', refreshCommander));
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshCommander();
+  }, [refreshCommander]);
+
+  async function handleRunCommand(event) {
+    event.preventDefault();
+    setStatus('running');
+    setError(null);
+    try {
+      const job = await runRemoteCommanderCommand({ command, workingDirectory, dryRun });
+      setLatestJob(job);
+      await refreshCommander();
+      onActionComplete?.();
+      setStatus('ready');
+    } catch (runError) {
+      setError(createPanelError(runError, 'Retry Remote Commander command', () => handleRunCommand(event)));
+      setStatus('error');
+    }
+  }
+
+  return (
+    <section className="panel mission-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Remote Execution Commander Plugin</h2>
+          <p>Governed local command execution with allowlist, dry-run, audit, and DB MARIAM job records.</p>
+        </div>
+        <button type="button" onClick={refreshCommander} disabled={status === 'loading'}>
+          Refresh
+        </button>
+      </div>
+      <ErrorBanner error={error} />
+      {manifest && (
+        <div className="status-grid">
+          <div><strong>{manifest.version}</strong><span>Version</span></div>
+          <div><strong>{manifest.chief_agent_role}</strong><span>Chief Agent</span></div>
+          <div><strong>{manifest.swarm_roles.length}</strong><span>Swarm Roles</span></div>
+          <div><strong>{manifest.allowed_command_prefixes.length}</strong><span>Allowed Prefixes</span></div>
+        </div>
+      )}
+      <form className="commander-form" onSubmit={handleRunCommand}>
+        <label>
+          Command
+          <textarea
+            aria-label="Remote Commander command"
+            value={command}
+            onChange={(event) => setCommand(event.target.value)}
+            rows={3}
+          />
+        </label>
+        <label>
+          Working directory
+          <input
+            aria-label="Remote Commander working directory"
+            value={workingDirectory}
+            onChange={(event) => setWorkingDirectory(event.target.value)}
+          />
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={(event) => setDryRun(event.target.checked)}
+          />
+          Dry-run only
+        </label>
+        <div className="mission-actions">
+          <button type="submit" disabled={status === 'running'}>
+            {dryRun ? 'Preview Command' : 'Run Approved Command'}
+          </button>
+          <button type="button" onClick={() => setCommand('npm run verify')}>
+            Verify Project
+          </button>
+          <button type="button" onClick={() => setCommand('git status')}>
+            Git Status
+          </button>
+        </div>
+      </form>
+      {latestJob && (
+        <div className="mission-result">
+          <h3>Latest Job</h3>
+          <p>
+            Status: <strong>{latestJob.status}</strong> / Allowed:{' '}
+            <strong>{latestJob.allowed ? 'yes' : 'no'}</strong> / Exit:{' '}
+            <strong>{latestJob.exit_code ?? 'not executed'}</strong>
+          </p>
+          <p>{latestJob.safety_notes.join(' / ')}</p>
+          <pre className="command-output">{latestJob.stdout || latestJob.stderr || 'No output.'}</pre>
+        </div>
+      )}
+      <div className="mission-history">
+        {jobs.map((job) => (
+          <article key={job.job_id}>
+            <strong>{job.status}</strong>
+            <span>{job.command}</span>
+            <p>{job.working_directory}</p>
+            <p>{job.safety_notes.join(' / ')}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CommandCenterNavigation({ activeSection, onNavigate }) {
   return (
     <nav className="sidebar-nav" aria-label="Command Center sections">
@@ -5406,6 +5560,11 @@ function App() {
             refreshVersion={refreshVersion}
             onActionComplete={refreshCommandCenterSummary}
           />
+        </section>
+        <section id="remote-commander" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'remote-commander'}>
+          {activeSection === 'remote-commander' && (
+            <RemoteCommanderPanel onActionComplete={refreshCommandCenterSummary} />
+          )}
         </section>
         <section id="governance" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'governance'}>
           <AuditPanel onActionComplete={refreshCommandCenterSummary} />
