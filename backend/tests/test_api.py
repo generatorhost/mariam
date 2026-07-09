@@ -383,6 +383,57 @@ def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() ->
     )
 
 
+def test_postgres_plugin_repository_recovers_minimal_legacy_manifest() -> None:
+    from app.repositories.plugins import PostgresPluginRepository
+
+    repository = PostgresPluginRepository("postgresql://unused")
+    manifest = repository._row_to_manifest(
+        {
+            "plugin_id": "repository-smoke-example",
+            "name": "DB MARIAM Repository Smoke Plugin",
+            "version": "0.1.0",
+            "dashboard_route": "/plugins/repository-smoke-example",
+            "api_prefix": "/api/plugins/repository-smoke-example",
+            "data_boundary": "repository-smoke-example",
+            "status": "registered",
+            "manifest": {
+                "plugin_id": "repository-smoke-example",
+                "verification": "repository-write-smoke",
+                "data_platform": "DB MARIAM",
+            },
+        }
+    )
+
+    assert manifest.name == "DB MARIAM Repository Smoke Plugin"
+    assert manifest.permissions == ["repository-smoke-example.read"]
+    assert manifest.chief_agent_role == "DB MARIAM Repository Smoke Plugin Chief Agent"
+
+
+def test_postgres_ai_route_repository_recovers_unknown_provider() -> None:
+    from datetime import datetime, timezone
+
+    from app.repositories.ai_resource_routes import PostgresAIResourceRouteRepository
+
+    repository = PostgresAIResourceRouteRepository("postgresql://unused")
+    decision = repository._row_to_decision(
+        {
+            "route_id": "route-unknown-provider",
+            "capability": "local-coding",
+            "selected_provider_id": "deepseek-coder-local",
+            "policy": "local_first",
+            "reason": "Legacy DB MARIAM route references a provider not in the current catalog.",
+            "requested_by": "test-user",
+            "data_platform": "DB MARIAM",
+            "fallback_provider_ids": ["ollama"],
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+
+    assert decision.selected_provider.provider_id == "deepseek-coder-local"
+    assert decision.selected_provider.status == "unknown"
+    assert decision.fallback_provider_ids == ["ollama"]
+
+
 def test_huggingface_non_gguf_model_url_extracts_model_provider_without_gguf_candidate() -> None:
     client = TestClient(create_app())
 
@@ -4663,7 +4714,7 @@ def test_data_platform_docker_persistence_reports_postgres_profile() -> None:
     assert status["title"] == "DB MARIAM Docker Persistence Profile"
     assert status["status"] == "ready"
     assert status["data_platform"] == "DB MARIAM"
-    assert status["postgres_store_count"] == 6
+    assert status["postgres_store_count"] == 9
     assert "***" in status["database_url_masked"]
     assert "mariam:mariam" not in status["database_url_masked"]
     assert all(check["status"] == "ready" for check in status["checks"])

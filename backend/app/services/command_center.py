@@ -1502,6 +1502,11 @@ class CommandCenterSummaryService:
             "delivery_packages",
             "artifact_quality_reviews",
             "ai_resource_routes",
+            "seed_import_records",
+            "agent_societies",
+            "agent_execution_plans",
+            "workflow_definitions",
+            "workflow_runs",
             "communication_records",
             "document_records",
             "workflow_records",
@@ -1539,6 +1544,9 @@ class CommandCenterSummaryService:
             "plugin_store": settings.plugin_store,
             "mission_store": settings.mission_store,
             "ai_resource_route_store": settings.ai_resource_route_store,
+            "seed_import_store": settings.seed_import_store,
+            "agent_runtime_store": settings.agent_runtime_store,
+            "workflow_engine_store": settings.workflow_engine_store,
         }
         checks = [
             DataPlatformCheck(
@@ -1882,6 +1890,9 @@ class CommandCenterSummaryService:
             "MARIAM_PLUGIN_STORE",
             "MARIAM_MISSION_STORE",
             "MARIAM_AI_RESOURCE_ROUTE_STORE",
+            "MARIAM_SEED_IMPORT_STORE",
+            "MARIAM_AGENT_RUNTIME_STORE",
+            "MARIAM_WORKFLOW_ENGINE_STORE",
         ]
         postgres_store_count = sum(1 for key in store_keys if env_values.get(key) == "postgres")
         database_url = env_values.get("MARIAM_DATABASE_URL", "")

@@ -122,7 +122,7 @@ async function runViewportSmoke(browser, viewport) {
     await page.goto(`${frontendUrl}/#missions`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Mariam AI Enterprise OS' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Mission Flow' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Start CRM Mission' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start CRM Mission' })).toBeVisible({ timeout: 30000 });
 
     const visitedControlLabels = new Set((await inspectPageControls(page)).map((control) => control.text));
     const visitedActionPanels = [];
@@ -131,10 +131,15 @@ async function runViewportSmoke(browser, viewport) {
       ...panel,
     })));
     const missionStart = page.getByRole('button', { name: 'Start CRM Mission' });
+    await expect(missionStart).toBeEnabled({ timeout: 30000 });
     await missionStart.click();
-    await expect(page.getByRole('button', { name: 'Approve Mission' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reject Mission' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export Delivery Governance Evidence' })).toBeVisible();
+    await page.waitForFunction(
+      () => !/Starting\.\.\.|Approving\.\.\.|Rejecting\.\.\.|Loading\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
+    await expect(page.getByRole('button', { name: 'Approve Mission' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Reject Mission' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Export Delivery Governance Evidence' })).toBeVisible({ timeout: 30000 });
     (await inspectPageControls(page)).forEach((control) => visitedControlLabels.add(control.text));
     visitedActionPanels.push(...(await inspectActionPanels(page)).map((panel) => ({
       section: 'missions_after_start',
@@ -143,9 +148,13 @@ async function runViewportSmoke(browser, viewport) {
 
     await page.getByRole('link', { name: 'Governance' }).click();
     await expect(page).toHaveURL(/#governance$/);
-    await expect(page.getByRole('button', { name: 'Assign Approval' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Route Notification' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Export Reviewer Decision Evidence' })).toBeVisible();
+    await page.waitForFunction(
+      () => !/Recording\.\.\.|Assigning\.\.\.|Routing\.\.\.|Exporting\.\.\.|Refreshing\.\.\.|Escalating\.\.\.|Loading\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
+    await expect(page.getByRole('button', { name: 'Assign Approval' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Route Notification' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Export Reviewer Decision Evidence' })).toBeVisible({ timeout: 30000 });
     (await inspectPageControls(page)).forEach((control) => visitedControlLabels.add(control.text));
     visitedActionPanels.push(...(await inspectActionPanels(page)).map((panel) => ({
       section: 'governance',
@@ -154,8 +163,8 @@ async function runViewportSmoke(browser, viewport) {
 
     await page.getByRole('link', { name: 'Plugins' }).click();
     await expect(page).toHaveURL(/#plugins$/);
-    await expect(page.getByRole('button', { name: 'Register CRM Plugin' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open Live Plugin Workspace' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Register CRM Plugin' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: 'Open Live Plugin Workspace' })).toBeVisible({ timeout: 30000 });
     (await inspectPageControls(page)).forEach((control) => visitedControlLabels.add(control.text));
     visitedActionPanels.push(...(await inspectActionPanels(page)).map((panel) => ({
       section: 'plugins',

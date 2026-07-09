@@ -730,7 +730,7 @@ def verify_api_smoke_flow() -> None:
 
     docker_persistence = request_json("/api/runtime/data-platform/docker-persistence")
     assert_condition(
-        docker_persistence["status"] == "ready" and docker_persistence["postgres_store_count"] == 6,
+        docker_persistence["status"] == "ready" and docker_persistence["postgres_store_count"] == 9,
         "DB MARIAM Docker persistence profile did not pass.",
     )
     print("[verify] ok: docker persistence profile")

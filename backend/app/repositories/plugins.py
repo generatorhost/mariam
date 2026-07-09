@@ -98,13 +98,43 @@ class PostgresPluginRepository:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT manifest, status
+                    SELECT plugin_id, name, version, dashboard_route, api_prefix, data_boundary, manifest, status
                     FROM plugin_manifests
                     ORDER BY created_at ASC
                     """
                 )
                 rows = cursor.fetchall()
-        return [
-            PluginManifest.model_validate({**dict(row["manifest"]), "status": row["status"]})
-            for row in rows
-        ]
+        return [self._row_to_manifest(dict(row)) for row in rows]
+
+    def _row_to_manifest(self, row: dict) -> PluginManifest:
+        manifest = dict(row.get("manifest") or {})
+        plugin_id = str(manifest.get("plugin_id") or row["plugin_id"])
+        name = str(manifest.get("name") or row["name"] or plugin_id.replace("-", " ").replace("_", " ").title())
+        version = str(manifest.get("version") or row["version"] or "0.1.0")
+        return PluginManifest.model_validate(
+            {
+                **manifest,
+                "plugin_id": plugin_id,
+                "name": name,
+                "version": version,
+                "status": row.get("status") or manifest.get("status") or "registered",
+                "dashboard_route": manifest.get("dashboard_route") or row.get("dashboard_route") or f"/plugins/{plugin_id}",
+                "settings_schema": manifest.get("settings_schema") or {},
+                "settings_values": manifest.get("settings_values") or {},
+                "api_prefix": manifest.get("api_prefix") or row.get("api_prefix") or f"/api/plugins/{plugin_id}",
+                "data_boundary": manifest.get("data_boundary") or row.get("data_boundary") or plugin_id,
+                "permissions": manifest.get("permissions") or [f"{plugin_id}.read"],
+                "produced_events": manifest.get("produced_events") or [],
+                "consumed_events": manifest.get("consumed_events") or [],
+                "chief_agent_role": manifest.get("chief_agent_role") or f"{name} Chief Agent",
+                "swarm_roles": manifest.get("swarm_roles") or [f"{name} Validator"],
+                "workflows": manifest.get("workflows") or [],
+                "provider_dependencies": manifest.get("provider_dependencies") or [],
+                "connector_dependencies": manifest.get("connector_dependencies") or [],
+                "runtime_dependencies": manifest.get("runtime_dependencies") or ["event_bus", "audit_log"],
+                "tests": manifest.get("tests") or ["api", "runtime", "permissions"],
+                "acceptance_criteria": manifest.get("acceptance_criteria")
+                or ["Plugin manifest can be read from DB MARIAM without breaking runtime summary."],
+                "rollback_plan": manifest.get("rollback_plan") or "Disable plugin and keep DB MARIAM audit evidence.",
+            }
+        )

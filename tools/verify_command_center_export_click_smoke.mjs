@@ -119,8 +119,12 @@ async function runClickSmoke() {
   try {
     await page.goto(`${frontendUrl}/#governance`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Governance Audit' })).toBeVisible();
+    await page.waitForFunction(
+      () => !/Recording\.\.\.|Assigning\.\.\.|Routing\.\.\.|Exporting\.\.\.|Refreshing\.\.\.|Escalating\.\.\.|Loading\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
     const reviewerExportButton = page.getByRole('button', { name: 'Export Reviewer Decision Evidence' });
-    await expect(reviewerExportButton).toBeEnabled();
+    await expect(reviewerExportButton).toBeEnabled({ timeout: 30000 });
     await page.screenshot({
       path: resolve(screenshotDir, 'command-center-export-click-smoke-governance-before.png'),
       fullPage: true,

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.core.ai_resources import PROVIDERS, ResourceRouteDecision
+from app.core.ai_resources import PROVIDERS, ModelProvider, ResourceRouteDecision
 
 
 class AIResourceRouteRepository(Protocol):
@@ -88,7 +88,15 @@ class PostgresAIResourceRouteRepository:
 
     def _row_to_decision(self, row: dict) -> ResourceRouteDecision:
         provider = next(
-            provider for provider in PROVIDERS if provider.provider_id == row["selected_provider_id"]
+            (provider for provider in PROVIDERS if provider.provider_id == row["selected_provider_id"]),
+            ModelProvider(
+                provider_id=str(row["selected_provider_id"]),
+                name=f"{row['selected_provider_id']} Provider",
+                provider_type="model_provider",
+                capabilities=["unknown"],
+                local=False,
+                status="unknown",
+            ),
         )
         return ResourceRouteDecision(
             route_id=str(row["route_id"]),

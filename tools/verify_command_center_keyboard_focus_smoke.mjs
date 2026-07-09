@@ -91,7 +91,11 @@ async function runKeyboardFocusSmoke() {
     await expect(page.getByRole('heading', { name: 'Mariam AI Enterprise OS' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh System Status' })).toBeEnabled();
     await page.getByRole('link', { name: 'Governance' }).click();
-    await expect(page.getByRole('button', { name: 'Export Reviewer Decision Evidence' })).toBeEnabled();
+    await page.waitForFunction(
+      () => !/Recording\.\.\.|Assigning\.\.\.|Routing\.\.\.|Exporting\.\.\.|Refreshing\.\.\.|Escalating\.\.\.|Loading\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
+    await expect(page.getByRole('button', { name: 'Export Reviewer Decision Evidence' })).toBeEnabled({ timeout: 30000 });
     await page.getByRole('link', { name: 'Status' }).click();
     await page.keyboard.press('Home');
 
