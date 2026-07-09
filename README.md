@@ -23,6 +23,20 @@ This repository now contains the first executable rebuild foundation:
 
 No legacy implementation code is copied into Mariam. External repositories may be reviewed only to extract patterns, risks, and architecture ideas.
 
+## Project Architecture And Execution
+
+Start with the practical execution guide before changing backend, frontend, runtime, database, plugins, providers, models, or Seed DNA extraction:
+
+```text
+docs/PROJECT_ARCHITECTURE_AND_EXECUTION.md
+```
+
+The canonical architecture version remains in Mariam Architecture Library:
+
+```text
+architecture-library/volume-07-development-guide/mariam-project-architecture-and-execution-guide.md
+```
+
 ## Run Locally
 
 ```bash
