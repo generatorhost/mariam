@@ -562,6 +562,46 @@ def test_agent_runtime_builds_plugin_society_and_execution_plan() -> None:
     assert execution["tasks"][-1]["governance_gate"] == "human_approval_before_delivery"
 
 
+def test_agent_runtime_runs_execution_until_human_approval_gate() -> None:
+    client = TestClient(create_app())
+    plan_response = client.post(
+        "/api/agents/executions/plan",
+        json={
+            "plugin_id": "plugin_freelance_manager",
+            "user_request": "Find matching freelance opportunity and prepare a reviewed proposal draft.",
+            "requested_by": "local-user",
+            "priority": "high",
+        },
+    )
+    assert plan_response.status_code == 200
+    execution_id = plan_response.json()["agent_execution"]["execution_id"]
+
+    run_response = client.post(
+        f"/api/agents/executions/{execution_id}/run",
+        json={
+            "actor_id": "freelance-chief-agent",
+            "reason": "Run governed agent plan until human approval.",
+            "evidence": {"mode": "agent_runtime_execution"},
+        },
+    )
+
+    assert run_response.status_code == 200
+    execution = run_response.json()["agent_execution"]
+    assert execution["execution_id"] == execution_id
+    assert execution["status"] == "awaiting_approval"
+    assert sum(1 for task in execution["tasks"] if task["status"] == "completed") == 3
+    assert execution["tasks"][-1]["status"] == "awaiting_human_approval"
+    assert execution["data_platform"] == "DB MARIAM"
+
+    events_response = client.get("/api/runtime/events")
+    assert any(
+        event["name"] == "agent_execution.ran"
+        and event["payload"]["execution_id"] == execution_id
+        and event["payload"]["status"] == "awaiting_approval"
+        for event in events_response.json()["events"]
+    )
+
+
 def test_workflow_engine_defines_and_runs_governed_steps() -> None:
     client = TestClient(create_app())
 

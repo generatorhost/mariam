@@ -562,6 +562,14 @@ async function planVideoAgentMission() {
   });
 }
 
+async function runAgentExecution(executionId) {
+  return apiRequest(`/api/agents/executions/${executionId}/run`, {
+    actor_id: 'command-center-chief-agent',
+    reason: 'Run governed agent execution from Command Center.',
+    evidence: { source: 'agent-society-runtime-panel' },
+  });
+}
+
 async function runCommandChatRequest({ userRequest, executionPath, pluginId }) {
   if (executionPath === 'direct_swarm') {
     return apiRequest('/api/agents/executions/plan', {
@@ -5450,8 +5458,23 @@ function AgentSocietyPanel({ onActionComplete }) {
     }
   }
 
+  async function handleRunLatestExecution() {
+    if (!latestRunnableExecution) return;
+    setStatus('loading');
+    setError(null);
+    try {
+      await runAgentExecution(latestRunnableExecution.execution_id);
+      await refreshAgents();
+      onActionComplete?.();
+    } catch (runError) {
+      setError(createPanelError(runError, 'Retry Agent execution run', handleRunLatestExecution));
+      setStatus('error');
+    }
+  }
+
   const activeSociety = societies[0];
   const latestExecution = executions[0];
+  const latestRunnableExecution = executions.find((execution) => execution.status === 'planned');
 
   return (
     <section className="panel">
@@ -5466,6 +5489,13 @@ function AgentSocietyPanel({ onActionComplete }) {
           </button>
           <button type="button" onClick={handlePlanMission} disabled={status === 'loading'}>
             Chief Plans Mission
+          </button>
+          <button
+            type="button"
+            onClick={handleRunLatestExecution}
+            disabled={status === 'loading' || !latestRunnableExecution}
+          >
+            Run Latest Agent Execution
           </button>
         </div>
       </div>

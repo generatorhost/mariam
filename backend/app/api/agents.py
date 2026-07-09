@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.agents import AgentMissionPlanRequest, AgentSocietyRequest
+from app.core.agents import AgentExecutionRunRequest, AgentMissionPlanRequest, AgentSocietyRequest
 from app.dependencies import get_agent_runtime_service, require_permission
 from app.services.agents import AgentRuntimeService
 
@@ -34,4 +34,18 @@ def plan_agent_execution(
     service: AgentRuntimeService = Depends(get_agent_runtime_service),
 ) -> dict:
     execution = service.plan_mission(request)
+    return {"agent_execution": execution.model_dump(mode="json")}
+
+
+@router.post("/executions/{execution_id}/run")
+def run_agent_execution(
+    execution_id: str,
+    request: AgentExecutionRunRequest,
+    authorization=Depends(require_permission("mission.create", "agent_execution")),
+    service: AgentRuntimeService = Depends(get_agent_runtime_service),
+) -> dict:
+    try:
+        execution = service.run_execution(execution_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
     return {"agent_execution": execution.model_dump(mode="json")}

@@ -18,6 +18,12 @@ class AgentRuntimeRepository(Protocol):
     def save_execution(self, execution: AgentExecutionPlan) -> AgentExecutionPlan:
         pass
 
+    def get_execution(self, execution_id: str) -> AgentExecutionPlan | None:
+        pass
+
+    def update_execution(self, execution: AgentExecutionPlan) -> AgentExecutionPlan:
+        pass
+
     def list_executions(self) -> list[AgentExecutionPlan]:
         pass
 
@@ -41,8 +47,15 @@ class InMemoryAgentRuntimeRepository:
         self._executions[execution.execution_id] = execution
         return execution
 
+    def get_execution(self, execution_id: str) -> AgentExecutionPlan | None:
+        return self._executions.get(execution_id)
+
+    def update_execution(self, execution: AgentExecutionPlan) -> AgentExecutionPlan:
+        self._executions[execution.execution_id] = execution
+        return execution
+
     def list_executions(self) -> list[AgentExecutionPlan]:
-        return list(self._executions.values())
+        return sorted(self._executions.values(), key=lambda execution: execution.created_at, reverse=True)
 
 
 class PostgresAgentRuntimeRepository:
@@ -141,6 +154,35 @@ class PostgresAgentRuntimeRepository:
                         execution.status,
                         execution.data_platform,
                         execution.created_at,
+                    ),
+                )
+        return execution
+
+    def get_execution(self, execution_id: str) -> AgentExecutionPlan | None:
+        return next((execution for execution in self.list_executions() if execution.execution_id == execution_id), None)
+
+    def update_execution(self, execution: AgentExecutionPlan) -> AgentExecutionPlan:
+        import psycopg
+        from psycopg.types.json import Jsonb
+
+        with psycopg.connect(self._database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE agent_execution_plans
+                    SET
+                        tasks = %s,
+                        communication_channels = %s,
+                        review_gates = %s,
+                        status = %s
+                    WHERE execution_id = %s
+                    """,
+                    (
+                        Jsonb([task.model_dump(mode="json") for task in execution.tasks]),
+                        execution.communication_channels,
+                        execution.review_gates,
+                        execution.status,
+                        execution.execution_id,
                     ),
                 )
         return execution

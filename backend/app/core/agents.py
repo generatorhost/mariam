@@ -36,6 +36,12 @@ class AgentMissionPlanRequest(BaseModel):
     priority: str = "normal"
 
 
+class AgentExecutionRunRequest(BaseModel):
+    actor_id: str = Field(default="agent-runtime-chief", min_length=2)
+    reason: str = Field(default="Run governed agent execution plan.", min_length=5)
+    evidence: dict = Field(default_factory=dict)
+
+
 class AgentRuntimeNode(BaseModel):
     node_id: str
     plugin_id: str

@@ -1395,10 +1395,10 @@ class CommandCenterSummaryService:
             ),
             CompletionArea(
                 name="Agent and workflow runtime",
-                completion_percent=20,
-                status="mostly_missing",
-                evidence="Only initial agent society planning and workflow records exist. A real long-running Agent Runtime with Chief, Team Leaders, swarms, task graph execution, scheduling, review, validation, optimization, memory, and collaboration is not complete.",
-                next_step="Implement Agent Runtime and Workflow Engine as the next core milestone before adding more visual surfaces.",
+                completion_percent=25,
+                status="early_executable_slice",
+                evidence="Agent Society creation, Chief mission planning, governed task plan records, and a safe agent execution run to the human approval gate are implemented. A real long-running Agent Runtime with scheduler, retries, memory, collaboration, review, validation, optimization, and external tool execution is not complete.",
+                next_step="Add durable Agent execution state transitions, task graph dependencies, scheduler, reviewer/validator results, and memory-backed collaboration.",
             ),
             CompletionArea(
                 name="DNA and plugin evolution",
@@ -1465,10 +1465,19 @@ class CommandCenterSummaryService:
         report = self.completion_report()
         priority_order = {
             "DB MARIAM persistence boundary": "high",
-            "Backend API foundation": "high",
             "Governance and delivery workflow": "high",
-            "Frontend Command Center": "medium",
+            "Agent and workflow runtime": "medium",
+            "DNA and plugin evolution": "medium",
+            "Model provider ecosystem": "medium",
+            "Knowledge and vector system": "medium",
+            "Current frontend utility": "medium",
             "Verification automation": "medium",
+        }
+        execution_order = {
+            "Agent and workflow runtime": 0,
+            "Knowledge and vector system": 1,
+            "DB MARIAM persistence boundary": 2,
+            "Governance and delivery workflow": 3,
         }
         priority_rank = {"high": 0, "medium": 1, "low": 2}
         items = [
@@ -1482,8 +1491,9 @@ class CommandCenterSummaryService:
             for area in sorted(
                 report.areas,
                 key=lambda item: (
-                    item.completion_percent,
+                    execution_order.get(item.name, 10),
                     priority_rank.get(priority_order.get(item.name, "medium"), 1),
+                    item.completion_percent,
                     item.name,
                 ),
             )
