@@ -1359,39 +1359,67 @@ class CommandCenterSummaryService:
         usage_guide = self.usage_guide()
         areas = [
             CompletionArea(
-                name="Backend API foundation",
-                completion_percent=96,
-                status="executable",
-                evidence="FastAPI routes cover health, auth session readiness, request actor context propagation, role permission checks, backend permission enforcement, endpoint-level authorization audit evidence, request-scoped authorization dependencies on mutating endpoints, structured API error response contracts, OpenAPI error response examples, typed response models for governed runtime endpoints, runtime event list and publish endpoints, plugin timeline, plugin settings, plugin dashboard, plugin workspace, plugin chat, and plugin lifecycle mutation endpoints, typed response models for data-platform readiness, migration runner, seed-data, backup-readiness, plugin-schema-isolation, Docker persistence, live database smoke, Docker container execution, live write smoke, live repository write smoke, DB MARIAM store read/export endpoints, frontend diagnostics, runtime diagnostics, usage guide, and verification snapshot endpoints, runtime, missions, artifacts, audit, plugins, runtime objects, and AI resources.",
-                next_step="Add typed API response models for runtime object lifecycle mutation endpoints.",
+                name="Executable foundation",
+                completion_percent=70,
+                status="verified_foundation",
+                evidence="FastAPI routes, auth context, permission checks, structured API errors, runtime summary, readiness, diagnostics, audit, events, mission, artifact, plugin, AI route, Seed DNA import, runtime object readiness, and governed runtime object execution are implemented and covered by automated verification.",
+                next_step="Keep this layer stable while replacing visual-heavy screens with a Chat-first operating surface.",
             ),
             CompletionArea(
-                name="Frontend Command Center",
-                completion_percent=97,
-                status="executable",
-                evidence="React UI can operate mission, delivery, plugin, runtime object, AI route, audit, readiness, diagnostics, usage guide flows, sidebar navigation with active section highlighting, persisted active-section, delivery SLA filter preferences, reviewer decision filters, governance decision evidence export controls, delivery governance evidence export controls, visual interaction smoke coverage for reviewer evidence export, visual interaction smoke coverage for delivery governance export, browser-level click smoke coverage for Command Center export buttons, browser-level keyboard focus and tab-order smoke coverage for Command Center primary actions, browser-level responsive navigation smoke coverage for mobile and tablet states, browser-level responsive action-panel smoke coverage for mobile and tablet mission, governance, delivery, and plugin action controls, browser-level all-buttons smoke coverage for every enabled Command Center button without console errors, failed API responses, or visible error banners, app-like plugin workspace cards, live plugin workspace details, responsive state guidance, API error banners with endpoint/request/retry context, frontend regression snapshot artifact generation, visual contract artifact checks, browser screenshot artifact planning, binary screenshot artifact capture, a Command Center screenshot capture report, visual thumbnail previews for captured screenshot artifacts, and accessible keyboard traversal checks for Command Center panels.",
-                next_step="Add browser-level failure-state coverage for mobile and tablet Command Center panels.",
+                name="Current frontend utility",
+                completion_percent=45,
+                status="temporary_verified_ui",
+                evidence="The existing React interface can trigger verified API flows and all enabled buttons are smoke-tested, but the user experience is not final. Accio-style usage confirms the desired direction: Chat-first work surface, simple plugin/app navigation, visible execution status, and local-first operational controls.",
+                next_step="Build the Chat-first operating surface and demote dashboards to secondary workspaces.",
             ),
             CompletionArea(
                 name="DB MARIAM persistence boundary",
-                completion_percent=96,
-                status="executable",
-                evidence="Repositories support DB MARIAM boundaries, migration readiness, migration runner status, non-secret seed data status, backup readiness, per-plugin schema isolation, Docker Postgres persistence profile checks, live DB smoke readiness, Docker postgres container execution verification, live audit/event write smoke, live mission/artifact/delivery/plugin/runtime-object/AI-resource-route/quality-review repository write smoke, repository abstraction classes for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, read APIs for recent communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage records, plus review-package exports for communication, document, workflow, capability graph, vector index, artifact store, audit event archive, metrics store, logs store, and artifact lineage evidence.",
-                next_step="Add export packages for backup and restore drill evidence across all DB MARIAM stores.",
+                completion_percent=55,
+                status="partially_executable",
+                evidence="DB MARIAM readiness, migrations, Docker Postgres checks, live write smoke, repository write smoke, plugin/runtime/audit/event stores, and multiple evidence stores are implemented. Full durable persistence for every future Agent, Workflow, Knowledge, Vector, DNA, Provider, Tool, Connector, and Plugin business-unit runtime is not complete yet.",
+                next_step="Prioritize durable schemas and repositories for Agent Runtime, Workflow Engine, DNA packages, model providers, tools, connectors, and knowledge/vector stores.",
             ),
             CompletionArea(
                 name="Governance and delivery workflow",
-                completion_percent=96,
-                status="executable",
-                evidence="Mission approval, artifact approval, rejection revision loop, approval assignment, persisted reviewer queue assignment history, approval assignment history export packages, persistent reviewer decision outcomes, reviewer decision evidence export packages, governance workload evidence export packages, governance SLA evidence export packages, notification routing, notification routing evidence reports and export packages, reviewer workload reporting from DB MARIAM assignment and decision history, governance SLA aging, persisted SLA escalation history, human identity enforcement, quality review, signed delivery evidence bundles, delivery evidence verification report, delivery governance evidence export packages, delivery SLA aging and escalation checks for signed client packages, governance dashboard drill-down, dashboard filters for signed delivery SLA state and reviewer queue, reviewer decision outcome filters by reviewer and decision, and typed API response models for governance workload, SLA, assignment history, notification routing, decision history, reviewer decision, escalation, assignment, notification, and evidence export endpoints are covered by tests and smoke verification.",
-                next_step="Add export packages for SLA escalation history and reviewer decision filter presets.",
+                completion_percent=60,
+                status="verified_slice",
+                evidence="Mission approval, artifact revision, quality review, delivery package, audit, and reviewer evidence flows are implemented as a verified slice. Enterprise-wide ISO-grade legal/administrative governance for all future plugins and agent departments is not complete.",
+                next_step="Attach governance gates to every plugin business unit, agent execution, model/provider connection, file artifact, and external delivery path.",
             ),
             CompletionArea(
                 name="Verification automation",
-                completion_percent=96,
-                status="executable",
-                evidence="npm run verify executes backend tests, frontend build, API endpoint checks, diagnostics export, usage guide export, mission-to-delivery smoke flow, frontend contracts, browser screenshot planning, binary screenshot capture, governance export interaction smoke, delivery governance export visual smoke, browser click smoke for Command Center exports, browser keyboard focus smoke, responsive navigation smoke, responsive action-panel smoke, all-buttons browser smoke for every enabled Command Center button, CI frontend artifact replay, local verification history comparison, persisted local verification run records, failure-summary export packages for CI and local verification runs, minimum backend test count quality gates, endpoint and artifact coverage gates, artifact freshness gates, mutation-level gates for governed write endpoints, governed write API schema regression snapshots, governed write API schema-diff hash gates, and a GitHub Actions verification workflow that uploads, downloads, replays, and retains frontend regression artifacts with Command Center artifact links, CI badge metadata, latest run status polling metadata, and CI run result ingestion fields from the GitHub Actions API contract.",
-                next_step="Add browser-level failure-state screenshots for CI and local verification summary panels.",
+                completion_percent=80,
+                status="verified",
+                evidence="npm run verify runs backend tests, frontend build, API checks, governed smoke flows, browser button smoke, responsive smoke, schema snapshots, and verification history. It is useful and currently passes, but it must be redirected toward the final Chat-first flow as implementation changes.",
+                next_step="Make verification measure practical user journeys: chat command, management approval, agent execution, DNA import, plugin activation, and artifact delivery.",
+            ),
+            CompletionArea(
+                name="Agent and workflow runtime",
+                completion_percent=20,
+                status="mostly_missing",
+                evidence="Only initial agent society planning and workflow records exist. A real long-running Agent Runtime with Chief, Team Leaders, swarms, task graph execution, scheduling, review, validation, optimization, memory, and collaboration is not complete.",
+                next_step="Implement Agent Runtime and Workflow Engine as the next core milestone before adding more visual surfaces.",
+            ),
+            CompletionArea(
+                name="DNA and plugin evolution",
+                completion_percent=35,
+                status="partial",
+                evidence="Seed DNA inspection, ZIP/folder extraction, evidence-backed DNA objects, runtime-object loading, plugin promotion, runtime readiness, and safe runtime-object execution exist. Full DNAPackageEngine, dependency graph, mount/unmount/hot reload, federation, evolved DNA export, and automatic plugin assembly remain incomplete.",
+                next_step="Build DNAPackageEngine, Runtime Store contracts, dependency resolver, and plugin generator from DNA evidence.",
+            ),
+            CompletionArea(
+                name="Model provider ecosystem",
+                completion_percent=25,
+                status="partial",
+                evidence="Local provider routing and Ollama-style provider records exist. GGUF, ONNX, SafeTensors, llama.cpp, vLLM, KTransformers, model upload, metadata extraction, compatibility checks, benchmarking, approval, activation, and rollback are not complete.",
+                next_step="Implement model provider registry/uploader with offline Ollama plus GGUF/ONNX/SafeTensors adapters.",
+            ),
+            CompletionArea(
+                name="Knowledge and vector system",
+                completion_percent=20,
+                status="mostly_missing",
+                evidence="Vector index store records and Seed DNA classification evidence exist. A complete Knowledge Graph, Knowledge Store, embeddings, semantic search, memory, indexing, versioning, and retrieval pipeline is not complete.",
+                next_step="Implement document ingestion, embedding pipeline, vector index, semantic search, and knowledge graph persistence.",
             ),
         ]
         completion_percent = round(sum(area.completion_percent for area in areas) / len(areas))
@@ -1406,9 +1434,11 @@ class CommandCenterSummaryService:
             verification=verification,
             usage_guide=usage_guide,
             summary=(
-                "Mariam is currently an executable documentation-driven rebuild foundation, "
-                "not a finished enterprise product. The verified core supports Command Center "
-                "operations, governance traces, delivery smoke flow, and review-package exports."
+                "Mariam is currently a verified executable foundation, not a finished autonomous enterprise. "
+                "The practical value today is local-first API/runtime verification, DB MARIAM evidence, "
+                "Seed DNA extraction, Plugin/Runtime Object governance, and a verified mission-to-delivery slice. "
+                "The remaining product-defining work is Agent Runtime, Workflow Engine, Knowledge/Vector Engine, "
+                "DNA Package Engine, model/provider runtime, and a Chat-first operating surface."
             ),
         )
 
