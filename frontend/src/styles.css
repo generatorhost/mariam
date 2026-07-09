@@ -263,6 +263,18 @@ time {
   margin-top: 14px;
 }
 
+.mission-actions input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  flex: 1 1 280px;
+  font: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 12px;
+}
+
 .mission-actions button:last-child {
   border-color: var(--red);
 }

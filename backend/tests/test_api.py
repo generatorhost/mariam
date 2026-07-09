@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 import json
 from pathlib import Path
+from zipfile import ZipFile
 
 from app.core.auth import UserSession
 from app.dependencies import get_auth_service
@@ -104,6 +105,58 @@ def test_mayou_seed_import_extracts_living_plugin_candidates() -> None:
         "plugin_mcp_runtime_manager_workflows",
         "plugin_mcp_runtime_manager_artifacts",
     ]
+
+
+def test_seed_import_accepts_zip_package_path(tmp_path) -> None:
+    seed_root = tmp_path / "seed-package"
+    registry = seed_root / "registry" / "mcp"
+    registry.mkdir(parents=True)
+    (seed_root / "SOURCE_COVERAGE.json").write_text(
+        json.dumps(
+            {
+                "eligible_files_discovered": 3,
+                "files_scanned": 3,
+                "files_failed": 0,
+                "source_coverage_pct": 100,
+            }
+        ),
+        encoding="utf-8",
+    )
+    (registry / "SUMMARY.json").write_text(
+        json.dumps(
+            {
+                "runtime_readiness": "high",
+                "total_matching_assets": 2,
+                "total_matching_terms": 4,
+                "top_source_projects": [{"name": "zip-seed", "count": 2}],
+                "top_source_categories": [{"name": "mcp", "count": 2}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    zip_path = tmp_path / "seed-package.zip"
+    with ZipFile(zip_path, "w") as archive:
+        for path in seed_root.rglob("*"):
+            if path.is_file():
+                archive.write(path, path.relative_to(tmp_path))
+
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/seed-imports/inspect",
+        json={
+            "source_path": str(zip_path),
+            "actor_id": "seed-import-chief",
+            "reason": "Extract uploaded ZIP package as living DNA.",
+            "evidence": {"mode": "zip_seed_package"},
+        },
+    )
+
+    assert response.status_code == 200
+    seed_import = response.json()["seed_import"]
+    assert seed_import["source_name"] == "seed-package.zip"
+    assert seed_import["coverage"]["files_scanned"] == 3
+    candidates = {candidate["plugin_id"]: candidate for candidate in seed_import["plugin_candidates"]}
+    assert "plugin_mcp_runtime_manager" in candidates
 
 
 def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() -> None:

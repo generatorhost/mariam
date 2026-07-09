@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile
 
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
@@ -220,17 +222,32 @@ class SeedImportService:
 
     def inspect_source(self, request: SeedImportRequest) -> SeedImportRecord:
         source_path = Path(request.source_path)
-        if not source_path.exists() or not source_path.is_dir():
+        if not source_path.exists():
             raise ValueError(f"Seed source path {request.source_path} was not found.")
+        if source_path.is_file() and source_path.suffix.lower() == ".zip":
+            with TemporaryDirectory(prefix="mariam-seed-dna-") as temp_dir:
+                extracted_root = Path(temp_dir)
+                self._extract_seed_zip(source_path, extracted_root)
+                seed_root = self._find_seed_root(extracted_root)
+                return self._inspect_seed_root(request, seed_root, source_path)
+        if not source_path.is_dir():
+            raise ValueError(f"Seed source path {request.source_path} must be a directory or .zip file.")
+        return self._inspect_seed_root(request, source_path, source_path)
 
-        registry_path = source_path / "registry"
+    def _inspect_seed_root(
+        self,
+        request: SeedImportRequest,
+        seed_root: Path,
+        display_path: Path,
+    ) -> SeedImportRecord:
+        registry_path = seed_root / "registry"
         if not registry_path.exists():
             raise ValueError(f"Seed source path {request.source_path} does not contain a registry directory.")
 
         warnings: list[str] = []
-        coverage = self._read_json(source_path / "SOURCE_COVERAGE.json", warnings)
+        coverage = self._read_json(seed_root / "SOURCE_COVERAGE.json", warnings)
         registry_files = [
-            str(path.relative_to(source_path))
+            str(path.relative_to(seed_root))
             for path in [
                 registry_path / "MASTER_AGENT_REGISTRY.json",
                 registry_path / "MASTER_CAPABILITY_REGISTRY.json",
@@ -240,10 +257,10 @@ class SeedImportService:
             if path.exists()
         ]
         domain_evidence = self._read_domain_evidence(registry_path, warnings)
-        plugin_candidates = self._build_plugin_candidates(domain_evidence, str(source_path))
+        plugin_candidates = self._build_plugin_candidates(domain_evidence, str(display_path))
         record = create_seed_import_record(
-            source_path=str(source_path),
-            source_name=source_path.name,
+            source_path=str(display_path),
+            source_name=display_path.name,
             coverage={
                 "eligible_files_discovered": coverage.get("eligible_files_discovered", 0),
                 "files_scanned": coverage.get("files_scanned", 0),
@@ -289,6 +306,27 @@ class SeedImportService:
             },
         )
         return saved
+
+    def _extract_seed_zip(self, zip_path: Path, target_root: Path) -> None:
+        with ZipFile(zip_path) as archive:
+            for member in archive.infolist():
+                member_path = target_root / member.filename
+                resolved_target = member_path.resolve()
+                if not str(resolved_target).startswith(str(target_root.resolve())):
+                    raise ValueError(f"Unsafe ZIP entry rejected: {member.filename}")
+            archive.extractall(target_root)
+
+    def _find_seed_root(self, extracted_root: Path) -> Path:
+        if (extracted_root / "registry").exists():
+            return extracted_root
+        candidates = [
+            path
+            for path in extracted_root.iterdir()
+            if path.is_dir() and (path / "registry").exists()
+        ]
+        if len(candidates) == 1:
+            return candidates[0]
+        raise ValueError("ZIP seed package must contain a registry directory at root or inside one top-level folder.")
 
     def list_imports(self) -> list[SeedImportRecord]:
         return self._repository.list()

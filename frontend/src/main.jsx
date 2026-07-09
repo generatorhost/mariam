@@ -447,11 +447,11 @@ async function loadExternalSeedSources() {
   return body.external_sources || [];
 }
 
-async function inspectMayouSeed() {
+async function inspectSeedSourcePath(sourcePath) {
   return apiRequest('/api/seed-imports/inspect', {
-    source_path: 'C:\\1\\mayou-1001',
+    source_path: sourcePath,
     actor_id: 'seed-import-chief',
-    reason: 'Extract mayou-1001 into living DNA plugin candidates.',
+    reason: `Extract ${sourcePath} into living DNA plugin candidates.`,
     evidence: { source: 'command-center-seed-dna-panel' },
   });
 }
@@ -4861,6 +4861,7 @@ function AuditPanel({ onActionComplete }) {
 function SeedDNAPanel({ onActionComplete }) {
   const [imports, setImports] = useState([]);
   const [externalSources, setExternalSources] = useState([]);
+  const [sourcePath, setSourcePath] = useState('C:\\1\\mayou-1001');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
@@ -4882,17 +4883,17 @@ function SeedDNAPanel({ onActionComplete }) {
     refreshImports();
   }, [refreshImports]);
 
-  async function handleInspectMayouSeed() {
+  async function handleInspectSourcePath() {
     setStatus('loading');
     setError(null);
     try {
-      const body = await inspectMayouSeed();
+      const body = await inspectSeedSourcePath(sourcePath.trim());
       setLastResult(body.seed_import);
       setImports(await loadSeedImports());
       setStatus('ready');
       onActionComplete?.();
     } catch (inspectError) {
-      setError(createPanelError(inspectError, 'Retry mayou-1001 inspection', handleInspectMayouSeed));
+      setError(createPanelError(inspectError, 'Retry source path inspection', handleInspectSourcePath));
       setStatus('error');
     }
   }
@@ -4938,11 +4939,19 @@ function SeedDNAPanel({ onActionComplete }) {
       <div className="panel-header">
         <div>
           <h2>Living Seed DNA Import</h2>
-          <p>Convert mayou-1001 from seed registry into governed plugin candidates inside DB MARIAM.</p>
+          <p>Write a local folder or ZIP path, inspect it, then promote extracted DNA as governed plugin candidates.</p>
         </div>
-        <button type="button" onClick={handleInspectMayouSeed} disabled={status === 'loading'}>
-          {status === 'loading' ? 'Inspecting...' : 'Inspect mayou-1001'}
-        </button>
+        <div className="mission-actions">
+          <input
+            aria-label="Seed DNA source path"
+            value={sourcePath}
+            onChange={(event) => setSourcePath(event.target.value)}
+            placeholder="C:\\path\\to\\seed-folder-or-package.zip"
+          />
+          <button type="button" onClick={handleInspectSourcePath} disabled={status === 'loading' || !sourcePath.trim()}>
+            {status === 'loading' ? 'Inspecting...' : 'Inspect Source Path'}
+          </button>
+        </div>
       </div>
       <ErrorBanner error={error} />
       <div className="mission-history compact-history">
