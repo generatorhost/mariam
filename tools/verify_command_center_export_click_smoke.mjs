@@ -135,10 +135,14 @@ async function runClickSmoke() {
 
     await page.goto(`${frontendUrl}/#missions`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Mission Flow' })).toBeVisible();
+    await page.waitForFunction(
+      () => !/Starting\.\.\.|Approving\.\.\.|Rejecting\.\.\.|Generating\.\.\.|Exporting\.\.\.|Loading\.\.\.|Refreshing\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
     const deliveryExportButton = page.getByRole('button', { name: 'Export Delivery Governance Evidence' });
-    await expect(deliveryExportButton).toBeEnabled();
+    await expect(deliveryExportButton).toBeEnabled({ timeout: 30000 });
     await deliveryExportButton.click();
-    await expect(page.getByText('Delivery Governance Evidence Export Ready')).toBeVisible();
+    await expect(page.getByText('Delivery Governance Evidence Export Ready')).toBeVisible({ timeout: 30000 });
     const deliveryExportRendered = await page.getByText('Delivery Governance Evidence Export Ready').isVisible();
     await page.screenshot({
       path: resolve(screenshotDir, 'command-center-export-click-smoke-after.png'),

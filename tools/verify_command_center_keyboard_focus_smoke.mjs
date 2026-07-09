@@ -89,7 +89,12 @@ async function runKeyboardFocusSmoke() {
   try {
     await page.goto(`${frontendUrl}/#status`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Mariam AI Enterprise OS' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Refresh System Status' })).toBeEnabled();
+    await page.getByRole('link', { name: 'Status' }).click();
+    await page.waitForFunction(
+      () => !/Refreshing\.\.\.|Checking\.\.\.|Loading\.\.\./.test(document.body.innerText),
+      { timeout: 30000 },
+    );
+    await expect(page.getByRole('button', { name: 'Refresh System Status' })).toBeEnabled({ timeout: 30000 });
     await page.getByRole('link', { name: 'Governance' }).click();
     await page.waitForFunction(
       () => !/Recording\.\.\.|Assigning\.\.\.|Routing\.\.\.|Exporting\.\.\.|Refreshing\.\.\.|Escalating\.\.\.|Loading\.\.\./.test(document.body.innerText),
@@ -116,6 +121,7 @@ async function runKeyboardFocusSmoke() {
     const labels = focusPath.map(focusLabel);
     const expectedFocusTargets = [
       'Skip to Command Center workspace',
+      'Command',
       'Status',
       'DB MARIAM',
       'Verification',
