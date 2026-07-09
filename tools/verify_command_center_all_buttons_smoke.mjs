@@ -15,6 +15,7 @@ const artifactPath = resolve(
 );
 
 const sections = [
+  'command',
   'status',
   'data-platform',
   'verification',
@@ -161,6 +162,11 @@ async function runAllButtonsSmoke() {
     const failedClicks = clicks.filter((click) => !click.passed);
     const checks = {
       all_sections_visited: sections.every((sectionId) => visitedSections.has(sectionId)),
+      command_chat_executed: clicks.some((click) => (
+        click.section === 'command'
+        && click.label === 'Execute Command'
+        && click.passed
+      )),
       enabled_buttons_found: clicks.length >= 40,
       all_enabled_buttons_clicked: failedClicks.length === 0,
       no_browser_console_errors: consoleErrors.length === 0,

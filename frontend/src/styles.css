@@ -191,6 +191,46 @@ time {
   justify-self: start;
 }
 
+.command-chat-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.command-chat-form {
+  display: grid;
+  gap: 14px;
+}
+
+.command-chat-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.command-chat-form textarea,
+.command-chat-form select {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.command-chat-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.command-chat-controls {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .error-banner {
   align-items: center;
   background: rgba(255, 61, 61, 0.08);
@@ -600,6 +640,7 @@ time {
   .grid,
   .status-grid,
   .filter-grid,
+  .command-chat-controls,
   .responsive-state-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -631,6 +672,7 @@ time {
   }
 
   .grid,
+  .command-chat-controls,
   .responsive-state-grid {
     grid-template-columns: 1fr;
   }

@@ -104,7 +104,7 @@ class PostgresAgentRuntimeRepository:
                     ("DB MARIAM",),
                 )
                 rows = cursor.fetchall()
-        return [AgentSociety(**dict(row)) for row in rows]
+        return [self._row_to_society(dict(row)) for row in rows]
 
     def save_execution(self, execution: AgentExecutionPlan) -> AgentExecutionPlan:
         import psycopg
@@ -172,4 +172,20 @@ class PostgresAgentRuntimeRepository:
                     ("DB MARIAM",),
                 )
                 rows = cursor.fetchall()
-        return [AgentExecutionPlan(**dict(row)) for row in rows]
+        return [self._row_to_execution(dict(row)) for row in rows]
+
+    def _row_to_society(self, row: dict) -> AgentSociety:
+        return AgentSociety(
+            **{
+                **row,
+                "society_id": str(row["society_id"]),
+            }
+        )
+
+    def _row_to_execution(self, row: dict) -> AgentExecutionPlan:
+        return AgentExecutionPlan(
+            **{
+                **row,
+                "execution_id": str(row["execution_id"]),
+            }
+        )

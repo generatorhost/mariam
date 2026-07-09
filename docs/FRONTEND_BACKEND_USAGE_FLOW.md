@@ -36,6 +36,38 @@ The frontend reads `VITE_MARIAM_API_BASE_URL` for backend calls. Docker Compose 
 
 ## Button To Result Flow
 
+### Enterprise Command Chat
+1. User opens the Command Center.
+2. The first visible workspace is `Enterprise Command Chat`.
+3. User writes one operational command, such as a CRM follow-up request, freelance task, remote-work action, video production request, MCP setup, or plugin operation.
+4. User chooses an execution path:
+   - `Through Management Approval`
+   - `Direct Agent Swarm Plan`
+5. User chooses the target Plugin-managed Business Unit.
+6. User presses `Execute Command`.
+7. If the path is `Through Management Approval`, the frontend sends:
+
+```http
+POST /api/missions
+```
+
+with the selected plugin id and user request.
+
+8. The backend creates a governed Mission, stores it in DB MARIAM, emits runtime events, and returns a mission id, status, Chief Agent, and governance gate.
+9. The frontend displays `Management Mission Created`, the mission id, mission status, Chief Agent, and DB MARIAM.
+10. If the path is `Direct Agent Swarm Plan`, the frontend sends:
+
+```http
+POST /api/agents/executions/plan
+```
+
+with the selected plugin id and user request.
+
+11. The backend creates or reuses the plugin Agent Society, plans a task graph through the Plugin Chief and swarm roles, stores the plan in DB MARIAM, and emits an agent execution event.
+12. The frontend displays `Direct Agent Swarm Plan Created`, the execution id, Chief node, task count, review gate count, and DB MARIAM.
+13. The frontend refreshes the Command Center summary after success.
+14. Detailed dashboards remain available only as drill-down workspaces for the selected mission, plugin, data platform, agents, governance, or runtime state.
+
 ### Load And Refresh System Status
 1. User opens the Command Center.
 2. The frontend automatically sends `GET /api/runtime/summary`.

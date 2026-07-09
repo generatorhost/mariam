@@ -52,7 +52,7 @@ When these appear in legacy notes, they must be marked as legacy wording and map
 
 ## Required Layers
 
-1. Experience Layer: dashboards, command center, plugin workspaces, settings, approvals.
+1. Experience Layer: Chat-first command center, plugin workspaces, settings, approvals, and live dashboards.
 2. API Layer: HTTP/WebSocket endpoints, auth boundary, validation, rate limits.
 3. Runtime Layer: runtime services, event bus, schedulers, workers, plugin activation.
 4. Plugin/App Layer: independent business units installed through manifests.
@@ -60,6 +60,24 @@ When these appear in legacy notes, they must be marked as legacy wording and map
 6. Data Platform Layer: runtime DB, plugin DB boundaries, object storage, cache, logs, metrics.
 7. Governance Layer: permission, audit, approval, rollback, compatibility.
 8. Testing Layer: unit, API, runtime, plugin, integration, security, acceptance tests.
+
+## Experience Layer Law
+
+The main screen is the Enterprise Command Chat. It is not an all-in-one dashboard.
+
+The user must be able to:
+
+- type a command,
+- choose direct Agent Swarm execution or management-governed execution,
+- choose a target plugin/business unit,
+- see the mission or execution id,
+- see the Chief Agent or Swarm responsible,
+- see the governance state,
+- continue in the target workspace only when detail is needed.
+
+Dashboards are allowed only when they are live workspaces. A dashboard is live only if each primary control reaches a backend endpoint and each displayed state comes from DB MARIAM, runtime services, or a verified local artifact.
+
+Static dashboards, decorative plugin screens, fake counters, non-functional buttons, and isolated visual mockups are prohibited in the executable product.
 
 ## Plugin/App Contract
 
@@ -94,6 +112,9 @@ Every plugin or app must have:
 - No API without tests.
 - No database table without migration.
 - No runtime service without health reporting.
+- No dashboard without live API/DB/runtime backing.
+- No archive output in the active implementation path unless it is required for verification, release, rollback, audit, or reproduction.
+- No user-facing split between old/new implementation paths. Historical material must be normalized into canonical runtime objects or excluded from the active UI.
 
 ## External Repository Rule
 

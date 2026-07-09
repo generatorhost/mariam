@@ -19,6 +19,7 @@ const terms = [
 ];
 
 const commandCenterNav = [
+  { label: 'Command', href: '#command' },
   { label: 'Status', href: '#status' },
   { label: 'DB MARIAM', href: '#data-platform' },
   { label: 'Verification', href: '#verification' },
@@ -550,6 +551,22 @@ async function planVideoAgentMission() {
     user_request: 'Create a governed short video delivery plan for client approval.',
     requested_by: 'command-center-user',
     priority: 'normal',
+  });
+}
+
+async function runCommandChatRequest({ userRequest, executionPath, pluginId }) {
+  if (executionPath === 'direct_swarm') {
+    return apiRequest('/api/agents/executions/plan', {
+      plugin_id: pluginId,
+      user_request: userRequest,
+      requested_by: 'command-chat-direct',
+      priority: 'normal',
+    });
+  }
+  return apiRequest('/api/missions', {
+    plugin_id: pluginId,
+    user_request: userRequest,
+    requested_by: 'command-chat-governance',
   });
 }
 
@@ -4224,6 +4241,101 @@ function MissionPanel({ onActionComplete }) {
   );
 }
 
+function CommandChatPanel({ onActionComplete }) {
+  const [userRequest, setUserRequest] = useState('Create a governed client follow-up plan from the CRM plugin.');
+  const [executionPath, setExecutionPath] = useState('management');
+  const [pluginId, setPluginId] = useState('crm');
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  async function handleCommandSubmit(event) {
+    event.preventDefault();
+    setStatus('loading');
+    setError('');
+    setResult(null);
+    try {
+      const body = await runCommandChatRequest({
+        userRequest,
+        executionPath,
+        pluginId,
+      });
+      setResult({
+        executionPath,
+        body,
+      });
+      setStatus('ready');
+      onActionComplete();
+    } catch (commandError) {
+      setStatus('error');
+      setError(commandError.message);
+    }
+  }
+
+  const mission = result?.body?.mission;
+  const agentExecution = result?.body?.agent_execution;
+
+  return (
+    <section className="panel command-chat-panel">
+      <div>
+        <h2>Enterprise Command Chat</h2>
+        <p>
+          Write one instruction. Mariam either routes it through management approval or plans a direct
+          Agent Swarm execution, then records the result in DB MARIAM.
+        </p>
+      </div>
+      <form className="command-chat-form" onSubmit={handleCommandSubmit}>
+        <label>
+          Command
+          <textarea
+            value={userRequest}
+            onChange={(event) => setUserRequest(event.target.value)}
+            rows={4}
+          />
+        </label>
+        <div className="command-chat-controls">
+          <label>
+            Execution path
+            <select value={executionPath} onChange={(event) => setExecutionPath(event.target.value)}>
+              <option value="management">Through Management Approval</option>
+              <option value="direct_swarm">Direct Agent Swarm Plan</option>
+            </select>
+          </label>
+          <label>
+            Target plugin
+            <select value={pluginId} onChange={(event) => setPluginId(event.target.value)}>
+              <option value="crm">CRM Plugin</option>
+              <option value="plugin_freelance_workspace">Freelance Plugin</option>
+              <option value="plugin_remote_work_workspace">Remote Work Plugin</option>
+              <option value="plugin_video_generation_manager">Video Generation Plugin</option>
+              <option value="plugin_mcp_runtime_manager">MCP Runtime Plugin</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" disabled={status === 'loading' || userRequest.trim().length < 3}>
+          {status === 'loading' ? 'Executing...' : 'Execute Command'}
+        </button>
+      </form>
+      {error && <p className="error">{error}</p>}
+      {mission && (
+        <div className="mission-result">
+          <strong>Management Mission Created</strong>
+          <span>{mission.mission_id}</span>
+          <p>{mission.status} / {mission.chief_agent} / {mission.data_platform}</p>
+        </div>
+      )}
+      {agentExecution && (
+        <div className="mission-result">
+          <strong>Direct Agent Swarm Plan Created</strong>
+          <span>{agentExecution.execution_id}</span>
+          <p>{agentExecution.status} / {agentExecution.chief_node_id} / {agentExecution.data_platform}</p>
+          <p>{agentExecution.tasks.length} tasks, {agentExecution.review_gates.length} review gates.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AIResourcePanel({ onActionComplete }) {
   const [decision, setDecision] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -5468,9 +5580,9 @@ function CommandCenterNavigation({ activeSection, onNavigate }) {
 function App() {
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [activeSection, setActiveSection] = useState(() => {
-    const savedSection = readCommandCenterPreference('activeSection', 'status');
+    const savedSection = readCommandCenterPreference('activeSection', 'command');
     const sectionIds = commandCenterNav.map((item) => item.href.slice(1));
-    return sectionIds.includes(savedSection) ? savedSection : 'status';
+    return sectionIds.includes(savedSection) ? savedSection : 'command';
   });
   const persistActiveSection = useCallback((sectionId) => {
     setActiveSection(sectionId);
@@ -5490,8 +5602,8 @@ function App() {
         persistActiveSection(hashSection);
         return;
       }
-      const savedSection = readCommandCenterPreference('activeSection', 'status');
-      if (restoringSavedSection && sectionIds.includes(savedSection) && savedSection !== 'status') {
+      const savedSection = readCommandCenterPreference('activeSection', 'command');
+      if (restoringSavedSection && sectionIds.includes(savedSection) && savedSection !== 'command') {
         window.history.replaceState(null, '', `#${savedSection}`);
         document.getElementById(savedSection)?.scrollIntoView({ block: 'start' });
         persistActiveSection(savedSection);
@@ -5537,10 +5649,13 @@ function App() {
         <header className="topbar">
           <div>
             <h1>Mariam AI Enterprise OS</h1>
-            <p>Documentation-driven rebuild foundation</p>
+            <p>Chat-first living enterprise command center</p>
           </div>
           <a href="https://github.com/generatorhost/Mariam-Architecture-Library">Architecture Library</a>
         </header>
+        <section id="command" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'command'}>
+          <CommandChatPanel onActionComplete={refreshCommandCenterSummary} />
+        </section>
         <section className="grid" id="status" tabIndex="-1" hidden={activeSection !== 'status'}>
           {cards.map((card) => {
             const Icon = card.icon;

@@ -45,6 +45,39 @@ Every feature must follow:
 9. Test coverage.
 10. Architecture Library update.
 
+## Unified Live System Rule
+Mariam must be one unified living system, not a collection of disconnected old and new screens.
+
+Every visible dashboard, plugin workspace, card, counter, button, table, and status indicator must be backed by one of:
+- a real API endpoint,
+- a real DB MARIAM read or write,
+- a real runtime service action,
+- a real governance/audit event,
+- a real verification artifact generated outside the runtime path.
+
+If a visible control cannot reach a real target, remove it from the active UI or mark it as a documented future roadmap item outside the executable interface.
+
+## Chat-First Command Rule
+The primary user interface is the Enterprise Command Chat.
+
+The user writes an instruction once, then chooses one of two execution paths:
+- `Through Management Approval`: the command becomes a governed Mission. Management, governance, approval, quality, delivery, and audit decide the execution path.
+- `Direct Agent Swarm Plan`: the command is routed directly to the selected Plugin Chief and Agent Swarm for planning, with review gates and DB MARIAM traceability.
+
+Both paths must return a visible execution id, mission id, status, data platform, responsible Chief/Swarm, and next gate.
+
+Dashboards are secondary workspaces. They exist to inspect, configure, approve, monitor, or repair live runtime objects. They are not the main way to operate Mariam.
+
+## Archive And Verification Artifact Rule
+Generated archives, screenshots, logs, ZIPs, PDF build outputs, smoke-test JSON files, and historical exports are not active architecture context.
+
+Rules:
+- Keep runtime archives under ignored artifact/output folders.
+- Do not load generated archives into prompts or implementation context unless debugging that artifact.
+- Do not create new archive documents to explain active behavior when a small execution document can be updated.
+- If an archive is not used by verification, release, rollback, audit, or reproduction, remove it from the active workflow.
+- The active source of implementation truth is small Markdown files in `docs/`, code, migrations, API contracts, and tests.
+
 ## Seed DNA Flow
 When using `#seed-dna`:
 

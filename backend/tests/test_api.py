@@ -434,6 +434,59 @@ def test_postgres_ai_route_repository_recovers_unknown_provider() -> None:
     assert decision.fallback_provider_ids == ["ollama"]
 
 
+def test_postgres_agent_runtime_repository_converts_uuid_rows_to_strings() -> None:
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from app.repositories.agents import PostgresAgentRuntimeRepository
+
+    repository = PostgresAgentRuntimeRepository("postgresql://unused")
+    society_id = uuid4()
+    execution_id = uuid4()
+    society = repository._row_to_society(
+        {
+            "society_id": society_id,
+            "plugin_id": "crm",
+            "business_unit_name": "CRM Business Unit",
+            "chief_node_id": "crm_chief",
+            "nodes": [
+                {
+                    "node_id": "crm_chief",
+                    "plugin_id": "crm",
+                    "role": "chief",
+                    "title": "CRM Chief Agent",
+                    "reports_to": "mariam_enterprise_chief",
+                    "skills": ["planning"],
+                    "capabilities": ["crm_execution"],
+                    "permissions": ["crm.mission.plan"],
+                    "status": "active",
+                    "data_boundary": "crm_agent_runtime",
+                }
+            ],
+            "data_platform": "DB MARIAM",
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+    execution = repository._row_to_execution(
+        {
+            "execution_id": execution_id,
+            "plugin_id": "crm",
+            "user_request": "Plan a follow-up.",
+            "requested_by": "test",
+            "chief_node_id": "crm_chief",
+            "tasks": [],
+            "communication_channels": ["chief_chat"],
+            "review_gates": ["human_approval"],
+            "status": "planned",
+            "data_platform": "DB MARIAM",
+            "created_at": datetime.now(timezone.utc),
+        }
+    )
+
+    assert society.society_id == str(society_id)
+    assert execution.execution_id == str(execution_id)
+
+
 def test_huggingface_non_gguf_model_url_extracts_model_provider_without_gguf_candidate() -> None:
     client = TestClient(create_app())
 
