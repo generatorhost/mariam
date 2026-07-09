@@ -570,6 +570,19 @@ async function runAgentExecution(executionId) {
   });
 }
 
+async function decideAgentExecution(executionId, decision) {
+  const reason =
+    decision === 'approved'
+      ? 'Human governance approved the Agent execution evidence.'
+      : 'Human governance requested changes before delivery.';
+  return apiRequest(`/api/agents/executions/${executionId}/decision`, {
+    decided_by: 'command-center-human-reviewer',
+    decision,
+    reason,
+    evidence: { source: 'agent-society-runtime-panel' },
+  });
+}
+
 async function runCommandChatRequest({ userRequest, executionPath, pluginId }) {
   if (executionPath === 'direct_swarm') {
     return apiRequest('/api/agents/executions/plan', {
@@ -5472,9 +5485,24 @@ function AgentSocietyPanel({ onActionComplete }) {
     }
   }
 
+  async function handleExecutionDecision(decision) {
+    if (!latestDecisionExecution) return;
+    setStatus('loading');
+    setError(null);
+    try {
+      await decideAgentExecution(latestDecisionExecution.execution_id, decision);
+      await refreshAgents();
+      onActionComplete?.();
+    } catch (decisionError) {
+      setError(createPanelError(decisionError, 'Retry Agent execution review decision', () => handleExecutionDecision(decision)));
+      setStatus('error');
+    }
+  }
+
   const activeSociety = societies[0];
   const latestExecution = executions[0];
   const latestRunnableExecution = executions.find((execution) => execution.status === 'planned');
+  const latestDecisionExecution = executions.find((execution) => execution.status === 'awaiting_approval');
 
   return (
     <section className="panel">
@@ -5496,6 +5524,20 @@ function AgentSocietyPanel({ onActionComplete }) {
             disabled={status === 'loading' || !latestRunnableExecution}
           >
             Run Latest Agent Execution
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExecutionDecision('approved')}
+            disabled={status === 'loading' || !latestDecisionExecution}
+          >
+            Approve Agent Execution
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExecutionDecision('changes_requested')}
+            disabled={status === 'loading' || !latestDecisionExecution}
+          >
+            Request Agent Changes
           </button>
         </div>
       </div>

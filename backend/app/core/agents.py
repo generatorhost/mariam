@@ -42,6 +42,13 @@ class AgentExecutionRunRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class AgentExecutionDecisionRequest(BaseModel):
+    decided_by: str = Field(default="human-governance-reviewer", min_length=2)
+    decision: str = Field(pattern="^(approved|changes_requested|rejected)$")
+    reason: str = Field(min_length=5)
+    evidence: dict = Field(default_factory=dict)
+
+
 class AgentRuntimeNode(BaseModel):
     node_id: str
     plugin_id: str

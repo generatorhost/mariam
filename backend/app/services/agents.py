@@ -1,4 +1,5 @@
 from app.core.agents import (
+    AgentExecutionDecisionRequest,
     AgentExecutionPlan,
     AgentExecutionRunRequest,
     AgentMissionPlanRequest,
@@ -140,6 +141,61 @@ class AgentRuntimeService:
                 "awaiting_human_approval": sum(
                     1 for task in saved.tasks if task.status == "awaiting_human_approval"
                 ),
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
+
+    def decide_execution(self, execution_id: str, request: AgentExecutionDecisionRequest) -> AgentExecutionPlan:
+        execution = self._repository.get_execution(execution_id)
+        if execution is None:
+            raise ValueError(f"Agent execution {execution_id} was not found.")
+        if execution.status != "awaiting_approval":
+            raise ValueError(f"Agent execution {execution_id} is not awaiting approval.")
+
+        final_task_status = {
+            "approved": "approved",
+            "changes_requested": "changes_requested",
+            "rejected": "rejected",
+        }[request.decision]
+        execution_status = "completed" if request.decision == "approved" else request.decision
+        updated_tasks = [
+            task.model_copy(update={"status": final_task_status})
+            if task.status == "awaiting_human_approval"
+            else task
+            for task in execution.tasks
+        ]
+        updated_execution = execution.model_copy(
+            update={
+                "tasks": updated_tasks,
+                "status": execution_status,
+            }
+        )
+        saved = self._repository.update_execution(updated_execution)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.decided_by,
+                action="agent_execution.review_decision",
+                target_type="agent_execution",
+                target_id=saved.execution_id,
+                decision=request.decision,
+                evidence={
+                    "plugin_id": saved.plugin_id,
+                    "status": saved.status,
+                    "reason": request.reason,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "agent_execution.review_decided",
+            "agent-runtime",
+            {
+                "execution_id": saved.execution_id,
+                "plugin_id": saved.plugin_id,
+                "decision": request.decision,
+                "status": saved.status,
                 "data_platform": saved.data_platform,
             },
         )

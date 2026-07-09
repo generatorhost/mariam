@@ -602,6 +602,63 @@ def test_agent_runtime_runs_execution_until_human_approval_gate() -> None:
     )
 
 
+def test_agent_runtime_human_approval_completes_execution() -> None:
+    client = TestClient(create_app())
+    plan_response = client.post(
+        "/api/agents/executions/plan",
+        json={
+            "plugin_id": "plugin_freelance_manager",
+            "user_request": "Prepare a governed proposal artifact for a freelance lead.",
+            "requested_by": "local-user",
+            "priority": "high",
+        },
+    )
+    execution_id = plan_response.json()["agent_execution"]["execution_id"]
+    run_response = client.post(
+        f"/api/agents/executions/{execution_id}/run",
+        json={
+            "actor_id": "freelance-chief-agent",
+            "reason": "Run until human governance review.",
+            "evidence": {"mode": "approval-test"},
+        },
+    )
+    assert run_response.status_code == 200
+    assert run_response.json()["agent_execution"]["status"] == "awaiting_approval"
+
+    decision_response = client.post(
+        f"/api/agents/executions/{execution_id}/decision",
+        json={
+            "decided_by": "human-governance-reviewer",
+            "decision": "approved",
+            "reason": "Execution evidence is acceptable for delivery.",
+            "evidence": {"review": "approved"},
+        },
+    )
+
+    assert decision_response.status_code == 200
+    execution = decision_response.json()["agent_execution"]
+    assert execution["status"] == "completed"
+    assert execution["tasks"][-1]["status"] == "approved"
+    assert execution["data_platform"] == "DB MARIAM"
+
+    events_response = client.get("/api/runtime/events")
+    assert any(
+        event["name"] == "agent_execution.review_decided"
+        and event["payload"]["execution_id"] == execution_id
+        and event["payload"]["decision"] == "approved"
+        and event["payload"]["status"] == "completed"
+        for event in events_response.json()["events"]
+    )
+
+    audit_response = client.get("/api/audit")
+    assert any(
+        record["action"] == "agent_execution.review_decision"
+        and record["target_id"] == execution_id
+        and record["decision"] == "approved"
+        for record in audit_response.json()["audit_records"]
+    )
+
+
 def test_workflow_engine_defines_and_runs_governed_steps() -> None:
     client = TestClient(create_app())
 
