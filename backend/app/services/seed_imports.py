@@ -223,6 +223,13 @@ class SeedImportService:
     def inspect_source(self, request: SeedImportRequest) -> SeedImportRecord:
         source_path = Path(request.source_path)
         if not source_path.exists():
+            first_split = Path(f"{request.source_path}.001")
+            if first_split.exists():
+                raise ValueError(
+                    f"Seed source path {request.source_path} was not found as a single ZIP file. "
+                    "A split archive was detected; extract or combine the .001 parts first, "
+                    "or use the already extracted folder path."
+                )
             raise ValueError(f"Seed source path {request.source_path} was not found.")
         if source_path.is_file() and source_path.suffix.lower() == ".zip":
             with TemporaryDirectory(prefix="mariam-seed-dna-") as temp_dir:
@@ -242,7 +249,7 @@ class SeedImportService:
     ) -> SeedImportRecord:
         registry_path = seed_root / "registry"
         if not registry_path.exists():
-            raise ValueError(f"Seed source path {request.source_path} does not contain a registry directory.")
+            return self._inspect_generic_seed_root(request, seed_root, display_path)
 
         warnings: list[str] = []
         coverage = self._read_json(seed_root / "SOURCE_COVERAGE.json", warnings)
@@ -306,6 +313,150 @@ class SeedImportService:
             },
         )
         return saved
+
+    def _inspect_generic_seed_root(
+        self,
+        request: SeedImportRequest,
+        seed_root: Path,
+        display_path: Path,
+    ) -> SeedImportRecord:
+        warnings = ["Registry directory was not found; generic DNA extraction was used."]
+        allowed_suffixes = {
+            ".md",
+            ".txt",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".py",
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx",
+            ".sql",
+            ".html",
+            ".css",
+        }
+        skipped_dirs = {".git", "node_modules", "__pycache__", ".pytest_cache", "dist", "build", ".venv", "venv"}
+        domain_names = sorted({domain for group in CANONICAL_PLUGIN_GROUPS.values() for domain in group["domains"]})
+        domain_hits = {domain: {"assets": 0, "terms": 0, "files": []} for domain in domain_names}
+        files_scanned = 0
+        files_failed = 0
+        eligible_files = 0
+
+        for path in seed_root.rglob("*"):
+            if not path.is_file() or any(part in skipped_dirs for part in path.parts):
+                continue
+            if path.suffix.lower() not in allowed_suffixes:
+                continue
+            eligible_files += 1
+            if files_scanned >= 2000:
+                warnings.append("Generic scan stopped at 2000 files to keep import responsive.")
+                break
+            try:
+                relative = str(path.relative_to(seed_root)).lower()
+                text = path.read_text(encoding="utf-8", errors="ignore")[:20000].lower()
+                haystack = f"{relative}\n{text}"
+                files_scanned += 1
+            except OSError:
+                files_failed += 1
+                continue
+            for domain in domain_names:
+                terms = self._domain_terms(domain)
+                matches = sum(1 for term in terms if term in haystack)
+                if matches:
+                    domain_hits[domain]["assets"] += 1
+                    domain_hits[domain]["terms"] += matches
+                    if len(domain_hits[domain]["files"]) < 5:
+                        domain_hits[domain]["files"].append(str(path.relative_to(seed_root)))
+
+        domain_evidence = [
+            SeedDomainEvidence(
+                domain=domain,
+                runtime_readiness="candidate",
+                total_matching_assets=int(hit["assets"]),
+                total_matching_terms=int(hit["terms"]),
+                top_source_projects=[{"name": display_path.name, "count": int(hit["assets"])}],
+                top_source_categories=[
+                    {"name": file_name, "count": 1}
+                    for file_name in list(hit["files"])
+                ],
+            )
+            for domain, hit in domain_hits.items()
+            if int(hit["assets"]) > 0
+        ]
+        plugin_candidates = self._build_plugin_candidates(domain_evidence, str(display_path))
+        record = create_seed_import_record(
+            source_path=str(display_path),
+            source_name=display_path.name,
+            coverage={
+                "eligible_files_discovered": eligible_files,
+                "files_scanned": files_scanned,
+                "files_failed": files_failed,
+                "source_coverage_pct": 100 if files_scanned else 0,
+                "extraction_mode": "generic_folder_dna",
+                "scan_limit": 2000,
+            },
+            registry_files=[],
+            domain_evidence=domain_evidence,
+            plugin_candidates=plugin_candidates,
+            warnings=warnings,
+        )
+        saved = self._repository.save(record)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="seed_import.inspect_generic",
+                target_type="seed_source",
+                target_id=saved.source_id,
+                decision="approved",
+                evidence={
+                    "source_path": saved.source_path,
+                    "source_name": saved.source_name,
+                    "reason": request.reason,
+                    "plugin_candidates": len(saved.plugin_candidates),
+                    "domain_evidence": len(saved.domain_evidence),
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "seed_import.generic_inspected",
+            "seed-import-runtime",
+            {
+                "source_id": saved.source_id,
+                "source_path": saved.source_path,
+                "plugin_candidates": len(saved.plugin_candidates),
+                "domain_evidence": len(saved.domain_evidence),
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
+
+    def _domain_terms(self, domain: str) -> list[str]:
+        normalized = domain.replace("_", " ")
+        compact = domain.replace("_", "")
+        terms = {domain.lower(), normalized.lower(), compact.lower()}
+        if domain in {"mcp", "apis", "api_gateways"}:
+            terms.update({"mcp", "api", "gateway", "server"})
+        if domain in {"agents", "roles", "departments", "workers", "skills", "capabilities"}:
+            terms.update({"agent", "chief", "team leader", "skill", "capability", "mission", "task"})
+        if domain in {"workflows", "processes", "event_streaming", "async_runtimes"}:
+            terms.update({"workflow", "pipeline", "scheduler", "executor", "task graph", "event"})
+        if domain in {"knowledge_graph", "memory", "rag", "vector_databases", "datasets", "documents"}:
+            terms.update({"knowledge", "memory", "vector", "embedding", "semantic", "document", "rag"})
+        if domain in {"model_providers", "model_serving", "llm", "embeddings"}:
+            terms.update({"model", "provider", "ollama", "gguf", "onnx", "safetensors", "embedding"})
+        if domain in {"security", "rbac", "policies", "governance", "audit", "compliance"}:
+            terms.update({"security", "permission", "policy", "governance", "audit", "approval"})
+        if domain in {"docker", "kubernetes", "deployment", "monitoring", "logging", "storage", "databases"}:
+            terms.update({"docker", "database", "postgres", "redis", "storage", "metrics", "logs"})
+        if domain in {"crm", "sales", "business", "saas"}:
+            terms.update({"crm", "sales", "client", "business", "lead", "pipeline"})
+        if domain in {"video_generation", "media", "voice", "subtitle", "material", "upload_post"}:
+            terms.update({"video", "media", "voice", "subtitle", "render", "upload"})
+        return sorted(terms)
 
     def _extract_seed_zip(self, zip_path: Path, target_root: Path) -> None:
         with ZipFile(zip_path) as archive:

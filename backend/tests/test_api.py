@@ -159,6 +159,32 @@ def test_seed_import_accepts_zip_package_path(tmp_path) -> None:
     assert "plugin_mcp_runtime_manager" in candidates
 
 
+def test_seed_import_accepts_generic_project_folder_without_registry(tmp_path) -> None:
+    project_root = tmp_path / "raw-project"
+    project_root.mkdir()
+    (project_root / "README.md").write_text(
+        "Chief agent workflow knowledge vector model provider api governance docker crm video gguf",
+        encoding="utf-8",
+    )
+
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/seed-imports/inspect",
+        json={
+            "source_path": str(project_root),
+            "actor_id": "seed-import-chief",
+            "reason": "Extract raw project folder as generic living DNA.",
+            "evidence": {"mode": "generic_folder_dna"},
+        },
+    )
+
+    assert response.status_code == 200
+    seed_import = response.json()["seed_import"]
+    assert seed_import["coverage"]["extraction_mode"] == "generic_folder_dna"
+    assert seed_import["domain_evidence"]
+    assert seed_import["plugin_candidates"]
+
+
 def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() -> None:
     client = TestClient(create_app())
 
