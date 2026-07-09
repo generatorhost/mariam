@@ -102,6 +102,25 @@ Every extracted DNA object must carry extraction evidence:
 
 Runtime objects loaded from Seed DNA must preserve that extraction evidence inside their manifest. A DNA object without source evidence is not acceptable for activation.
 
+## Runtime Object Readiness Rule
+Runtime objects are not considered practically usable just because they exist in `runtime_objects`.
+
+Before execution, the system must expose a readiness report through:
+
+```text
+GET /api/runtime-objects/{object_id}/readiness
+```
+
+The report must show:
+- readiness state,
+- whether the object is ready to execute,
+- passed and failed checks,
+- blockers,
+- next actions,
+- DB MARIAM as the data platform.
+
+The UI must let the user check readiness from Runtime Object History. A runtime object with blockers is not execution-ready even if it is visible.
+
 Manual step-by-step controls remain available:
 - `Inspect Source Path` calls `POST /api/seed-imports/inspect`.
 - `Load Extracted DNA to Runtime Store` calls `POST /api/seed-imports/{source_id}/load-runtime-objects`.

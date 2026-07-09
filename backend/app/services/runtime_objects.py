@@ -12,6 +12,7 @@ from app.core.runtime_objects import (
     RuntimeObjectImpactReport,
     RuntimeObjectImpactRequest,
     RuntimeObjectPatchRequest,
+    RuntimeObjectReadinessReport,
     RuntimeObjectRequest,
     RuntimeObjectStateChangeRequest,
     RuntimeObjectValidationReport,
@@ -64,6 +65,92 @@ class RuntimeObjectService:
 
     def list(self) -> list[RuntimeObject]:
         return self._repository.list()
+
+    def readiness(self, object_id: str) -> RuntimeObjectReadinessReport:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        manifest = runtime_object.manifest
+        validation = manifest.get("validation", {})
+        checks = [
+            {
+                "name": "not_deleted",
+                "passed": runtime_object.status != "deleted",
+                "message": "Runtime object must not be soft-deleted.",
+            },
+            {
+                "name": "manifest_present",
+                "passed": isinstance(manifest, dict) and bool(manifest),
+                "message": "Runtime object manifest must be present.",
+            },
+            {
+                "name": "version_present",
+                "passed": bool(runtime_object.version),
+                "message": "Runtime object version must be present.",
+            },
+            {
+                "name": "validation_passed",
+                "passed": validation.get("passed") is True,
+                "message": "Runtime object must pass validation before execution.",
+            },
+        ]
+        if runtime_object.object_type == "provider":
+            checks.append(
+                {
+                    "name": "provider_type_present",
+                    "passed": bool(manifest.get("provider_type")),
+                    "message": "Provider runtime object must declare provider_type.",
+                }
+            )
+        if manifest.get("seed_source_id") or manifest.get("dna_object_key"):
+            checks.append(
+                {
+                    "name": "seed_extraction_evidence_present",
+                    "passed": bool(manifest.get("extraction_evidence")),
+                    "message": "Seed DNA runtime objects must preserve extraction evidence.",
+                }
+            )
+        if manifest.get("dna_import"):
+            checks.append(
+                {
+                    "name": "dna_import_governance_review_state",
+                    "passed": runtime_object.status == "disabled",
+                    "message": "Imported DNA must remain disabled until explicit governance approval.",
+                }
+            )
+
+        blockers = [check["message"] for check in checks if not check["passed"]]
+        ready_to_execute = runtime_object.status == "enabled" and not blockers
+        if ready_to_execute:
+            readiness_state = "ready"
+            next_actions = ["Monitor runtime metrics and preserve audit trace."]
+        elif runtime_object.status == "deleted":
+            readiness_state = "blocked"
+            next_actions = ["Restore the runtime object before validation or execution."]
+        elif validation.get("passed") is not True:
+            readiness_state = "needs_validation"
+            next_actions = ["Run Validate before enabling or executing the runtime object."]
+        elif runtime_object.status == "disabled":
+            readiness_state = "ready_for_governed_enable"
+            next_actions = ["Run impact analysis, approval if required, then enable."]
+        else:
+            readiness_state = "needs_governance_review"
+            next_actions = ["Review blockers and governance gates before execution."]
+
+        return RuntimeObjectReadinessReport(
+            object_id=runtime_object.object_id,
+            object_type=runtime_object.object_type,
+            name=runtime_object.name,
+            status=runtime_object.status,
+            readiness_state=readiness_state,
+            ready_to_execute=ready_to_execute,
+            checks=checks,
+            blockers=blockers,
+            next_actions=next_actions,
+            runtime_target=manifest.get("runtime_target"),
+            checked_at=datetime.now(UTC),
+        )
 
     def enable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
         runtime_object = self._repository.get(object_id)

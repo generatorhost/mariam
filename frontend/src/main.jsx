@@ -908,6 +908,10 @@ async function validateRuntimeObject(objectId) {
   });
 }
 
+async function checkRuntimeObjectReadiness(objectId) {
+  return apiGet(`/api/runtime-objects/${objectId}/readiness`);
+}
+
 async function analyzeRuntimeObjectImpact(objectId, intendedAction) {
   return apiRequest(`/api/runtime-objects/${objectId}/impact-analysis`, {
     actor_id: 'command-center-runtime-governance',
@@ -1011,6 +1015,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [dnaPackage, setDnaPackage] = useState(null);
   const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
+  const [readinessReport, setReadinessReport] = useState(null);
   const [impactReport, setImpactReport] = useState(null);
   const [approvalReport, setApprovalReport] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -1078,6 +1083,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       const body = await validateRuntimeObject(objectId);
       setValidationReport(body.validation_report);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
+  const handleReadiness = async (objectId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await checkRuntimeObjectReadiness(objectId);
+      setReadinessReport(body.readiness_report);
       await refreshRuntimeObjects();
       onActionComplete();
     } catch (runtimeError) {
@@ -1164,6 +1183,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           </p>
         </div>
       )}
+      {readinessReport && (
+        <div className="mission-result">
+          <strong>Runtime Readiness: {readinessReport.readiness_state}</strong>
+          <p>
+            Ready to execute: <strong>{String(readinessReport.ready_to_execute)}</strong> / checks:{' '}
+            <strong>{readinessReport.checks.filter((check) => check.passed).length}</strong> /{' '}
+            <strong>{readinessReport.checks.length}</strong>
+          </p>
+          {readinessReport.blockers.length > 0 && (
+            <p>Blockers: <strong>{readinessReport.blockers.join(' | ')}</strong></p>
+          )}
+          <p>Next: <strong>{readinessReport.next_actions.join(' | ')}</strong></p>
+        </div>
+      )}
       {impactReport && (
         <div className="mission-result">
           <strong>Impact: {impactReport.risk_level}</strong>
@@ -1246,6 +1279,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Validate
+                    </button>
+                    <button
+                      onClick={() => handleReadiness(item.object_id)}
+                      disabled={status === 'loading'}
+                    >
+                      Check Readiness
                     </button>
                     <button
                       onClick={() => handleImpactAnalysis(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}

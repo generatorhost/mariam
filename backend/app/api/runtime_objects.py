@@ -19,6 +19,18 @@ def list_runtime_objects(service: RuntimeObjectService = Depends(get_runtime_obj
     return {"runtime_objects": [runtime_object.model_dump(mode="json") for runtime_object in service.list()]}
 
 
+@router.get("/{object_id}/readiness")
+def get_runtime_object_readiness(
+    object_id: str,
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        readiness_report = service.readiness(object_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"readiness_report": readiness_report.model_dump(mode="json")}
+
+
 @router.post("")
 def create_runtime_object(
     request: RuntimeObjectRequest,

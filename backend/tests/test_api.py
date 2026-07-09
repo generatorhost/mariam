@@ -2898,6 +2898,45 @@ def test_runtime_object_enable_requires_successful_validation() -> None:
     assert "must pass validation" in enable_response.json()["detail"]
 
 
+def test_runtime_object_readiness_reports_real_blockers_and_ready_state() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Readiness Provider",
+            "version": "0.1.0",
+            "manifest": {"provider_type": "model_runtime", "local": True},
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    first_readiness = client.get(f"/api/runtime-objects/{object_id}/readiness")
+    assert first_readiness.status_code == 200
+    first_report = first_readiness.json()["readiness_report"]
+    assert first_report["readiness_state"] == "needs_validation"
+    assert first_report["ready_to_execute"] is False
+    assert "Runtime object must pass validation before execution." in first_report["blockers"]
+
+    validate_response = client.post(
+        f"/api/runtime-objects/{object_id}/validate",
+        json={
+            "actor_id": "runtime-governance",
+            "reason": "Validate readiness provider.",
+            "evidence": {"review": "readiness-test"},
+        },
+    )
+    assert validate_response.status_code == 200
+    assert validate_response.json()["validation_report"]["passed"] is True
+
+    ready_response = client.get(f"/api/runtime-objects/{object_id}/readiness")
+    assert ready_response.status_code == 200
+    ready_report = ready_response.json()["readiness_report"]
+    assert ready_report["readiness_state"] == "ready"
+    assert ready_report["ready_to_execute"] is True
+    assert ready_report["blockers"] == []
+
+
 def test_provider_disable_requires_impact_analysis() -> None:
     client = TestClient(create_app())
     create_response = client.post(
