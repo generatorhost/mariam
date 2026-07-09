@@ -5267,6 +5267,16 @@ function SeedDNAPanel({ onActionComplete }) {
                 <p>
                   Source domains: <strong>{dnaObject.source_domains.join(', ')}</strong>
                 </p>
+                {dnaObject.extraction_evidence?.length > 0 && (
+                  <ul className="compact-list">
+                    {dnaObject.extraction_evidence.slice(0, 3).map((evidence) => (
+                      <li key={`${dnaObject.object_key}-${evidence.domain}-${evidence.file}`}>
+                        <strong>{evidence.domain}</strong>: {evidence.file}
+                        {evidence.snippet ? ` - ${evidence.snippet}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </article>
             ))}
           </div>

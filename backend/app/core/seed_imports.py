@@ -45,6 +45,7 @@ class SeedDNAObject(BaseModel):
     evidence_terms: int
     runtime_target: str
     governance_gate: str = "seed_dna_review_before_runtime_activation"
+    extraction_evidence: list[dict] = Field(default_factory=list)
     traceability: dict = Field(default_factory=dict)
 
 

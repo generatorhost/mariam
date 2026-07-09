@@ -557,7 +557,7 @@ class SeedImportService:
         }
         skipped_dirs = {".git", "node_modules", "__pycache__", ".pytest_cache", "dist", "build", ".venv", "venv"}
         domain_names = sorted({domain for group in CANONICAL_PLUGIN_GROUPS.values() for domain in group["domains"]})
-        domain_hits = {domain: {"assets": 0, "terms": 0, "files": []} for domain in domain_names}
+        domain_hits = {domain: {"assets": 0, "terms": 0, "evidence": []} for domain in domain_names}
         files_scanned = 0
         files_failed = 0
         eligible_files = 0
@@ -585,8 +585,14 @@ class SeedImportService:
                 if matches:
                     domain_hits[domain]["assets"] += 1
                     domain_hits[domain]["terms"] += matches
-                    if len(domain_hits[domain]["files"]) < 5:
-                        domain_hits[domain]["files"].append(str(path.relative_to(seed_root)))
+                    if len(domain_hits[domain]["evidence"]) < 5:
+                        domain_hits[domain]["evidence"].append(
+                            {
+                                "file": str(path.relative_to(seed_root)),
+                                "matches": matches,
+                                "snippet": self._snippet_for_terms(haystack, terms),
+                            }
+                        )
 
         domain_evidence = [
             SeedDomainEvidence(
@@ -596,8 +602,12 @@ class SeedImportService:
                 total_matching_terms=int(hit["terms"]),
                 top_source_projects=[{"name": display_path.name, "count": int(hit["assets"])}],
                 top_source_categories=[
-                    {"name": file_name, "count": 1}
-                    for file_name in list(hit["files"])
+                    {
+                        "name": evidence["file"],
+                        "count": int(evidence["matches"]),
+                        "snippet": evidence["snippet"],
+                    }
+                    for evidence in list(hit["evidence"])
                 ],
             )
             for domain, hit in domain_hits.items()
@@ -657,6 +667,21 @@ class SeedImportService:
             },
         )
         return saved
+
+    def _snippet_for_terms(self, haystack: str, terms: list[str]) -> str:
+        normalized_terms = [term for term in terms if term]
+        match_positions = [
+            (position, term)
+            for term in normalized_terms
+            if (position := haystack.find(term.lower())) >= 0
+        ]
+        if not match_positions:
+            return haystack[:180].replace("\n", " ").strip()
+        position, term = min(match_positions, key=lambda item: item[0])
+        start = max(0, position - 70)
+        end = min(len(haystack), position + len(term) + 110)
+        snippet = haystack[start:end].replace("\n", " ").strip()
+        return re.sub(r"\s+", " ", snippet)[:240]
 
     def _domain_terms(self, domain: str) -> list[str]:
         normalized = domain.replace("_", " ")
@@ -808,6 +833,7 @@ class SeedImportService:
                         "source_domains": dna_object.source_domains,
                         "evidence_assets": dna_object.evidence_assets,
                         "evidence_terms": dna_object.evidence_terms,
+                        "extraction_evidence": dna_object.extraction_evidence,
                         "traceability": dna_object.traceability,
                         "data_platform": "DB MARIAM",
                     },
@@ -991,6 +1017,17 @@ class SeedImportService:
             terms = sum(evidence_by_domain[domain].total_matching_terms for domain in present)
             object_key = object_type.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
             runtime_target = self._runtime_target_for_object_type(object_type)
+            extraction_evidence = []
+            for domain in present:
+                for evidence in evidence_by_domain[domain].top_source_categories[:3]:
+                    extraction_evidence.append(
+                        {
+                            "domain": domain,
+                            "file": evidence.get("name"),
+                            "matches": evidence.get("count", 1),
+                            "snippet": evidence.get("snippet", ""),
+                        }
+                    )
             objects.append(
                 SeedDNAObject(
                     object_key=f"seed_{object_key}",
@@ -1000,6 +1037,7 @@ class SeedImportService:
                     evidence_assets=assets,
                     evidence_terms=terms,
                     runtime_target=runtime_target,
+                    extraction_evidence=extraction_evidence[:8],
                     traceability={
                         "source_path": source_path,
                         "matched_domains": {

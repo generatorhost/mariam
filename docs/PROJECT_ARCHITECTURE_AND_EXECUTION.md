@@ -94,6 +94,14 @@ When using `#seed-dna`:
 7. When selected, backend promotes plugin candidates as disabled Plugin-managed Business Units.
 8. The UI shows extraction mode, scanned files, domains, plugin candidates, DNA object count, runtime load count, and promoted plugin count.
 
+Every extracted DNA object must carry extraction evidence:
+- source domain,
+- source file,
+- match count,
+- short snippet proving why the object was classified.
+
+Runtime objects loaded from Seed DNA must preserve that extraction evidence inside their manifest. A DNA object without source evidence is not acceptable for activation.
+
 Manual step-by-step controls remain available:
 - `Inspect Source Path` calls `POST /api/seed-imports/inspect`.
 - `Load Extracted DNA to Runtime Store` calls `POST /api/seed-imports/{source_id}/load-runtime-objects`.

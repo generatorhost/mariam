@@ -289,6 +289,10 @@ def test_seed_import_accepts_generic_project_folder_without_registry(tmp_path) -
     assert seed_import["plugin_candidates"]
     assert seed_import["dna_objects"]
     assert {"Chief", "Agent", "Workflow", "Model", "Provider"}.issubset(seed_import["dna_object_counts"])
+    agent_object = next(item for item in seed_import["dna_objects"] if item["object_type"] == "Agent")
+    assert agent_object["extraction_evidence"]
+    assert agent_object["extraction_evidence"][0]["file"] == "README.md"
+    assert "chief agent workflow" in agent_object["extraction_evidence"][0]["snippet"]
 
 
 def test_seed_pipeline_full_mode_extracts_loads_and_promotes_plugins(tmp_path) -> None:
@@ -326,7 +330,11 @@ def test_seed_pipeline_full_mode_extracts_loads_and_promotes_plugins(tmp_path) -
 
     runtime_response = client.get("/api/runtime-objects")
     assert runtime_response.status_code == 200
-    assert len(runtime_response.json()["runtime_objects"]) >= len(pipeline["runtime_load"]["loaded_runtime_object_ids"])
+    runtime_objects = runtime_response.json()["runtime_objects"]
+    assert len(runtime_objects) >= len(pipeline["runtime_load"]["loaded_runtime_object_ids"])
+    loaded_ids = set(pipeline["runtime_load"]["loaded_runtime_object_ids"])
+    loaded_object = next(item for item in runtime_objects if item["object_id"] in loaded_ids)
+    assert loaded_object["manifest"]["extraction_evidence"]
 
 
 def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() -> None:
