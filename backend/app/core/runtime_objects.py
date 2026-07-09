@@ -69,6 +69,20 @@ class RuntimeObjectReadinessReport(BaseModel):
     data_platform: str = "DB MARIAM"
 
 
+class RuntimeObjectExecutionReport(BaseModel):
+    execution_id: str
+    object_id: str
+    object_type: str
+    name: str
+    status: str
+    execution_status: str
+    runtime_action: str
+    outputs: list[dict]
+    audit_event: str
+    executed_at: datetime
+    data_platform: str = "DB MARIAM"
+
+
 class RuntimeObjectImpactRequest(RuntimeObjectStateChangeRequest):
     intended_action: str = Field(default="change", min_length=2)
 

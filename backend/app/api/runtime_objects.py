@@ -31,6 +31,20 @@ def get_runtime_object_readiness(
     return {"readiness_report": readiness_report.model_dump(mode="json")}
 
 
+@router.post("/{object_id}/execute")
+def execute_runtime_object(
+    object_id: str,
+    request: RuntimeObjectStateChangeRequest,
+    authorization=Depends(require_permission("runtime_object.register", "runtime_object")),
+    service: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> dict:
+    try:
+        execution_report = service.execute(object_id, request)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"execution_report": execution_report.model_dump(mode="json")}
+
+
 @router.post("")
 def create_runtime_object(
     request: RuntimeObjectRequest,

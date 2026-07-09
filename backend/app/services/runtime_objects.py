@@ -9,6 +9,7 @@ from app.core.runtime_objects import (
     RuntimeObjectApprovalRequest,
     RuntimeObjectDNAImportRequest,
     RuntimeObjectDNAPackage,
+    RuntimeObjectExecutionReport,
     RuntimeObjectImpactReport,
     RuntimeObjectImpactRequest,
     RuntimeObjectPatchRequest,
@@ -150,6 +151,100 @@ class RuntimeObjectService:
             next_actions=next_actions,
             runtime_target=manifest.get("runtime_target"),
             checked_at=datetime.now(UTC),
+        )
+
+    def execute(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObjectExecutionReport:
+        runtime_object = self._repository.get(object_id)
+        if runtime_object is None:
+            raise ValueError(f"Runtime object {object_id} was not found.")
+
+        readiness = self.readiness(object_id)
+        if not readiness.ready_to_execute:
+            raise ValueError(
+                f"Runtime object {object_id} is not execution-ready: {' | '.join(readiness.blockers)}"
+            )
+
+        executed_at = datetime.now(UTC)
+        execution_id = f"runtime-exec-{uuid4()}"
+        runtime_action = self._resolve_runtime_action(runtime_object.object_type)
+        outputs = [
+            {
+                "name": "runtime_object",
+                "value": runtime_object.object_id,
+                "type": runtime_object.object_type,
+            },
+            {
+                "name": "runtime_action",
+                "value": runtime_action,
+                "type": "governed_execution_contract",
+            },
+            {
+                "name": "data_platform",
+                "value": runtime_object.data_platform,
+                "type": "runtime_store",
+            },
+        ]
+        execution_manifest = {
+            **runtime_object.manifest,
+            "last_execution": {
+                "execution_id": execution_id,
+                "runtime_action": runtime_action,
+                "executed_at": executed_at.isoformat(),
+                "actor_id": request.actor_id,
+                "status": "completed",
+            },
+        }
+        saved = self._repository.update(
+            runtime_object.model_copy(
+                update={
+                    "manifest": execution_manifest,
+                    "updated_at": executed_at,
+                }
+            )
+        )
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="runtime_object.execute",
+                target_type=saved.object_type,
+                target_id=saved.object_id,
+                decision="approved",
+                evidence={
+                    "name": saved.name,
+                    "version": saved.version,
+                    "reason": request.reason,
+                    "execution_id": execution_id,
+                    "runtime_action": runtime_action,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "runtime_object.execute",
+            "runtime-object-service",
+            {
+                "object_id": saved.object_id,
+                "execution_id": execution_id,
+                "object_type": saved.object_type,
+                "name": saved.name,
+                "status": saved.status,
+                "runtime_action": runtime_action,
+                "actor_id": request.actor_id,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return RuntimeObjectExecutionReport(
+            execution_id=execution_id,
+            object_id=saved.object_id,
+            object_type=saved.object_type,
+            name=saved.name,
+            status=saved.status,
+            execution_status="completed",
+            runtime_action=runtime_action,
+            outputs=outputs,
+            audit_event="runtime_object.execute",
+            executed_at=executed_at,
         )
 
     def enable(self, object_id: str, request: RuntimeObjectStateChangeRequest) -> RuntimeObject:
@@ -694,6 +789,21 @@ class RuntimeObjectService:
                 raise ValueError(
                     f"Runtime object {runtime_object.object_id} requires approval before high-risk {intended_action}."
                 )
+
+    def _resolve_runtime_action(self, object_type: str) -> str:
+        normalized_type = object_type.strip().lower()
+        action_by_type = {
+            "provider": "provider.health_check",
+            "model": "model.metadata_probe",
+            "plugin": "plugin.runtime_probe",
+            "connector": "connector.connection_contract_probe",
+            "tool": "tool.contract_probe",
+            "workflow": "workflow.plan_probe",
+            "agent": "agent.capability_probe",
+            "mcp server": "mcp.server_contract_probe",
+            "chief": "chief.delegation_probe",
+        }
+        return action_by_type.get(normalized_type, "runtime.object_contract_probe")
 
     def _change_status(
         self,

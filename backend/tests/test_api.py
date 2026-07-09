@@ -2937,6 +2937,64 @@ def test_runtime_object_readiness_reports_real_blockers_and_ready_state() -> Non
     assert ready_report["blockers"] == []
 
 
+def test_runtime_object_execute_requires_readiness_and_records_execution() -> None:
+    client = TestClient(create_app())
+    create_response = client.post(
+        "/api/runtime-objects",
+        json={
+            "object_type": "provider",
+            "name": "Executable Local Provider",
+            "version": "1.0.0",
+            "manifest": {
+                "provider_type": "ollama",
+                "runtime_target": "local-ollama",
+            },
+        },
+    )
+    object_id = create_response.json()["runtime_object"]["object_id"]
+
+    blocked_response = client.post(
+        f"/api/runtime-objects/{object_id}/execute",
+        json={
+            "actor_id": "runtime-chief",
+            "reason": "Try to execute before validation.",
+            "evidence": {"user_flow": "execute_runtime_object"},
+        },
+    )
+    assert blocked_response.status_code == 400
+    assert "not execution-ready" in blocked_response.json()["detail"]
+
+    validate_response = client.post(
+        f"/api/runtime-objects/{object_id}/validate",
+        json={
+            "actor_id": "runtime-chief",
+            "reason": "Validate provider before execution.",
+            "evidence": {"user_flow": "execute_runtime_object"},
+        },
+    )
+    assert validate_response.status_code == 200
+
+    execute_response = client.post(
+        f"/api/runtime-objects/{object_id}/execute",
+        json={
+            "actor_id": "runtime-chief",
+            "reason": "Execute readiness-approved runtime object.",
+            "evidence": {"user_flow": "execute_runtime_object"},
+        },
+    )
+    assert execute_response.status_code == 200
+    execution_report = execute_response.json()["execution_report"]
+    assert execution_report["execution_status"] == "completed"
+    assert execution_report["runtime_action"] == "provider.health_check"
+    assert execution_report["data_platform"] == "DB MARIAM"
+
+    runtime_objects_response = client.get("/api/runtime-objects")
+    runtime_object = next(
+        item for item in runtime_objects_response.json()["runtime_objects"] if item["object_id"] == object_id
+    )
+    assert runtime_object["manifest"]["last_execution"]["execution_id"] == execution_report["execution_id"]
+
+
 def test_provider_disable_requires_impact_analysis() -> None:
     client = TestClient(create_app())
     create_response = client.post(

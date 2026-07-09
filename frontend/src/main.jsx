@@ -167,16 +167,20 @@ function ErrorBanner({ error }) {
 }
 
 function hasImpactFor(entity, intendedAction) {
-  return entity?.impact_analysis?.intended_action === intendedAction;
+  const impact = entity?.impact_analysis || entity?.manifest?.impact_analysis;
+  return impact?.intended_action === intendedAction;
 }
 
 function hasApprovalFor(entity, intendedAction) {
-  return entity?.change_approval?.intended_action === intendedAction
-    && entity?.change_approval?.impact_id === entity?.impact_analysis?.impact_id;
+  const impact = entity?.impact_analysis || entity?.manifest?.impact_analysis;
+  const approval = entity?.change_approval || entity?.manifest?.change_approval;
+  return approval?.intended_action === intendedAction
+    && approval?.impact_id === impact?.impact_id;
 }
 
 function requiresHighRiskApproval(entity, intendedAction) {
-  return hasImpactFor(entity, intendedAction) && entity?.impact_analysis?.risk_level === 'high';
+  const impact = entity?.impact_analysis || entity?.manifest?.impact_analysis;
+  return hasImpactFor(entity, intendedAction) && impact?.risk_level === 'high';
 }
 
 function canExecuteGovernedChange(entity, intendedAction) {
@@ -184,6 +188,10 @@ function canExecuteGovernedChange(entity, intendedAction) {
     return false;
   }
   return !requiresHighRiskApproval(entity, intendedAction) || hasApprovalFor(entity, intendedAction);
+}
+
+function isRuntimeObjectValidated(entity) {
+  return entity?.validation?.passed === true || entity?.manifest?.validation?.passed === true;
 }
 
 async function loadSystemStatus() {
@@ -912,6 +920,14 @@ async function checkRuntimeObjectReadiness(objectId) {
   return apiGet(`/api/runtime-objects/${objectId}/readiness`);
 }
 
+async function executeRuntimeObject(objectId) {
+  return apiRequest(`/api/runtime-objects/${objectId}/execute`, {
+    actor_id: 'command-center-runtime-governance',
+    reason: 'Executed readiness-approved runtime object from Command Center.',
+    evidence: { review: 'operator-executed-runtime-object' },
+  });
+}
+
 async function analyzeRuntimeObjectImpact(objectId, intendedAction) {
   return apiRequest(`/api/runtime-objects/${objectId}/impact-analysis`, {
     actor_id: 'command-center-runtime-governance',
@@ -1016,6 +1032,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
   const [importedRuntimeObject, setImportedRuntimeObject] = useState(null);
   const [validationReport, setValidationReport] = useState(null);
   const [readinessReport, setReadinessReport] = useState(null);
+  const [executionReport, setExecutionReport] = useState(null);
   const [impactReport, setImpactReport] = useState(null);
   const [approvalReport, setApprovalReport] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -1097,6 +1114,20 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
     try {
       const body = await checkRuntimeObjectReadiness(objectId);
       setReadinessReport(body.readiness_report);
+      await refreshRuntimeObjects();
+      onActionComplete();
+    } catch (runtimeError) {
+      setStatus('error');
+      setError(runtimeError.message);
+    }
+  };
+
+  const handleExecution = async (objectId) => {
+    setStatus('loading');
+    setError('');
+    try {
+      const body = await executeRuntimeObject(objectId);
+      setExecutionReport(body.execution_report);
       await refreshRuntimeObjects();
       onActionComplete();
     } catch (runtimeError) {
@@ -1197,6 +1228,17 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
           <p>Next: <strong>{readinessReport.next_actions.join(' | ')}</strong></p>
         </div>
       )}
+      {executionReport && (
+        <div className="mission-result">
+          <strong>Runtime Execution: {executionReport.execution_status}</strong>
+          <p>{executionReport.execution_id}</p>
+          <p>
+            Action: <strong>{executionReport.runtime_action}</strong> / Audit:{' '}
+            <strong>{executionReport.audit_event}</strong>
+          </p>
+          <p>DB: <strong>{executionReport.data_platform}</strong></p>
+        </div>
+      )}
       {impactReport && (
         <div className="mission-result">
           <strong>Impact: {impactReport.risk_level}</strong>
@@ -1241,7 +1283,7 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                 ) : (
                   <button
                     onClick={() => handleStateChange(item.object_id, 'enabled')}
-                    disabled={status === 'loading' || !item.validation?.passed}
+                    disabled={status === 'loading' || !isRuntimeObjectValidated(item)}
                   >
                     Enable
                   </button>
@@ -1285,6 +1327,12 @@ function RuntimeObjectHistoryPanel({ refreshVersion, onActionComplete }) {
                       disabled={status === 'loading'}
                     >
                       Check Readiness
+                    </button>
+                    <button
+                      onClick={() => handleExecution(item.object_id)}
+                      disabled={status === 'loading' || !isRuntimeObjectValidated(item)}
+                    >
+                      Execute
                     </button>
                     <button
                       onClick={() => handleImpactAnalysis(item.object_id, item.status === 'enabled' ? 'disable' : 'enable')}

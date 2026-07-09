@@ -121,6 +121,25 @@ The report must show:
 
 The UI must let the user check readiness from Runtime Object History. A runtime object with blockers is not execution-ready even if it is visible.
 
+## Runtime Object Execution Rule
+Execution is allowed only after readiness returns `ready_to_execute: true`.
+
+The execution endpoint is:
+
+```text
+POST /api/runtime-objects/{object_id}/execute
+```
+
+The endpoint must:
+- reject runtime objects that have readiness blockers,
+- resolve a governed runtime action from the object type,
+- write `last_execution` into the runtime object manifest,
+- publish a `runtime_object.execute` event,
+- record a `runtime_object.execute` audit event,
+- return an execution id, execution status, runtime action, outputs, audit event, and DB MARIAM.
+
+The UI must expose an `Execute` action from Runtime Object History and display the execution report. The first implementation is a safe runtime contract execution, not arbitrary shell or network execution.
+
 Manual step-by-step controls remain available:
 - `Inspect Source Path` calls `POST /api/seed-imports/inspect`.
 - `Load Extracted DNA to Runtime Store` calls `POST /api/seed-imports/{source_id}/load-runtime-objects`.
