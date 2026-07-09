@@ -602,6 +602,48 @@ def test_agent_runtime_runs_execution_until_human_approval_gate() -> None:
     )
 
 
+def test_agent_runtime_scheduler_reports_dependencies_and_approval_queue() -> None:
+    client = TestClient(create_app())
+    plan_response = client.post(
+        "/api/agents/executions/plan",
+        json={
+            "plugin_id": "plugin_remote_work_manager",
+            "user_request": "Prepare a remote work candidate screening mission.",
+            "requested_by": "local-user",
+            "priority": "normal",
+        },
+    )
+    execution = plan_response.json()["agent_execution"]
+    execution_id = execution["execution_id"]
+
+    assert execution["tasks"][1]["depends_on"] == [execution["tasks"][0]["task_id"]]
+    assert execution["tasks"][2]["depends_on"] == [execution["tasks"][1]["task_id"]]
+    assert execution["tasks"][3]["depends_on"] == [execution["tasks"][2]["task_id"]]
+
+    schedule_response = client.get(f"/api/agents/executions/{execution_id}/schedule")
+    assert schedule_response.status_code == 200
+    schedule = schedule_response.json()["schedule"]
+    assert schedule["data_platform"] == "DB MARIAM"
+    assert schedule["ready_task_ids"] == [execution["tasks"][0]["task_id"]]
+    assert execution["tasks"][1]["task_id"] in schedule["blocked_task_ids"]
+    assert execution["tasks"][3]["task_id"] in schedule["blocked_task_ids"]
+    assert schedule["approval_task_ids"] == []
+
+    run_response = client.post(
+        f"/api/agents/executions/{execution_id}/run",
+        json={
+            "actor_id": "remote-work-chief-agent",
+            "reason": "Run dependency-aware agent plan.",
+            "evidence": {"mode": "scheduler-test"},
+        },
+    )
+    assert run_response.status_code == 200
+    post_run_schedule = client.get(f"/api/agents/executions/{execution_id}/schedule").json()["schedule"]
+    assert len(post_run_schedule["completed_task_ids"]) == 3
+    assert post_run_schedule["approval_task_ids"] == [execution["tasks"][3]["task_id"]]
+    assert post_run_schedule["ready_task_ids"] == []
+
+
 def test_agent_runtime_human_approval_completes_execution() -> None:
     client = TestClient(create_app())
     plan_response = client.post(

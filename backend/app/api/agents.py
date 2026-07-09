@@ -56,6 +56,18 @@ def run_agent_execution(
     return {"agent_execution": execution.model_dump(mode="json")}
 
 
+@router.get("/executions/{execution_id}/schedule")
+def schedule_agent_execution(
+    execution_id: str,
+    service: AgentRuntimeService = Depends(get_agent_runtime_service),
+) -> dict:
+    try:
+        schedule = service.schedule_execution(execution_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {"schedule": schedule.model_dump(mode="json")}
+
+
 @router.post("/executions/{execution_id}/decision")
 def decide_agent_execution(
     execution_id: str,

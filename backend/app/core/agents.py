@@ -49,6 +49,18 @@ class AgentExecutionDecisionRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class AgentExecutionSchedule(BaseModel):
+    execution_id: str
+    status: str
+    ready_task_ids: list[str]
+    blocked_task_ids: list[str]
+    approval_task_ids: list[str]
+    completed_task_ids: list[str]
+    task_dependencies: dict[str, list[str]]
+    scheduler_notes: list[str]
+    data_platform: str = "DB MARIAM"
+
+
 class AgentRuntimeNode(BaseModel):
     node_id: str
     plugin_id: str
@@ -175,9 +187,13 @@ def create_agent_execution_plan(
     request: AgentMissionPlanRequest,
     society: AgentSociety,
 ) -> AgentExecutionPlan:
+    chief_task_id = str(uuid4())
+    breakdown_task_id = str(uuid4())
+    execution_task_id = str(uuid4())
+    review_task_id = str(uuid4())
     tasks = [
         AgentTask(
-            task_id=str(uuid4()),
+            task_id=chief_task_id,
             title="Chief intent analysis",
             assigned_to=society.chief_node_id,
             depends_on=[],
@@ -186,29 +202,29 @@ def create_agent_execution_plan(
             governance_gate="permission_and_scope_check",
         ),
         AgentTask(
-            task_id=str(uuid4()),
+            task_id=breakdown_task_id,
             title="Team leader task breakdown",
             assigned_to=next(node.node_id for node in society.nodes if node.role == AgentRole.team_leader),
-            depends_on=[],
+            depends_on=[chief_task_id],
             status="planned",
             expected_output="Task graph with accountable agents and delivery evidence.",
             governance_gate="task_graph_review",
         ),
         AgentTask(
-            task_id=str(uuid4()),
+            task_id=execution_task_id,
             title="Agent execution package",
             assigned_to=next(node.node_id for node in society.nodes if node.role == AgentRole.agent),
-            depends_on=[],
+            depends_on=[breakdown_task_id],
             status="planned",
             expected_output="Draft artifact or service action result ready for review.",
             governance_gate="sandbox_before_side_effect",
         ),
         AgentTask(
-            task_id=str(uuid4()),
+            task_id=review_task_id,
             title="Quality and governance review",
             assigned_to=next(node.node_id for node in society.nodes if node.role == AgentRole.reviewer),
-            depends_on=[],
-            status="awaiting_human_approval",
+            depends_on=[execution_task_id],
+            status="planned",
             expected_output="Approve, reject, or request changes before delivery.",
             governance_gate="human_approval_before_delivery",
         ),

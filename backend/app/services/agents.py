@@ -2,6 +2,7 @@ from app.core.agents import (
     AgentExecutionDecisionRequest,
     AgentExecutionPlan,
     AgentExecutionRunRequest,
+    AgentExecutionSchedule,
     AgentMissionPlanRequest,
     AgentSociety,
     AgentSocietyRequest,
@@ -145,6 +146,70 @@ class AgentRuntimeService:
             },
         )
         return saved
+
+    def schedule_execution(self, execution_id: str) -> AgentExecutionSchedule:
+        execution = self._repository.get_execution(execution_id)
+        if execution is None:
+            raise ValueError(f"Agent execution {execution_id} was not found.")
+
+        task_by_id = {task.task_id: task for task in execution.tasks}
+        completed_statuses = {"completed", "approved"}
+        terminal_statuses = {*completed_statuses, "rejected", "changes_requested"}
+        completed_task_ids = [
+            task.task_id
+            for task in execution.tasks
+            if task.status in completed_statuses
+        ]
+        ready_task_ids = []
+        blocked_task_ids = []
+        approval_task_ids = []
+        notes = []
+
+        for task in execution.tasks:
+            dependencies_met = all(
+                task_by_id[dependency_id].status in completed_statuses
+                for dependency_id in task.depends_on
+                if dependency_id in task_by_id
+            )
+            missing_dependencies = [
+                dependency_id
+                for dependency_id in task.depends_on
+                if dependency_id not in task_by_id
+            ]
+            if missing_dependencies:
+                blocked_task_ids.append(task.task_id)
+                notes.append(f"{task.task_id} references missing dependencies: {', '.join(missing_dependencies)}.")
+                continue
+            if task.status == "awaiting_human_approval":
+                approval_task_ids.append(task.task_id)
+                continue
+            if task.status in terminal_statuses:
+                continue
+            if dependencies_met:
+                ready_task_ids.append(task.task_id)
+            else:
+                blocked_task_ids.append(task.task_id)
+
+        if ready_task_ids:
+            notes.append("Scheduler found executable tasks whose dependencies are complete.")
+        if blocked_task_ids:
+            notes.append("Scheduler blocked tasks until upstream dependencies complete.")
+        if approval_task_ids:
+            notes.append("Scheduler found tasks waiting for human governance approval.")
+        if not notes:
+            notes.append("Scheduler found no executable work for the current execution state.")
+
+        return AgentExecutionSchedule(
+            execution_id=execution.execution_id,
+            status=execution.status,
+            ready_task_ids=ready_task_ids,
+            blocked_task_ids=blocked_task_ids,
+            approval_task_ids=approval_task_ids,
+            completed_task_ids=completed_task_ids,
+            task_dependencies={task.task_id: task.depends_on for task in execution.tasks},
+            scheduler_notes=notes,
+            data_platform=execution.data_platform,
+        )
 
     def decide_execution(self, execution_id: str, request: AgentExecutionDecisionRequest) -> AgentExecutionPlan:
         execution = self._repository.get_execution(execution_id)
