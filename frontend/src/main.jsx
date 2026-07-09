@@ -476,6 +476,17 @@ async function promoteSeedPluginCandidate(sourceId, pluginId) {
   });
 }
 
+async function loadSeedRuntimeObjects(sourceId) {
+  return apiRequest(`/api/seed-imports/${sourceId}/load-runtime-objects`, {
+    actor_id: 'seed-runtime-chief',
+    reason: 'Load extracted Seed DNA objects into DB MARIAM runtime store.',
+    evidence: {
+      source: 'command-center-seed-dna-panel',
+      runtime_store: 'runtime_objects',
+    },
+  });
+}
+
 async function loadAgentSocieties() {
   const body = await apiGet('/api/agents/societies');
   return body.agent_societies || [];
@@ -4865,6 +4876,7 @@ function SeedDNAPanel({ onActionComplete }) {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
   const [lastResult, setLastResult] = useState(null);
+  const [lastRuntimeLoad, setLastRuntimeLoad] = useState(null);
 
   const refreshImports = useCallback(async () => {
     setStatus('loading');
@@ -4889,6 +4901,7 @@ function SeedDNAPanel({ onActionComplete }) {
     try {
       const body = await inspectSeedSourcePath(sourcePath.trim());
       setLastResult(body.seed_import);
+      setLastRuntimeLoad(null);
       setImports(await loadSeedImports());
       setStatus('ready');
       onActionComplete?.();
@@ -4904,6 +4917,7 @@ function SeedDNAPanel({ onActionComplete }) {
     try {
       const body = await prepareExternalSeedSource(source.source_key, source.url);
       setLastResult(body.seed_import);
+      setLastRuntimeLoad(null);
       setImports(await loadSeedImports());
       setExternalSources(await loadExternalSeedSources());
       setStatus('ready');
@@ -4932,9 +4946,27 @@ function SeedDNAPanel({ onActionComplete }) {
     }
   }
 
+  async function handleLoadRuntimeObjects(sourceId) {
+    setStatus('loading');
+    setError(null);
+    try {
+      const body = await loadSeedRuntimeObjects(sourceId);
+      setLastRuntimeLoad(body);
+      setImports(await loadSeedImports());
+      setStatus('ready');
+      onActionComplete?.();
+    } catch (loadError) {
+      setError(createPanelError(loadError, 'Retry loading extracted DNA to runtime store', () => handleLoadRuntimeObjects(sourceId)));
+      setStatus('error');
+    }
+  }
+
   const activeImport = lastResult || imports.at(-1);
   const extractedDomains = activeImport?.domain_evidence || [];
   const extractedCandidates = activeImport?.plugin_candidates || [];
+  const extractedDNAObjects = activeImport?.dna_objects || [];
+  const dnaObjectCounts = activeImport?.dna_object_counts || {};
+  const dnaObjectCountEntries = Object.entries(dnaObjectCounts).sort(([left], [right]) => left.localeCompare(right));
   const extractionMode = activeImport?.coverage?.extraction_mode || 'registry_seed_dna';
 
   return (
@@ -4981,15 +5013,33 @@ function SeedDNAPanel({ onActionComplete }) {
               Mode: <strong>{extractionMode}</strong> / files scanned:{' '}
               <strong>{activeImport.coverage?.files_scanned || 0}</strong> / domains:{' '}
               <strong>{extractedDomains.length}</strong> / plugin candidates:{' '}
-              <strong>{extractedCandidates.length}</strong>
+              <strong>{extractedCandidates.length}</strong> / DNA objects:{' '}
+              <strong>{extractedDNAObjects.length}</strong>
             </p>
             <p>
               Status: <strong>{activeImport.status}</strong> / platform:{' '}
               <strong>{activeImport.data_platform}</strong>
             </p>
+            <p>
+              Runtime store: <strong>runtime_objects</strong> / loaded objects:{' '}
+              <strong>{activeImport.loaded_runtime_object_ids?.length || 0}</strong>
+            </p>
             {activeImport.warnings?.length > 0 && (
               <p>
                 Warnings: <strong>{activeImport.warnings.join(' | ')}</strong>
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => handleLoadRuntimeObjects(activeImport.source_id)}
+              disabled={status === 'loading' || extractedDNAObjects.length === 0}
+            >
+              Load Extracted DNA to Runtime Store
+            </button>
+            {lastRuntimeLoad && (
+              <p>
+                Runtime load complete: <strong>{lastRuntimeLoad.loaded_runtime_object_ids?.length || 0}</strong>{' '}
+                objects loaded into <strong>{lastRuntimeLoad.runtime_store}</strong>.
               </p>
             )}
           </div>
@@ -5003,12 +5053,34 @@ function SeedDNAPanel({ onActionComplete }) {
             </p>
           </div>
           <div className="mission-result">
+            <h3>DNA Object Counts by Type</h3>
+            <p>
+              {dnaObjectCountEntries.length
+                ? dnaObjectCountEntries.map(([type, count]) => `${type}: ${count}`).join(' / ')
+                : 'No DNA runtime objects extracted yet.'}
+            </p>
+          </div>
+          <div className="mission-result">
             <h3>What Was Extracted</h3>
             <p>
               {extractedCandidates.length
                 ? extractedCandidates.map((candidate) => candidate.plugin_id).join(', ')
                 : 'No plugin candidates extracted yet.'}
             </p>
+          </div>
+          <div className="plugin-history">
+            {extractedDNAObjects.slice(0, 30).map((dnaObject) => (
+              <article key={dnaObject.object_key}>
+                <strong>{dnaObject.object_type}</strong>
+                <span>{dnaObject.runtime_target}</span>
+                <p>
+                  {dnaObject.name} / assets {dnaObject.evidence_assets} / terms {dnaObject.evidence_terms}
+                </p>
+                <p>
+                  Source domains: <strong>{dnaObject.source_domains.join(', ')}</strong>
+                </p>
+              </article>
+            ))}
           </div>
           <div className="plugin-history">
             {extractedCandidates.map((candidate) => (

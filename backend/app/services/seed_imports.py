@@ -8,13 +8,17 @@ from app.core.events import InMemoryEventBus
 from app.core.plugin_manifest import PluginManifest
 from app.core.seed_imports import (
     ExternalSeedSource,
+    SeedDNAObject,
     SeedDomainEvidence,
     SeedImportRecord,
     SeedImportRequest,
     SeedPluginCandidate,
     SeedPluginPromotionRequest,
+    SeedRuntimeLoadRequest,
+    SeedRuntimeLoadResponse,
     create_seed_import_record,
 )
+from app.core.runtime_objects import RuntimeObjectRequest
 from app.repositories.seed_imports import SeedImportRepository
 from app.services.audit import AuditService
 from app.services.runtime import RuntimeRegistry
@@ -120,6 +124,40 @@ CANONICAL_PLUGIN_GROUPS = {
             "Model metadata, quantization, license, and safety review candidates",
         ],
     },
+}
+
+
+CANONICAL_DNA_OBJECT_TYPES = {
+    "Chief": ["agents", "roles", "departments"],
+    "Team": ["agents", "roles", "departments", "workers"],
+    "Agent": ["agents", "workers"],
+    "Skill": ["skills", "capabilities"],
+    "Capability": ["capabilities", "skills"],
+    "Workflow": ["workflows", "workflow_engine", "processes", "async_runtimes", "task_queue"],
+    "Plugin": ["apis", "connectors", "workflows", "business"],
+    "Connector": ["connectors", "apis", "api_gateways"],
+    "Provider": ["model_providers", "llm_provider_registry", "model_provider_registry", "model_serving", "gguf", "gguf_models", "llm", "embeddings"],
+    "Model": ["gguf", "gguf_models", "model_serving", "llm", "model_runtime_compatibility", "quantization_metadata", "embeddings"],
+    "Tool": ["tools", "mcp", "apis"],
+    "Service": ["apis", "api_service", "api_gateways", "deployment", "docker"],
+    "Prompt": ["llm", "agents", "workflows"],
+    "Policy": ["policies", "rbac", "governance", "security"],
+    "Rule": ["policies", "governance", "compliance"],
+    "Permission": ["rbac", "security", "governance"],
+    "Dashboard": ["monitoring", "webui", "crm", "business", "video_generation"],
+    "Report": ["audit", "compliance", "business", "monitoring"],
+    "Scraper": ["apis", "connectors", "datasets"],
+    "Scheduler": ["workflows", "workflow_engine", "task_queue", "async_runtimes", "processes"],
+    "Planner": ["agents", "workflows", "capabilities"],
+    "Executor": ["async_runtimes", "workflows", "deployment"],
+    "Reviewer": ["governance", "audit", "compliance"],
+    "Validator": ["security", "governance", "compliance"],
+    "Optimizer": ["monitoring", "model_serving", "workflows"],
+    "Knowledge Asset": ["knowledge_graph", "documents", "datasets", "memory", "rag"],
+    "Vector Index": ["vector_databases", "embeddings", "rag"],
+    "Storage Adapter": ["storage", "databases", "docker"],
+    "API": ["apis", "api_service", "api_gateways"],
+    "MCP Server": ["mcp", "tools", "apis"],
 }
 
 
@@ -265,6 +303,7 @@ class SeedImportService:
         ]
         domain_evidence = self._read_domain_evidence(registry_path, warnings)
         plugin_candidates = self._build_plugin_candidates(domain_evidence, str(display_path))
+        dna_objects = self._build_dna_objects(domain_evidence, plugin_candidates, str(display_path))
         record = create_seed_import_record(
             source_path=str(display_path),
             source_name=display_path.name,
@@ -278,6 +317,7 @@ class SeedImportService:
             },
             registry_files=registry_files,
             domain_evidence=domain_evidence,
+            dna_objects=dna_objects,
             plugin_candidates=plugin_candidates,
             warnings=warnings,
         )
@@ -294,6 +334,8 @@ class SeedImportService:
                     "source_name": saved.source_name,
                     "reason": request.reason,
                     "plugin_candidates": len(saved.plugin_candidates),
+                    "dna_objects": len(saved.dna_objects),
+                    "dna_object_counts": saved.dna_object_counts,
                     "domain_evidence": len(saved.domain_evidence),
                     "data_platform": saved.data_platform,
                     **request.evidence,
@@ -308,6 +350,8 @@ class SeedImportService:
                 "source_path": saved.source_path,
                 "source_name": saved.source_name,
                 "plugin_candidates": len(saved.plugin_candidates),
+                "dna_objects": len(saved.dna_objects),
+                "dna_object_counts": saved.dna_object_counts,
                 "domain_evidence": len(saved.domain_evidence),
                 "data_platform": saved.data_platform,
             },
@@ -386,6 +430,7 @@ class SeedImportService:
             if int(hit["assets"]) > 0
         ]
         plugin_candidates = self._build_plugin_candidates(domain_evidence, str(display_path))
+        dna_objects = self._build_dna_objects(domain_evidence, plugin_candidates, str(display_path))
         record = create_seed_import_record(
             source_path=str(display_path),
             source_name=display_path.name,
@@ -399,6 +444,7 @@ class SeedImportService:
             },
             registry_files=[],
             domain_evidence=domain_evidence,
+            dna_objects=dna_objects,
             plugin_candidates=plugin_candidates,
             warnings=warnings,
         )
@@ -415,6 +461,8 @@ class SeedImportService:
                     "source_name": saved.source_name,
                     "reason": request.reason,
                     "plugin_candidates": len(saved.plugin_candidates),
+                    "dna_objects": len(saved.dna_objects),
+                    "dna_object_counts": saved.dna_object_counts,
                     "domain_evidence": len(saved.domain_evidence),
                     "data_platform": saved.data_platform,
                     **request.evidence,
@@ -428,6 +476,8 @@ class SeedImportService:
                 "source_id": saved.source_id,
                 "source_path": saved.source_path,
                 "plugin_candidates": len(saved.plugin_candidates),
+                "dna_objects": len(saved.dna_objects),
+                "dna_object_counts": saved.dna_object_counts,
                 "domain_evidence": len(saved.domain_evidence),
                 "data_platform": saved.data_platform,
             },
@@ -491,6 +541,18 @@ class SeedImportService:
             raise ValueError(f"External seed source {source_key} was not found.")
 
         candidates = [self._external_source_candidate(source, plugin_id) for plugin_id in source.target_plugins]
+        domain_evidence = [
+            SeedDomainEvidence(
+                domain=domain,
+                runtime_readiness="candidate",
+                total_matching_assets=1,
+                total_matching_terms=1,
+                top_source_projects=[{"name": source.name, "count": 1}],
+                top_source_categories=[{"name": domain, "count": 1}],
+            )
+            for domain in source.extracted_dna_domains
+        ]
+        dna_objects = self._build_dna_objects(domain_evidence, candidates, source.url)
         record = create_seed_import_record(
             source_path=source.url,
             source_name=source.name,
@@ -503,20 +565,11 @@ class SeedImportService:
                 "source_key": source.source_key,
             },
             registry_files=list(source.traceability.get("files_inspected", [])),
-            domain_evidence=[
-                SeedDomainEvidence(
-                    domain=domain,
-                    runtime_readiness="candidate",
-                    total_matching_assets=1,
-                    total_matching_terms=1,
-                    top_source_projects=[{"name": source.name, "count": 1}],
-                    top_source_categories=[{"name": domain, "count": 1}],
-                )
-                for domain in source.extracted_dna_domains
-            ],
+            domain_evidence=domain_evidence,
+            dna_objects=dna_objects,
             plugin_candidates=candidates,
             warnings=[
-                "External source prepared as DNA candidate only.",
+                "External source prepared as live DNA objects and plugin candidates.",
                 "Runtime execution requires governance approval and sandbox validation.",
             ],
         )
@@ -533,6 +586,8 @@ class SeedImportService:
                     "source_url": source.url,
                     "reason": request.reason,
                     "target_plugins": source.target_plugins,
+                    "dna_objects": len(saved.dna_objects),
+                    "dna_object_counts": saved.dna_object_counts,
                     "data_platform": saved.data_platform,
                     **request.evidence,
                 },
@@ -546,6 +601,8 @@ class SeedImportService:
                 "source_key": source.source_key,
                 "source_url": source.url,
                 "plugin_candidates": len(saved.plugin_candidates),
+                "dna_objects": len(saved.dna_objects),
+                "dna_object_counts": saved.dna_object_counts,
                 "data_platform": saved.data_platform,
             },
         )
@@ -556,6 +613,83 @@ class SeedImportService:
         if record is None:
             raise ValueError(f"Seed import {source_id} was not found.")
         return record
+
+    def build_runtime_object_requests(self, source_id: str) -> list[RuntimeObjectRequest]:
+        record = self.get(source_id)
+        requests: list[RuntimeObjectRequest] = []
+        for dna_object in record.dna_objects:
+            requests.append(
+                RuntimeObjectRequest(
+                    object_type=dna_object.object_type,
+                    name=dna_object.name,
+                    version="0.1.0",
+                    manifest={
+                        "dna_object_key": dna_object.object_key,
+                        "seed_source_id": record.source_id,
+                        "seed_source_path": record.source_path,
+                        "seed_source_name": record.source_name,
+                        "status": "loaded_from_seed_dna",
+                        "runtime_target": dna_object.runtime_target,
+                        "governance_gate": dna_object.governance_gate,
+                        "source_domains": dna_object.source_domains,
+                        "evidence_assets": dna_object.evidence_assets,
+                        "evidence_terms": dna_object.evidence_terms,
+                        "traceability": dna_object.traceability,
+                        "data_platform": "DB MARIAM",
+                    },
+                )
+            )
+        return requests
+
+    def mark_runtime_loaded(
+        self,
+        source_id: str,
+        request: SeedRuntimeLoadRequest,
+        runtime_object_ids: list[str],
+    ) -> SeedRuntimeLoadResponse:
+        record = self.get(source_id)
+        loaded_ids = sorted(set([*record.loaded_runtime_object_ids, *runtime_object_ids]))
+        updated = record.model_copy(update={"loaded_runtime_object_ids": loaded_ids, "status": "loaded_to_runtime_store"})
+        saved = self._repository.save(updated)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="seed_import.load_runtime_objects",
+                target_type="seed_source",
+                target_id=source_id,
+                decision="approved",
+                evidence={
+                    "reason": request.reason,
+                    "runtime_store": "runtime_objects",
+                    "loaded_runtime_object_ids": loaded_ids,
+                    "loaded_counts": saved.dna_object_counts,
+                    "data_platform": "DB MARIAM",
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "seed_import.runtime_objects_loaded",
+            "seed-import-runtime",
+            {
+                "source_id": source_id,
+                "runtime_store": "runtime_objects",
+                "loaded_runtime_objects": len(loaded_ids),
+                "loaded_counts": saved.dna_object_counts,
+                "data_platform": "DB MARIAM",
+            },
+        )
+        return SeedRuntimeLoadResponse(
+            source_id=source_id,
+            status=saved.status,
+            loaded_runtime_object_ids=loaded_ids,
+            loaded_counts=saved.dna_object_counts,
+            notes=[
+                "Extracted DNA objects were loaded into the runtime_objects store.",
+                "Each object keeps seed traceability and governance gates.",
+                "DB MARIAM remains the target data platform for runtime loading.",
+            ],
+        )
 
     def promote_plugin_candidate(
         self,
@@ -666,6 +800,69 @@ class SeedImportService:
                 )
             )
         return evidence
+
+    def _build_dna_objects(
+        self,
+        domain_evidence: list[SeedDomainEvidence],
+        plugin_candidates: list[SeedPluginCandidate],
+        source_path: str,
+    ) -> list[SeedDNAObject]:
+        evidence_by_domain = {item.domain: item for item in domain_evidence}
+        objects: list[SeedDNAObject] = []
+        for object_type, mapped_domains in CANONICAL_DNA_OBJECT_TYPES.items():
+            present = [domain for domain in mapped_domains if domain in evidence_by_domain]
+            if not present:
+                continue
+            assets = sum(evidence_by_domain[domain].total_matching_assets for domain in present)
+            terms = sum(evidence_by_domain[domain].total_matching_terms for domain in present)
+            object_key = object_type.lower().replace(" ", "_").replace("/", "_").replace("-", "_")
+            runtime_target = self._runtime_target_for_object_type(object_type)
+            objects.append(
+                SeedDNAObject(
+                    object_key=f"seed_{object_key}",
+                    object_type=object_type,
+                    name=f"Extracted {object_type} DNA",
+                    source_domains=present,
+                    evidence_assets=assets,
+                    evidence_terms=terms,
+                    runtime_target=runtime_target,
+                    traceability={
+                        "source_path": source_path,
+                        "matched_domains": {
+                            domain: {
+                                "assets": evidence_by_domain[domain].total_matching_assets,
+                                "terms": evidence_by_domain[domain].total_matching_terms,
+                                "runtime_readiness": evidence_by_domain[domain].runtime_readiness,
+                            }
+                            for domain in present
+                        },
+                        "related_plugin_candidates": [
+                            candidate.plugin_id
+                            for candidate in plugin_candidates
+                            if set(candidate.source_domains).intersection(present)
+                        ],
+                        "merge_rule": "same_type_features_are_loaded_as_one_governed_runtime_object_candidate",
+                    },
+                )
+            )
+        return objects
+
+    def _runtime_target_for_object_type(self, object_type: str) -> str:
+        if object_type in {"Chief", "Team", "Agent", "Skill", "Capability", "Planner", "Executor", "Reviewer", "Validator", "Optimizer"}:
+            return "agent_runtime"
+        if object_type in {"Workflow", "Scheduler"}:
+            return "workflow_runtime"
+        if object_type in {"Plugin", "Connector", "Provider", "Model", "Tool", "Service", "API", "MCP Server"}:
+            return "runtime_ecosystem"
+        if object_type in {"Knowledge Asset", "Vector Index"}:
+            return "knowledge_runtime"
+        if object_type in {"Policy", "Rule", "Permission", "Report"}:
+            return "governance_runtime"
+        if object_type in {"Dashboard"}:
+            return "experience_runtime"
+        if object_type in {"Storage Adapter"}:
+            return "data_platform_runtime"
+        return "dna_runtime"
 
     def _build_plugin_candidates(
         self,

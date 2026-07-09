@@ -35,6 +35,19 @@ class SeedPluginCandidate(BaseModel):
     traceability: dict = Field(default_factory=dict)
 
 
+class SeedDNAObject(BaseModel):
+    object_key: str
+    object_type: str
+    name: str
+    status: str = "extracted"
+    source_domains: list[str]
+    evidence_assets: int
+    evidence_terms: int
+    runtime_target: str
+    governance_gate: str = "seed_dna_review_before_runtime_activation"
+    traceability: dict = Field(default_factory=dict)
+
+
 class ExternalSeedSource(BaseModel):
     source_key: str
     name: str
@@ -58,7 +71,10 @@ class SeedImportRecord(BaseModel):
     coverage: dict = Field(default_factory=dict)
     registry_files: list[str] = Field(default_factory=list)
     domain_evidence: list[SeedDomainEvidence] = Field(default_factory=list)
+    dna_objects: list[SeedDNAObject] = Field(default_factory=list)
+    dna_object_counts: dict[str, int] = Field(default_factory=dict)
     plugin_candidates: list[SeedPluginCandidate] = Field(default_factory=list)
+    loaded_runtime_object_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -93,15 +109,35 @@ class SeedPluginPromotionResponse(BaseModel):
     promotion_notes: list[str]
 
 
+class SeedRuntimeLoadRequest(BaseModel):
+    actor_id: str = Field(default="seed-runtime-chief", min_length=2)
+    reason: str = Field(default="Load extracted seed DNA into DB MARIAM runtime store.", min_length=5)
+    evidence: dict = Field(default_factory=dict)
+
+
+class SeedRuntimeLoadResponse(BaseModel):
+    source_id: str
+    status: str
+    data_platform: str = "DB MARIAM"
+    loaded_runtime_object_ids: list[str]
+    loaded_counts: dict[str, int]
+    runtime_store: str = "runtime_objects"
+    notes: list[str]
+
+
 def create_seed_import_record(
     source_path: str,
     source_name: str,
     coverage: dict,
     registry_files: list[str],
     domain_evidence: list[SeedDomainEvidence],
+    dna_objects: list[SeedDNAObject],
     plugin_candidates: list[SeedPluginCandidate],
     warnings: list[str],
 ) -> SeedImportRecord:
+    counts: dict[str, int] = {}
+    for dna_object in dna_objects:
+        counts[dna_object.object_type] = counts.get(dna_object.object_type, 0) + 1
     return SeedImportRecord(
         source_id=f"seed-{uuid4()}",
         source_path=source_path,
@@ -111,6 +147,8 @@ def create_seed_import_record(
         coverage=coverage,
         registry_files=registry_files,
         domain_evidence=domain_evidence,
+        dna_objects=dna_objects,
+        dna_object_counts=counts,
         plugin_candidates=plugin_candidates,
         warnings=warnings,
     )

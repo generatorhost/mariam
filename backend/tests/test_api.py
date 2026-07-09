@@ -76,6 +76,11 @@ def test_mayou_seed_import_extracts_living_plugin_candidates() -> None:
     assert seed_import["data_platform"] == "DB MARIAM"
     assert seed_import["coverage"]["files_scanned"] == 3054052
     assert seed_import["plugin_candidates"]
+    assert seed_import["dna_objects"]
+    assert seed_import["dna_object_counts"]["Chief"] == 1
+    assert seed_import["dna_object_counts"]["Agent"] == 1
+    assert seed_import["dna_object_counts"]["MCP Server"] == 1
+    assert seed_import["dna_object_counts"]["Vector Index"] == 1
 
     candidates = {candidate["plugin_id"]: candidate for candidate in seed_import["plugin_candidates"]}
     assert "plugin_mcp_runtime_manager" in candidates
@@ -96,6 +101,25 @@ def test_mayou_seed_import_extracts_living_plugin_candidates() -> None:
     promoted = promote_response.json()
     assert promoted["plugin_id"] == "plugin_mcp_runtime_manager"
     assert promoted["status"] == "disabled"
+
+    load_response = client.post(
+        f"/api/seed-imports/{source_id}/load-runtime-objects",
+        json={
+            "actor_id": "seed-runtime-chief",
+            "reason": "Load extracted mayou DNA objects into DB MARIAM runtime store.",
+            "evidence": {"mode": "living_seed_runtime_load"},
+        },
+    )
+    assert load_response.status_code == 200
+    loaded = load_response.json()
+    assert loaded["runtime_store"] == "runtime_objects"
+    assert loaded["loaded_counts"]["Chief"] == 1
+    assert len(loaded["loaded_runtime_object_ids"]) == len(seed_import["dna_objects"])
+
+    runtime_objects_response = client.get("/api/runtime-objects")
+    assert runtime_objects_response.status_code == 200
+    runtime_objects = runtime_objects_response.json()["runtime_objects"]
+    assert any(item["object_type"] == "MCP Server" for item in runtime_objects)
 
     plugin_response = client.get("/api/plugins/plugin_mcp_runtime_manager/workspace")
     assert plugin_response.status_code == 200
@@ -157,6 +181,7 @@ def test_seed_import_accepts_zip_package_path(tmp_path) -> None:
     assert seed_import["coverage"]["files_scanned"] == 3
     candidates = {candidate["plugin_id"]: candidate for candidate in seed_import["plugin_candidates"]}
     assert "plugin_mcp_runtime_manager" in candidates
+    assert seed_import["dna_object_counts"]["MCP Server"] == 1
 
 
 def test_seed_import_accepts_generic_project_folder_without_registry(tmp_path) -> None:
@@ -183,6 +208,8 @@ def test_seed_import_accepts_generic_project_folder_without_registry(tmp_path) -
     assert seed_import["coverage"]["extraction_mode"] == "generic_folder_dna"
     assert seed_import["domain_evidence"]
     assert seed_import["plugin_candidates"]
+    assert seed_import["dna_objects"]
+    assert {"Chief", "Agent", "Workflow", "Model", "Provider"}.issubset(seed_import["dna_object_counts"])
 
 
 def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() -> None:
@@ -213,6 +240,8 @@ def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() ->
     }
     assert "plugin_video_generation_manager" in moneyprinter_candidates
     assert "video_generation" in moneyprinter_candidates["plugin_video_generation_manager"]["source_domains"]
+    assert moneyprinter_import["dna_object_counts"]["Workflow"] == 1
+    assert moneyprinter_import["dna_object_counts"]["Provider"] == 1
 
     gguf_response = client.post(
         "/api/seed-imports/external-sources/huggingface-gguf/prepare",
@@ -230,6 +259,8 @@ def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() ->
         for candidate in gguf_import["plugin_candidates"]
     }
     assert "plugin_gguf_model_catalog_manager" in gguf_candidates
+    assert gguf_import["dna_object_counts"]["Model"] == 1
+    assert gguf_import["dna_object_counts"]["Provider"] == 1
     assert gguf_candidates["plugin_gguf_model_catalog_manager"]["governance_gate"] == (
         "external_seed_review_before_activation"
     )

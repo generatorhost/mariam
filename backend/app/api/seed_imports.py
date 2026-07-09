@@ -9,8 +9,11 @@ from app.core.seed_imports import (
     SeedPluginCandidateListResponse,
     SeedPluginPromotionRequest,
     SeedPluginPromotionResponse,
+    SeedRuntimeLoadRequest,
+    SeedRuntimeLoadResponse,
 )
-from app.dependencies import get_seed_import_service, require_permission
+from app.dependencies import get_runtime_object_service, get_seed_import_service, require_permission
+from app.services.runtime_objects import RuntimeObjectService
 from app.services.seed_imports import SeedImportService
 
 router = APIRouter(prefix="/api/seed-imports", tags=["seed-imports"])
@@ -74,6 +77,22 @@ def list_seed_plugin_candidates(
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return {"source_id": source_id, "plugin_candidates": record.plugin_candidates}
+
+
+@router.post("/{source_id}/load-runtime-objects", response_model=SeedRuntimeLoadResponse)
+def load_seed_runtime_objects(
+    source_id: str,
+    request: SeedRuntimeLoadRequest,
+    authorization=Depends(require_permission("runtime_object.register", "seed_dna_runtime_load")),
+    service: SeedImportService = Depends(get_seed_import_service),
+    runtime_objects: RuntimeObjectService = Depends(get_runtime_object_service),
+) -> SeedRuntimeLoadResponse:
+    try:
+        runtime_requests = service.build_runtime_object_requests(source_id)
+        created = [runtime_objects.create(runtime_request) for runtime_request in runtime_requests]
+        return service.mark_runtime_loaded(source_id, request, [item.object_id for item in created])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.post("/{source_id}/plugin-candidates/{plugin_id}/promote", response_model=SeedPluginPromotionResponse)
