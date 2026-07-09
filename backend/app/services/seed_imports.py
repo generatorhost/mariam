@@ -1,7 +1,11 @@
 import json
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from urllib.parse import urlparse
 from zipfile import ZipFile
+
+import httpx
 
 from app.core.audit import AuditRecordRequest
 from app.core.events import InMemoryEventBus
@@ -38,7 +42,20 @@ CANONICAL_PLUGIN_GROUPS = {
     },
     "plugin_model_provider_manager": {
         "name": "Model Provider Manager",
-        "domains": ["model_providers", "model_serving", "llm", "slm", "vlm", "inference_engines", "embeddings"],
+        "domains": [
+            "model_providers",
+            "model_serving",
+            "model_runtime_compatibility",
+            "transformers_runtime",
+            "llm",
+            "slm",
+            "vlm",
+            "audio_models",
+            "inference_engines",
+            "embeddings",
+            "safetensors",
+            "onnx",
+        ],
         "features": [
             "Ollama/API provider registration",
             "GGUF/ONNX/SafeTensors model route candidates",
@@ -116,7 +133,7 @@ CANONICAL_PLUGIN_GROUPS = {
     },
     "plugin_gguf_model_catalog_manager": {
         "name": "GGUF Model Catalog Manager",
-        "domains": ["gguf", "model_providers", "model_serving", "llm", "embeddings"],
+        "domains": ["gguf", "gguf_models"],
         "features": [
             "HuggingFace GGUF model discovery",
             "GGUF provider candidate registration",
@@ -131,13 +148,13 @@ CANONICAL_DNA_OBJECT_TYPES = {
     "Chief": ["agents", "roles", "departments"],
     "Team": ["agents", "roles", "departments", "workers"],
     "Agent": ["agents", "workers"],
-    "Skill": ["skills", "capabilities"],
-    "Capability": ["capabilities", "skills"],
+    "Skill": ["skills", "capabilities", "audio_models"],
+    "Capability": ["capabilities", "skills", "audio_models"],
     "Workflow": ["workflows", "workflow_engine", "processes", "async_runtimes", "task_queue"],
     "Plugin": ["apis", "connectors", "workflows", "business"],
     "Connector": ["connectors", "apis", "api_gateways"],
-    "Provider": ["model_providers", "llm_provider_registry", "model_provider_registry", "model_serving", "gguf", "gguf_models", "llm", "embeddings"],
-    "Model": ["gguf", "gguf_models", "model_serving", "llm", "model_runtime_compatibility", "quantization_metadata", "embeddings"],
+    "Provider": ["model_providers", "llm_provider_registry", "model_provider_registry", "model_serving", "model_runtime_compatibility", "transformers_runtime", "gguf", "gguf_models", "onnx", "safetensors", "llm", "embeddings"],
+    "Model": ["gguf", "gguf_models", "onnx", "safetensors", "model_serving", "llm", "audio_models", "model_runtime_compatibility", "quantization_metadata", "embeddings"],
     "Tool": ["tools", "mcp", "apis"],
     "Service": ["apis", "api_service", "api_gateways", "deployment", "docker"],
     "Prompt": ["llm", "agents", "workflows"],
@@ -259,6 +276,8 @@ class SeedImportService:
         self._audit_service = audit_service
 
     def inspect_source(self, request: SeedImportRequest) -> SeedImportRecord:
+        if self._is_url(request.source_path):
+            return self._inspect_url_source(request)
         source_path = Path(request.source_path)
         if not source_path.exists():
             first_split = Path(f"{request.source_path}.001")
@@ -278,6 +297,161 @@ class SeedImportService:
         if not source_path.is_dir():
             raise ValueError(f"Seed source path {request.source_path} must be a directory or .zip file.")
         return self._inspect_seed_root(request, source_path, source_path)
+
+    def _is_url(self, source_path: str) -> bool:
+        parsed = urlparse(source_path)
+        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+    def _inspect_url_source(self, request: SeedImportRequest) -> SeedImportRecord:
+        parsed = urlparse(request.source_path)
+        host = parsed.netloc.lower()
+        if host == "github.com":
+            return self._inspect_github_repository(request)
+        if host == "huggingface.co":
+            return self._inspect_huggingface_model(request)
+        raise ValueError("URL seed extraction currently supports github.com repositories and huggingface.co model pages.")
+
+    def _inspect_github_repository(self, request: SeedImportRequest) -> SeedImportRecord:
+        match = re.match(r"^/([^/]+)/([^/]+?)(?:\.git)?/?$", urlparse(request.source_path).path)
+        if match is None:
+            raise ValueError("GitHub seed URL must use https://github.com/{owner}/{repo}.")
+        owner, repo = match.group(1), match.group(2)
+        api_url = f"https://api.github.com/repos/{owner}/{repo}"
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            metadata_response = client.get(api_url, headers={"Accept": "application/vnd.github+json"})
+            if metadata_response.status_code >= 400:
+                raise ValueError(f"GitHub repository metadata could not be read: HTTP {metadata_response.status_code}.")
+            metadata = metadata_response.json()
+            default_branch = metadata.get("default_branch") or "main"
+            archive_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{default_branch}.zip"
+            archive_response = client.get(archive_url, timeout=120.0)
+            if archive_response.status_code >= 400:
+                raise ValueError(f"GitHub repository archive could not be downloaded: HTTP {archive_response.status_code}.")
+        with TemporaryDirectory(prefix="mariam-github-seed-") as temp_dir:
+            archive_path = Path(temp_dir) / f"{repo}.zip"
+            archive_path.write_bytes(archive_response.content)
+            extracted_root = Path(temp_dir) / "extracted"
+            extracted_root.mkdir()
+            self._extract_seed_zip(archive_path, extracted_root)
+            seed_roots = [path for path in extracted_root.iterdir() if path.is_dir()]
+            seed_root = seed_roots[0] if len(seed_roots) == 1 else extracted_root
+            record = self._inspect_generic_seed_root(request, seed_root, Path(f"github.com/{owner}/{repo}"))
+            metadata_coverage = {
+                **record.coverage,
+                "extraction_mode": "github_repository_dna",
+                "source_url": request.source_path,
+                "github_owner": owner,
+                "github_repo": repo,
+                "github_default_branch": default_branch,
+                "github_stars": metadata.get("stargazers_count", 0),
+                "github_language": metadata.get("language"),
+            }
+            updated = record.model_copy(update={"coverage": metadata_coverage})
+            return self._repository.save(updated)
+
+    def _inspect_huggingface_model(self, request: SeedImportRequest) -> SeedImportRecord:
+        model_id = urlparse(request.source_path).path.strip("/")
+        if model_id.count("/") < 1:
+            raise ValueError("HuggingFace seed URL must use https://huggingface.co/{owner}/{model}.")
+        api_url = f"https://huggingface.co/api/models/{model_id}"
+        warnings: list[str] = []
+        with httpx.Client(follow_redirects=True, timeout=30.0) as client:
+            response = client.get(api_url)
+            if response.status_code >= 400:
+                raise ValueError(f"HuggingFace model metadata could not be read: HTTP {response.status_code}.")
+            metadata = response.json()
+        siblings = list(metadata.get("siblings", []))
+        tags = [str(tag).lower() for tag in metadata.get("tags", [])]
+        sibling_names = [str(item.get("rfilename", "")).lower() for item in siblings if isinstance(item, dict)]
+        domains = {
+            "model_providers",
+            "model_serving",
+            "llm",
+            "api_service",
+        }
+        if any("safetensors" in name for name in sibling_names):
+            domains.add("safetensors")
+            domains.add("model_runtime_compatibility")
+        if any("onnx" in name for name in sibling_names) or "onnx" in tags:
+            domains.add("onnx")
+            domains.add("model_runtime_compatibility")
+        if any("gguf" in name for name in sibling_names) or "gguf" in tags:
+            domains.add("gguf_models")
+            domains.add("gguf")
+        if any("audio" in tag for tag in tags) or "audio" in model_id.lower():
+            domains.add("audio_models")
+            domains.add("capabilities")
+        if any("transformers" in tag for tag in tags):
+            domains.add("transformers_runtime")
+            domains.add("model_runtime_compatibility")
+        if not siblings:
+            warnings.append("HuggingFace metadata did not expose file siblings; extraction used tags and model id only.")
+
+        domain_evidence = [
+            SeedDomainEvidence(
+                domain=domain,
+                runtime_readiness="candidate",
+                total_matching_assets=max(1, len(siblings)),
+                total_matching_terms=max(1, len(tags)),
+                top_source_projects=[{"name": model_id, "count": max(1, len(siblings))}],
+                top_source_categories=[{"name": tag, "count": 1} for tag in tags[:10]],
+            )
+            for domain in sorted(domains)
+        ]
+        plugin_candidates = self._build_plugin_candidates(domain_evidence, request.source_path)
+        dna_objects = self._build_dna_objects(domain_evidence, plugin_candidates, request.source_path)
+        record = create_seed_import_record(
+            source_path=request.source_path,
+            source_name=model_id,
+            coverage={
+                "eligible_files_discovered": len(siblings),
+                "files_scanned": len(siblings),
+                "files_failed": 0,
+                "source_coverage_pct": 100,
+                "extraction_mode": "huggingface_model_dna",
+                "model_id": model_id,
+                "pipeline_tag": metadata.get("pipeline_tag"),
+                "library_name": metadata.get("library_name"),
+                "downloads": metadata.get("downloads", 0),
+                "likes": metadata.get("likes", 0),
+            },
+            registry_files=sibling_names[:50],
+            domain_evidence=domain_evidence,
+            dna_objects=dna_objects,
+            plugin_candidates=plugin_candidates,
+            warnings=warnings,
+        )
+        saved = self._repository.save(record)
+        self._audit_service.record(
+            AuditRecordRequest(
+                actor_id=request.actor_id,
+                action="seed_import.huggingface_model_inspect",
+                target_type="huggingface_model",
+                target_id=saved.source_id,
+                decision="approved",
+                evidence={
+                    "source_path": saved.source_path,
+                    "model_id": model_id,
+                    "reason": request.reason,
+                    "dna_objects": len(saved.dna_objects),
+                    "dna_object_counts": saved.dna_object_counts,
+                    "data_platform": saved.data_platform,
+                    **request.evidence,
+                },
+            )
+        )
+        self._event_bus.publish(
+            "seed_import.huggingface_model_inspected",
+            "seed-import-runtime",
+            {
+                "source_id": saved.source_id,
+                "model_id": model_id,
+                "dna_objects": len(saved.dna_objects),
+                "dna_object_counts": saved.dna_object_counts,
+                "data_platform": saved.data_platform,
+            },
+        )
+        return saved
 
     def _inspect_seed_root(
         self,

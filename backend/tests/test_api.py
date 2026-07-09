@@ -266,6 +266,30 @@ def test_external_seed_sources_prepare_moneyprinter_and_gguf_dna_candidates() ->
     )
 
 
+def test_huggingface_non_gguf_model_url_extracts_model_provider_without_gguf_candidate() -> None:
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/seed-imports/inspect",
+        json={
+            "source_path": "https://huggingface.co/Qwen/Qwen2-Audio-7B-Instruct",
+            "actor_id": "seed-import-chief",
+            "reason": "Extract Qwen audio model as model/provider DNA.",
+            "evidence": {"mode": "huggingface_model_dna"},
+        },
+    )
+
+    assert response.status_code == 200
+    seed_import = response.json()["seed_import"]
+    assert seed_import["coverage"]["extraction_mode"] == "huggingface_model_dna"
+    assert seed_import["dna_object_counts"]["Model"] == 1
+    assert seed_import["dna_object_counts"]["Provider"] == 1
+    assert seed_import["dna_object_counts"]["Capability"] == 1
+    candidates = {candidate["plugin_id"] for candidate in seed_import["plugin_candidates"]}
+    assert "plugin_model_provider_manager" in candidates
+    assert "plugin_gguf_model_catalog_manager" not in candidates
+
+
 def test_agent_runtime_builds_plugin_society_and_execution_plan() -> None:
     client = TestClient(create_app())
 
