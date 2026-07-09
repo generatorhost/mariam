@@ -4933,6 +4933,9 @@ function SeedDNAPanel({ onActionComplete }) {
   }
 
   const activeImport = lastResult || imports.at(-1);
+  const extractedDomains = activeImport?.domain_evidence || [];
+  const extractedCandidates = activeImport?.plugin_candidates || [];
+  const extractionMode = activeImport?.coverage?.extraction_mode || 'registry_seed_dna';
 
   return (
     <section className="panel">
@@ -4973,19 +4976,42 @@ function SeedDNAPanel({ onActionComplete }) {
       {activeImport ? (
         <>
           <div className="mission-result">
-            <h3>{activeImport.source_name}</h3>
+            <h3>Extraction Result: {activeImport.source_name}</h3>
             <p>
-              Files scanned: <strong>{activeImport.coverage?.files_scanned || 0}</strong> / coverage:{' '}
-              <strong>{activeImport.coverage?.source_coverage_pct || 0}%</strong> / candidates:{' '}
-              <strong>{activeImport.plugin_candidates?.length || 0}</strong>
+              Mode: <strong>{extractionMode}</strong> / files scanned:{' '}
+              <strong>{activeImport.coverage?.files_scanned || 0}</strong> / domains:{' '}
+              <strong>{extractedDomains.length}</strong> / plugin candidates:{' '}
+              <strong>{extractedCandidates.length}</strong>
             </p>
             <p>
               Status: <strong>{activeImport.status}</strong> / platform:{' '}
               <strong>{activeImport.data_platform}</strong>
             </p>
+            {activeImport.warnings?.length > 0 && (
+              <p>
+                Warnings: <strong>{activeImport.warnings.join(' | ')}</strong>
+              </p>
+            )}
+          </div>
+          <div className="mission-result">
+            <h3>Extracted Domains</h3>
+            <p>
+              {extractedDomains.length
+                ? extractedDomains.slice(0, 18).map((domain) => domain.domain).join(', ')
+                : 'No domains extracted yet.'}
+              {extractedDomains.length > 18 ? `, +${extractedDomains.length - 18} more` : ''}
+            </p>
+          </div>
+          <div className="mission-result">
+            <h3>What Was Extracted</h3>
+            <p>
+              {extractedCandidates.length
+                ? extractedCandidates.map((candidate) => candidate.plugin_id).join(', ')
+                : 'No plugin candidates extracted yet.'}
+            </p>
           </div>
           <div className="plugin-history">
-            {(activeImport.plugin_candidates || []).map((candidate) => (
+            {extractedCandidates.map((candidate) => (
               <article key={candidate.plugin_id}>
                 <strong>{candidate.name}</strong>
                 <span>{candidate.runtime_readiness}</span>
@@ -5236,7 +5262,7 @@ function App() {
           </div>
           <a href="https://github.com/generatorhost/Mariam-Architecture-Library">Architecture Library</a>
         </header>
-        <section className="grid" id="status" tabIndex="-1">
+        <section className="grid" id="status" tabIndex="-1" hidden={activeSection !== 'status'}>
           {cards.map((card) => {
             const Icon = card.icon;
             return (
@@ -5248,12 +5274,12 @@ function App() {
             );
           })}
         </section>
-        <section id="runtime-status" className="workspace-section" tabIndex="-1">
+        <section id="runtime-status" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'status'}>
           <SystemStatusPanel refreshVersion={refreshVersion} />
           <AuthSessionPanel refreshVersion={refreshVersion} />
           <SystemReadinessPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="data-platform" className="workspace-section" tabIndex="-1">
+        <section id="data-platform" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'data-platform'}>
           <DataPlatformReadinessPanel refreshVersion={refreshVersion} />
           <MigrationRunnerPanel refreshVersion={refreshVersion} />
           <SeedDataPanel refreshVersion={refreshVersion} />
@@ -5267,7 +5293,7 @@ function App() {
           <AuditEventArchivePanel refreshVersion={refreshVersion} />
           <MetricsStorePanel refreshVersion={refreshVersion} />
         </section>
-        <section id="verification" className="workspace-section" tabIndex="-1">
+        <section id="verification" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'verification'}>
           <FrontendRegressionSnapshotPanel refreshVersion={refreshVersion} />
           <FrontendVisualContractPanel refreshVersion={refreshVersion} />
           <FrontendBrowserScreenshotPlanPanel refreshVersion={refreshVersion} />
@@ -5277,25 +5303,25 @@ function App() {
           <UsageGuidePanel refreshVersion={refreshVersion} />
           <CompletionReportPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="roadmap" className="workspace-section" tabIndex="-1">
+        <section id="roadmap" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'roadmap'}>
           <ImplementationRoadmapPanel refreshVersion={refreshVersion} />
         </section>
-        <section id="missions" className="workspace-section" tabIndex="-1">
+        <section id="missions" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'missions'}>
           <MissionPanel onActionComplete={refreshCommandCenterSummary} />
           <MissionHistoryPanel
             refreshVersion={refreshVersion}
             onActionComplete={refreshCommandCenterSummary}
           />
+          <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
+          <AIRouteHistoryPanel refreshVersion={refreshVersion} />
         </section>
-        <AIResourcePanel onActionComplete={refreshCommandCenterSummary} />
-        <AIRouteHistoryPanel refreshVersion={refreshVersion} />
-        <section id="seed-dna" className="workspace-section" tabIndex="-1">
+        <section id="seed-dna" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'seed-dna'}>
           <SeedDNAPanel onActionComplete={refreshCommandCenterSummary} />
         </section>
-        <section id="agent-society" className="workspace-section" tabIndex="-1">
+        <section id="agent-society" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'agent-society'}>
           <AgentSocietyPanel onActionComplete={refreshCommandCenterSummary} />
         </section>
-        <section id="plugins" className="workspace-section" tabIndex="-1">
+        <section id="plugins" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'plugins'}>
           <PluginWorkspacePanel onActionComplete={refreshCommandCenterSummary} />
           <ResponsiveStatePanel />
           <PluginPanel onActionComplete={refreshCommandCenterSummary} />
@@ -5309,10 +5335,10 @@ function App() {
             onActionComplete={refreshCommandCenterSummary}
           />
         </section>
-        <section id="governance" className="workspace-section" tabIndex="-1">
+        <section id="governance" className="workspace-section" tabIndex="-1" hidden={activeSection !== 'governance'}>
           <AuditPanel onActionComplete={refreshCommandCenterSummary} />
+          <AuditHistoryPanel refreshVersion={refreshVersion} />
         </section>
-        <AuditHistoryPanel refreshVersion={refreshVersion} />
         <section className="panel">
           <h2>Plugin/App Rule</h2>
           <p>

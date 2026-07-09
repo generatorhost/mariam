@@ -231,9 +231,10 @@ def verify_command_center_keyboard_focus_smoke() -> None:
     assert_condition(
         report["status"] == "ready"
         and report["data_platform"] == "DB MARIAM"
-        and report["checks"]["skip_link_first"] is True
+        and report["checks"]["skip_link_available"] is True
         and report["checks"]["primary_navigation_order_valid"] is True
         and report["checks"]["primary_actions_focusable"] is True
+        and report["checks"]["focused_workspace_navigation"] is True
         and report["checks"]["no_browser_console_errors"] is True
         and report["missing_focus_targets"] == [],
         "Command Center keyboard focus smoke did not pass.",

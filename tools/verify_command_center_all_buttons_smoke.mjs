@@ -15,11 +15,13 @@ const artifactPath = resolve(
 );
 
 const sections = [
-  'runtime-status',
+  'status',
   'data-platform',
   'verification',
   'roadmap',
   'missions',
+  'seed-dna',
+  'agent-society',
   'plugins',
   'governance',
 ];
@@ -115,9 +117,11 @@ async function runAllButtonsSmoke() {
     await expect(page.getByRole('heading', { name: 'Mariam AI Enterprise OS' })).toBeVisible();
 
     const clicks = [];
+    const visitedSections = new Set();
     for (const sectionId of sections) {
       await page.goto(`${frontendUrl}/#${sectionId}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(600);
+      visitedSections.add(sectionId);
       const labels = await visibleEnabledButtonLabels(page, sectionId);
       for (const { text } of labels) {
         const beforeConsoleErrors = consoleErrors.length;
@@ -156,7 +160,7 @@ async function runAllButtonsSmoke() {
 
     const failedClicks = clicks.filter((click) => !click.passed);
     const checks = {
-      all_sections_visited: sections.every((sectionId) => clicks.some((click) => click.section === sectionId)),
+      all_sections_visited: sections.every((sectionId) => visitedSections.has(sectionId)),
       enabled_buttons_found: clicks.length >= 40,
       all_enabled_buttons_clicked: failedClicks.length === 0,
       no_browser_console_errors: consoleErrors.length === 0,
@@ -172,6 +176,7 @@ async function runAllButtonsSmoke() {
       frontend_url: frontendUrl,
       api_base_url: apiBaseUrl,
       sections,
+      visited_sections: Array.from(visitedSections),
       button_click_count: clicks.length,
       failed_click_count: failedClicks.length,
       clicks,

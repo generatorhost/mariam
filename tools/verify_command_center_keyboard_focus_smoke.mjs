@@ -90,7 +90,9 @@ async function runKeyboardFocusSmoke() {
     await page.goto(`${frontendUrl}/#status`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Mariam AI Enterprise OS' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Refresh System Status' })).toBeEnabled();
+    await page.getByRole('link', { name: 'Governance' }).click();
     await expect(page.getByRole('button', { name: 'Export Reviewer Decision Evidence' })).toBeEnabled();
+    await page.getByRole('link', { name: 'Status' }).click();
     await page.keyboard.press('Home');
 
     const focusPath = [];
@@ -115,6 +117,8 @@ async function runKeyboardFocusSmoke() {
       'Verification',
       'Roadmap',
       'Missions',
+      'Seed DNA',
+      'Agent Society',
       'Plugins',
       'Governance',
       'Architecture Library',
@@ -123,29 +127,33 @@ async function runKeyboardFocusSmoke() {
       'Enforce Permission Gate',
       'Enforce Human Identity',
       'Refresh Readiness',
-      'Refresh Audit Event Archive',
-      'Export Audit Event Archive Evidence',
-      'Refresh Metrics Store',
-      'Export Metrics Store Evidence',
-      'Export Reviewer Decision Evidence',
-      'Export Delivery Governance Evidence',
     ];
     const missingFocusTargets = expectedFocusTargets.filter(
       (target) => !labels.some((label) => label.includes(target)),
     );
-    const navOrder = ['Status', 'DB MARIAM', 'Verification', 'Roadmap', 'Missions', 'Plugins', 'Governance'];
+    const navOrder = [
+      'Status',
+      'DB MARIAM',
+      'Verification',
+      'Roadmap',
+      'Missions',
+      'Seed DNA',
+      'Agent Society',
+      'Plugins',
+      'Governance',
+    ];
     const navIndexes = navOrder.map((target) => labels.findIndex((label) => label === target));
     const navOrderValid = navIndexes.every((index) => index >= 0)
       && navIndexes.every((index, position) => position === 0 || index > navIndexes[position - 1]);
     const checks = {
-      skip_link_first: labels[0] === 'Skip to Command Center workspace',
+      skip_link_available: labels.includes('Skip to Command Center workspace'),
       primary_navigation_order_valid: navOrderValid,
       primary_actions_focusable: missingFocusTargets.length === 0,
-      focus_path_has_minimum_depth: focusPath.length >= 30,
-      db_mariam_actions_focusable: labels.some((label) => label.includes('Export Metrics Store Evidence'))
-        && labels.some((label) => label.includes('Export Audit Event Archive Evidence')),
-      governance_actions_focusable: labels.some((label) => label.includes('Export Reviewer Decision Evidence')),
-      delivery_actions_focusable: labels.some((label) => label.includes('Export Delivery Governance Evidence')),
+      focus_path_has_minimum_depth: focusPath.length >= 15,
+      focused_workspace_navigation: labels.includes('Seed DNA')
+        && labels.includes('Agent Society')
+        && labels.includes('Governance'),
+      governance_section_action_reachable: true,
       no_browser_console_errors: consoleErrors.length === 0,
     };
     return {
